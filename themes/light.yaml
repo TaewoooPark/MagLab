@@ -1,0 +1,13 @@
+# light — light background theme. (§7.8)
+name: light
+mode: light
+palette:
+  accent: "#0284c7"
+  spin_down: "#e11d48"
+  success: "#059669"
+  warning: "#d97706"
+  dim: "#94a3b8"
+  background: "#ffffff"
+gradient:
+  start: "#0284c7"
+  end: "#e11d48"

@@ -1,0 +1,39 @@
+# MagLab figure style constraints — scifile (Science, Science Advances)
+# Used by the figure engine (§12) and section_drafter (§16.5).
+# HUMAN REVIEW REQUIRED — verify against current journal author guidelines.
+
+journal_class: scifile
+
+# Column widths (mm)
+column_single_mm: 85       # wide single-column (Science standard)
+column_narrow_mm: 55       # narrow single-column option
+column_double_mm: 174
+
+# Resolution (DPI)
+dpi_raster: 300
+dpi_line_art: 600
+
+# Font constraints
+min_font_size_pt: 8
+font_type: 42
+
+# Line width
+min_line_width_pt: 0.5
+
+# Colour palette
+colour_mode: rgb            # Science accepts RGB; print figures converted by production
+colour_blind_safe: true
+
+# File format
+vector_format: eps          # Science prefers EPS or PDF
+raster_format: tiff
+max_file_size_mb: 25        # Science Advances allows larger files
+
+# Panel layout
+max_panels_per_figure: 8
+panel_label_font_size_pt: 8
+panel_label_style: bold
+
+# White space
+panel_gap_mm: 1.5
+figure_border_mm: 0

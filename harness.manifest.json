@@ -1,0 +1,197 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "description": "MagLab harness manifest — declarative routing table (§5.16)"
+  },
+  "agents": [
+    {
+      "name": "citation-auditor",
+      "description": "Validates DOI, metadata, duplicates, OA status, and retraction. Receives a candidate list from search-scout, validates each paper, and updates the evidence_matrix (§14.7).",
+      "model": "haiku",
+      "tools": ["mcp__arxiv-mcp-server__get_abstract", "read_file"],
+      "max_turns": 10,
+      "context": "isolated",
+      "skills": [],
+      "mcp_servers": ["maglab-mcp-server"]
+    },
+    {
+      "name": "local-context-librarian",
+      "description": "Pre-checks local notes and existing references for evidence and duplicates. Step 1 of research orchestration — queries the local corpus before a broad search to identify what is already held and what gaps remain (§14.7).",
+      "model": "haiku",
+      "tools": ["read_file", "search_files", "list_directory"],
+      "max_turns": 8,
+      "context": "isolated",
+      "skills": ["literature-search"],
+      "mcp_servers": []
+    },
+    {
+      "name": "paper-reviewer",
+      "description": "Reads 3–7 key papers in depth and extracts claims, evidence, and methodology. Targets T1·T2 papers verified by citation-auditor (§14.7).",
+      "model": "sonnet",
+      "tools": [
+        "mcp__arxiv-mcp-server__read_paper",
+        "mcp__arxiv-mcp-server__get_abstract",
+        "read_file"
+      ],
+      "max_turns": 15,
+      "context": "isolated",
+      "skills": ["literature-review"],
+      "mcp_servers": ["maglab-mcp-server"]
+    },
+    {
+      "name": "physics-validator",
+      "description": "Delegate when validating the physical plausibility of physics quantities, simulations, and fitting results via the sanity oracle. Checks dimensions, ranges, and conservation laws.",
+      "model": "haiku",
+      "tools": ["physics_check", "physics_compute", "convert_units"],
+      "max_turns": 6,
+      "context": "isolated",
+      "skills": [],
+      "mcp_servers": []
+    },
+    {
+      "name": "result-analyst",
+      "description": "Delegate when a batch of measurement/simulation results needs to be digested in an isolated context and only compressed analysis conclusions should be returned.",
+      "model": "sonnet",
+      "tools": [
+        "analysis_consistency",
+        "physics_check",
+        "fit_effect",
+        "list_effects",
+        "provenance_query"
+      ],
+      "max_turns": 12,
+      "context": "isolated",
+      "skills": [],
+      "mcp_servers": []
+    },
+    {
+      "name": "search-scout",
+      "description": "Broadly collects candidate papers using MCP connectors and skills. Generates 3–6 query families and assigns tier classifications (§14.7).",
+      "model": "haiku",
+      "tools": [
+        "mcp__arxiv-mcp-server__search_papers",
+        "mcp__arxiv-mcp-server__get_abstract",
+        "read_file"
+      ],
+      "max_turns": 12,
+      "context": "isolated",
+      "skills": ["literature-search", "arxiv-search"],
+      "mcp_servers": ["maglab-mcp-server"]
+    },
+    {
+      "name": "synthesis-editor",
+      "description": "Writes a topic-centred (not paper-by-paper) synthesis report. Receives paper-reviewer results and produces synthesis text with DOI evidence (§14.7).",
+      "model": "sonnet",
+      "tools": ["read_file"],
+      "max_turns": 10,
+      "context": "isolated",
+      "skills": ["literature-review"],
+      "mcp_servers": []
+    },
+    {
+      "name": "comms-writer",
+      "description": "Delegate when drafting research communications, summaries, or reports for a non-specialist audience. Transforms technical findings into clear, structured prose.",
+      "model": "sonnet",
+      "tools": ["read_file", "write_file"],
+      "max_turns": 8,
+      "context": "isolated",
+      "skills": [],
+      "mcp_servers": []
+    },
+    {
+      "name": "experiment-manager",
+      "description": "Owns the research tree (§5.12) — chooses the best pending node to expand, prunes branches by failure type, and records outcomes. Keeps tree-search state separate from the orchestrator.",
+      "model": "sonnet",
+      "tools": ["physics_check", "provenance_query"],
+      "max_turns": 12,
+      "context": "isolated",
+      "skills": [],
+      "mcp_servers": []
+    },
+    {
+      "name": "hypothesis-gen",
+      "description": "Generates ranked, physics-grounded, falsifiable research hypotheses for a topic via an Elo tournament with physics reflection (D1, §5.10). Backs the maglab hypotheses command.",
+      "model": "sonnet",
+      "tools": ["physics_check", "physics_compute", "material_lookup", "provenance_query"],
+      "max_turns": 10,
+      "context": "isolated",
+      "skills": [],
+      "mcp_servers": []
+    }
+  ],
+  "skills": [
+    {
+      "name": "literature-review",
+      "path": "skills/literature-review",
+      "description": "Deep structured extraction of claims, evidence, and methodology from verified papers."
+    },
+    {
+      "name": "literature-search",
+      "path": "skills/literature-search",
+      "description": "Multi-connector literature search with query expansion and tier classification."
+    },
+    {
+      "name": "physics-oracle",
+      "path": "skills/physics-oracle",
+      "description": "Deterministic physics sanity checks — dimension analysis, range validation, unit conversion."
+    }
+  ],
+  "mcp_servers": [
+    {
+      "name": "maglab-mcp-server",
+      "command": "maglab mcp serve",
+      "url": ""
+    }
+  ],
+  "workflows": [
+    {
+      "name": "survey",
+      "description": "Full literature survey — local pre-check, broad search, citation audit, deep review, synthesis (§14.7).",
+      "steps": [
+        "local-context-librarian",
+        "search-scout",
+        "citation-auditor",
+        "paper-reviewer",
+        "synthesis-editor"
+      ]
+    },
+    {
+      "name": "paper-review",
+      "description": "Deep review of a specific paper set — citation audit then in-depth reading and extraction (§14.7).",
+      "steps": [
+        "citation-auditor",
+        "paper-reviewer",
+        "synthesis-editor"
+      ]
+    },
+    {
+      "name": "citation-map",
+      "description": "DOI/metadata validation and citation graph audit for a candidate paper list (§14.7).",
+      "steps": ["citation-auditor"]
+    },
+    {
+      "name": "local-gap",
+      "description": "Pre-check local notes and existing references to identify coverage gaps before a broad search (§14.7).",
+      "steps": ["local-context-librarian"]
+    },
+    {
+      "name": "physics-validation",
+      "steps": ["physics-validator"]
+    },
+    {
+      "name": "result-analysis",
+      "steps": ["result-analyst"]
+    },
+    {
+      "name": "hypothesis-generation",
+      "steps": ["hypothesis-gen"]
+    }
+  ],
+  "model_routing": {
+    "plan": "claude-opus-4-7",
+    "build": "claude-haiku-4-5",
+    "summarize": "claude-haiku-4-5",
+    "vision_critic": "claude-opus-4-7",
+    "default": "claude-opus-4-7"
+  }
+}

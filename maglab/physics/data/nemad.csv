@@ -1,0 +1,27 @@
+formula,Ms_Am,Hk_Am,alpha,Tc_K,rho_Ohm_m,lambda_SD_nm,theta_SH,structure,doi,notes
+CoFeB,1100000,,0.005,,1.2e-6,,0.0,amorphous,10.1063/1.4895765,CoFeB amorphous; Ms 1.1e6 A/m typical
+Co,1440000,600000,0.0045,1388,,,,hcp,10.1016/j.jmmm.2014.07.003,Cobalt hcp bulk
+Ni,490000,3200,0.064,631,,,,fcc,10.1103/PhysRevB.75.174440,Nickel bulk
+Fe,1720000,50000,0.002,1043,,,,bcc,10.1103/PhysRevB.75.174440,Iron bulk
+Py,860000,,0.008,,2.2e-7,,0.0,fcc,10.1103/PhysRevB.85.174428,Ni80Fe20 Permalloy
+NiFe,860000,,0.008,,2.2e-7,,0.0,fcc,10.1103/PhysRevB.85.174428,Ni80Fe20 alias
+MnGa,720000,2400000,0.012,,,,0.0,tetragonal,10.1063/1.4768747,Mn3Ga tetragonal
+Co2MnSi,985000,,,985,,,,L21,10.1103/PhysRevB.72.174426,Heusler alloy
+Co2FeAl,1050000,,,1100,,,,L21,10.1063/1.4820271,Heusler alloy
+YIG,140000,750,0.0001,560,,,,garnet,10.1103/PhysRevLett.109.196602,Y3Fe5O12 ultra-low damping
+Ta,,,,,1.9e-6,1.4,0.12,bcc_beta,10.1103/PhysRevB.89.144425,Ta beta-phase; large SHA
+Pt,,,,,1.1e-7,5.0,0.08,fcc,10.1103/PhysRevLett.116.096602,Pt; large SHA
+W,,,,,5.4e-7,1.2,0.30,bcc_beta,10.1063/1.4944768,W beta-phase; large negative SHA
+Pd,,,,,1.1e-7,5.0,0.01,fcc,10.1103/PhysRevLett.116.096602,Pd; small SHA
+MgO,,,,,,,0.0,rocksalt,,MgO tunnel barrier seed layer
+CoFe,1800000,,0.003,,,,0.0,bcc,10.1063/1.4895765,CoFe bcc high Ms
+Gd,1840000,,0.64,292,,,,hcp,10.1103/PhysRevLett.122.117203,Gadolinium ferromagnet
+IrMn,,,,,6.0e-7,,0.0,fcc,10.1103/PhysRevLett.116.196601,IrMn3 antiferromagnet exchange bias
+PtMn,,,,,8.5e-7,,0.0,fct,10.1063/1.1557818,PtMn antiferromagnet exchange bias
+CoPt,500000,,0.055,,,,0.0,L10,10.1063/1.4927838,CoPt L10 perpendicular anisotropy
+FePt,1000000,,0.04,,,,0.0,L10,10.1021/nl0626283,FePt L10 high anisotropy
+Bi2Te3,,,,,1.1e-6,,3.5,rhombohedral,10.1021/nl0626283,Topological insulator; large effective SHA
+WTe2,,,,,2.5e-7,,0.6,Td,10.1126/science.aad1099,Type-II Weyl semimetal
+MnBi2Te4,,,,,1.5e-6,,2.0,rhombohedral,10.1126/science.aax8156,Magnetic topological insulator
+CrI3,,,,,,,0.0,honeycomb,10.1038/nature22391,2D ferromagnet bilayer antiferromagnet
+Fe3GaTe2,,,,,,,0.0,hexagonal,10.1038/s41467-023-43121-z,Room-temperature 2D ferromagnet

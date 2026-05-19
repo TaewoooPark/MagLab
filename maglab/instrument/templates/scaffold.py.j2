@@ -1,0 +1,141 @@
+"""{{ model }} PyVISA backend skeleton — auto-generated (MagLab instrument scaffold).
+
+Generated model: {{ model }}
+Interface: {{ iface }}
+Generated at: {{ timestamp }}
+
+★ This file is a code-generation output. Actual hardware connection and execution must be performed by a human (Tier 3).
+★ Before running, pass safety envelope validation with `maglab instr check <script>`.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from typing import Any
+
+# ★ PyVISA must be installed: pip install pyvisa pyvisa-py
+try:
+    import pyvisa
+except ImportError as exc:  # pragma: no cover
+    raise ImportError("pyvisa is required: uv pip install pyvisa pyvisa-py") from exc
+
+log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Connection settings (§13.1 safe SCPI order)
+# ---------------------------------------------------------------------------
+
+RESOURCE_STRING = "{{ resource_string }}"  # e.g. "GPIB0::{{ gpib_addr }}::INSTR"
+TIMEOUT_MS = {{ timeout_ms }}             # response timeout (ms)
+BAUD_RATE = {{ baud_rate }}               # baud rate for serial communication
+
+
+class {{ class_name }}:
+    """{{ model }} instrument driver skeleton.
+
+    Safe SCPI order: initialization → parameter setup → measurement → cleanup/reset.
+    Actual hardware connection is Tier 3 — a human must review before execution.
+    """
+
+    def __init__(self, resource_string: str = RESOURCE_STRING) -> None:
+        """Connect to the instrument.
+
+        Args:
+            resource_string: VISA resource string.
+
+        Raises:
+            pyvisa.VisaIOError: On connection failure.
+        """
+        self._rm = pyvisa.ResourceManager()
+        self._instr: Any = None
+        self._resource_string = resource_string
+
+    # ------------------------------------------------------------------
+    # Connection management
+    # ------------------------------------------------------------------
+
+    def open(self) -> None:
+        """Open a VISA session and initialize the instrument.
+
+        Safe order (§13.1 Appendix D):
+        1. Open resource
+        2. Set timeout
+        3. *RST — factory reset
+        4. *CLS — clear status registers
+        5. *IDN? — verify instrument ID
+        """
+        self._instr = self._rm.open_resource(self._resource_string)
+        self._instr.timeout = TIMEOUT_MS
+        # Initialization sequence
+        self._instr.write("*RST")
+        time.sleep(0.5)  # wait for reset to stabilize
+        self._instr.write("*CLS")
+        idn = self._instr.query("*IDN?").strip()
+        log.info("Connected: %s", idn)
+
+    def close(self) -> None:
+        """Close the VISA session and reset the instrument to a safe state.
+
+        Safe shutdown order (§13.1 Appendix D):
+        1. Disable output (if applicable)
+        2. *RST — return to safe initial state
+        3. Close session
+        """
+        if self._instr is not None:
+            try:
+                # Disable output (insert instrument-specific SCPI command)
+                # self._instr.write("OUTP OFF")
+                self._instr.write("*RST")
+            except Exception:
+                pass
+            self._instr.close()
+            self._instr = None
+        self._rm.close()
+
+    def __enter__(self) -> "{{ class_name }}":
+        self.open()
+        return self
+
+    def __exit__(self, *_: Any) -> None:
+        self.close()
+
+    # ------------------------------------------------------------------
+    # Measurement methods (skeleton — replace with actual SCPI commands)
+    # ------------------------------------------------------------------
+
+    def identify(self) -> str:
+        """Query the instrument ID string.
+
+        Returns:
+            *IDN? response string.
+        """
+        assert self._instr is not None, "Connection is not open. Call open() first."
+        return self._instr.query("*IDN?").strip()
+
+    def measure(self) -> float:
+        """Read a measurement value (skeleton — replace with actual SCPI).
+
+        Returns:
+            Measurement result (float).
+
+        Raises:
+            AssertionError: When the connection is not open.
+        """
+        assert self._instr is not None, "Connection is not open. Call open() first."
+        # TODO: replace with the actual measurement SCPI command.
+        # e.g.: result = float(self._instr.query("MEAS?"))
+        raise NotImplementedError("Replace with the actual SCPI measurement command.")
+
+
+# ---------------------------------------------------------------------------
+# Basic usage example when run directly
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":  # pragma: no cover
+    logging.basicConfig(level=logging.INFO)
+    print(
+        "★ This script is an auto-generated skeleton.\n"
+        "  Before running, pass safety validation with `maglab instr check`.\n"
+        "  Replace the VISA resource string with the actual instrument address."
+    )

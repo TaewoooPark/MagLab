@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MagLab SVG poster template -->
+<!-- maglab/authoring/present/templates/svg/template.svg -->
+<!-- HUMAN REVIEW REQUIRED — AI draft, the presenter bears full responsibility. -->
+<!-- A0 poster: 841 × 1189 mm; viewBox scaled to 3179 × 4493 px at 96 dpi -->
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="841mm" height="1189mm"
+     viewBox="0 0 3179 4493">
+
+  <!-- Background -->
+  <rect width="3179" height="4493" fill="#ffffff"/>
+
+  <!-- Header bar (MagLab blue) -->
+  <rect x="0" y="0" width="3179" height="300" fill="#005391"/>
+
+  <!-- Title -->
+  <text x="1589" y="180"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="80" font-weight="bold"
+        fill="white" text-anchor="middle">%%TITLE%%</text>
+
+  <!-- Authors -->
+  <text x="1589" y="260"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="50" fill="white" text-anchor="middle">
+    [FILL: Author names and affiliations]
+  </text>
+
+  <!-- HUMAN REVIEW REQUIRED banner -->
+  <rect x="0" y="300" width="3179" height="60" fill="#ffe082"/>
+  <text x="1589" y="340"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="36" font-weight="bold"
+        fill="#333333" text-anchor="middle">
+    HUMAN REVIEW REQUIRED — AI draft. Replace all [FILL] fields before printing.
+  </text>
+
+  <!-- Section: Introduction (left column) -->
+  <rect x="60" y="400" width="930" height="1200" rx="20"
+        fill="#f5f5f5" stroke="#005391" stroke-width="4"/>
+  <text x="525" y="460"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="52" font-weight="bold"
+        fill="#005391" text-anchor="middle">Introduction</text>
+  <text x="100" y="530"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="36" fill="#333333">
+    [FILL: Introduction text]
+  </text>
+
+  <!-- Section: Methods (centre column) -->
+  <rect x="1120" y="400" width="930" height="1200" rx="20"
+        fill="#f5f5f5" stroke="#005391" stroke-width="4"/>
+  <text x="1585" y="460"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="52" font-weight="bold"
+        fill="#005391" text-anchor="middle">Methods</text>
+  <text x="1160" y="530"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="36" fill="#333333">
+    [FILL: Methods text]
+  </text>
+
+  <!-- Section: Results (right column) -->
+  <rect x="2180" y="400" width="930" height="1200" rx="20"
+        fill="#f5f5f5" stroke="#005391" stroke-width="4"/>
+  <text x="2645" y="460"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="52" font-weight="bold"
+        fill="#005391" text-anchor="middle">Results</text>
+  <!-- Figure placeholder -->
+  <rect x="2220" y="490" width="850" height="500"
+        fill="#e3f2fd" stroke="#005391" stroke-width="2" stroke-dasharray="12,6"/>
+  <text x="2645" y="750"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="36" fill="#005391" text-anchor="middle">
+    {{figure:SPEC}}
+  </text>
+
+  <!-- Section: Conclusion (full width) -->
+  <rect x="60" y="1650" width="3050" height="500" rx="20"
+        fill="#e8f5e9" stroke="#005391" stroke-width="4"/>
+  <text x="1589" y="1720"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="52" font-weight="bold"
+        fill="#005391" text-anchor="middle">Conclusion</text>
+  <text x="120" y="1790"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="36" fill="#333333">
+    [FILL: Conclusion text]
+  </text>
+
+  <!-- Acknowledgements -->
+  <text x="1589" y="2300"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="34" fill="#555555" text-anchor="middle">
+    Acknowledgements: [FILL: Funding sources and collaborators]
+  </text>
+
+  <!-- Footer: QR code placeholder and contact -->
+  <rect x="60" y="4350" width="3050" height="100" rx="10"
+        fill="#005391"/>
+  <text x="1589" y="4415"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="36" fill="white" text-anchor="middle">
+    [FILL: Contact email] | [FILL: Institution] | %%DATE%%
+  </text>
+
+</svg>

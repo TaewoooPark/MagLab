@@ -1,0 +1,49 @@
+# IEEE (IEEE Magnetics Letters / IEEE Transactions) style profile (Appendix G)
+# Normative source: IEEEtran LaTeX class / IEEE author guidelines
+journal: ieee
+
+# Figure column widths (mm) — Appendix G reference values
+column_width_mm:
+  single: 88.9
+  double: 182.0
+
+# Fonts
+font_family: "sans-serif"
+font_size_pt:
+  label: 8
+  tick: 7
+  title: 8
+  panel_label: 9
+  caption: 8
+
+# Line widths (pt)
+line_width_pt:
+  axis: 0.75
+  data: 1.0
+  thin: 0.5
+
+# DPI
+dpi: 300
+
+# Colorblind-safe palette (Wong 2011)
+palette:
+  - "#000000"
+  - "#E69F00"
+  - "#56B4E9"
+  - "#009E73"
+  - "#F0E442"
+  - "#0072B2"
+  - "#D55E00"
+  - "#CC79A7"
+
+# matplotlib rcParams overrides
+rcparams:
+  axes.linewidth: 0.75
+  xtick.major.width: 0.75
+  ytick.major.width: 0.75
+  xtick.minor.width: 0.5
+  ytick.minor.width: 0.5
+  xtick.direction: in
+  ytick.direction: in
+  xtick.top: true
+  ytick.right: true

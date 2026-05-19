@@ -1,0 +1,37 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# === Virtual environments ===
+.venv/
+venv/
+env/
+
+# === Test and static analysis caches ===
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# === MagLab runtime state (created after implementation) ===
+.maglab/
+*.sqlite
+*.sqlite3
+gateway.db
+
+# === Credentials — never commit (PLAN §7.2) ===
+auth.json
+.env
+*.key
+*.pem
+
+# === Tool and OS artefacts ===
+.playwright-mcp/
+.DS_Store
+*.swp

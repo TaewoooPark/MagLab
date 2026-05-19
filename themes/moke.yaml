@@ -1,0 +1,13 @@
+# moke — MOKE-inspired. Black and white with a single accent colour. (§7.8)
+name: moke
+mode: dark
+palette:
+  accent: "#e2b714"
+  spin_down: "#e2b714"
+  success: "#cccccc"
+  warning: "#e2b714"
+  dim: "#666666"
+  background: "#0a0a0a"
+gradient:
+  start: "#cccccc"
+  end: "#e2b714"

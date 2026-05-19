@@ -1,0 +1,16 @@
+# MagLab journal style profile — sn-jnl (Nature Portfolio, npj Spintronics, etc.)
+# Read by figure/ engine (§12) and section_drafter (§16.5).
+# HUMAN REVIEW REQUIRED
+
+journal_class: sn-jnl
+figure_width_single_mm: 89
+figure_width_double_mm: 183
+body_word_limit: 3000          # Nature / Nature-sister journals; npj has no cap
+abstract_word_limit: 150       # Nature/npj ~150-200 words
+font_type: 42                  # Type 42 (TrueType embedded) required
+min_line_width_pt: 0.5
+min_font_size_pt: 8
+vector_format: pdf             # PDF or EPS preferred
+dpi_raster: 300
+template_name: "Nature Portfolio / npj (sn-jnl)"
+note: "Check journal-specific author instructions before submission."

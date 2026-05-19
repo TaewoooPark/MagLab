@@ -1,0 +1,17 @@
+# MagLab journal style profile — revtex4-2-aip (AIP: APL, JAP, APL Materials)
+journal_class: revtex4-2
+aip_variant: true
+figure_width_single_mm: 86
+figure_width_double_mm: 178
+body_word_limit: 3500          # APL; JAP/APL Materials are flexible
+abstract_word_limit: 250
+font_type: 42
+min_line_width_pt: 0.25
+min_font_size_pt: 8
+vector_format: pdf
+dpi_raster: 600
+template_name: "AIP (revtex4-2 aip variant)"
+variants:
+  apl: "Applied Physics Letters"
+  jap: "Journal of Applied Physics"
+  aplmater: "APL Materials"

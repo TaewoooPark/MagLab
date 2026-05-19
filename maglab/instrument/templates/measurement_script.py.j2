@@ -1,0 +1,126 @@
+"""{{ description }} — auto-generated measurement script (MagLab instrument script).
+
+Generated model: {{ model }}
+Interface: {{ iface }}
+Generated at: {{ timestamp }}
+
+★ This file is a code-generation output. Actual hardware execution must be performed by a human (Tier 3).
+★ Before running, pass safety envelope validation with `maglab instr check <script>`.
+
+Measurement structure: initialization → parameter setup → measurement loop → data recording → cleanup/reset (§13.1).
+"""
+
+from __future__ import annotations
+
+import csv
+import logging
+import time
+from pathlib import Path
+
+log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Measurement parameters
+# ---------------------------------------------------------------------------
+
+RESOURCE_STRING = "{{ resource_string }}"
+
+# Sweep settings (adjust per instrument)
+START_VALUE = {{ start_value }}
+STOP_VALUE = {{ stop_value }}
+STEP_VALUE = {{ step_value }}
+SETTLE_TIME_S = {{ settle_time_s }}    # stabilization wait time per step (seconds)
+
+OUTPUT_CSV = Path("{{ output_csv }}")
+
+
+def run_measurement(resource_string: str = RESOURCE_STRING) -> list[dict[str, float]]:
+    """Run the measurement script.
+
+    Safe SCPI order (§13.1 Appendix D):
+    initialization → parameter setup → measurement loop → cleanup/reset.
+
+    Args:
+        resource_string: VISA resource string.
+
+    Returns:
+        List of measurement result dicts [{setpoint, measured, timestamp}].
+
+    ★ For a dry run without real hardware, use `mock.MockInstrument`.
+    """
+    try:
+        import pyvisa
+    except ImportError as exc:
+        raise ImportError("pyvisa is required: pip install pyvisa") from exc
+
+    rm = pyvisa.ResourceManager()
+    results: list[dict[str, float]] = []
+
+    try:
+        instr = rm.open_resource(resource_string)
+        instr.timeout = 10000
+
+        # 1. Initialization
+        instr.write("*RST")
+        time.sleep(0.5)
+        instr.write("*CLS")
+        idn = instr.query("*IDN?").strip()
+        log.info("Instrument connected: %s", idn)
+
+        # 2. Parameter setup (replace with instrument-specific SCPI)
+        # instr.write(f"CONF:{{ measurement_type }}")
+
+        # 3. Measurement loop
+        import numpy as np
+
+        for setpoint in np.arange(START_VALUE, STOP_VALUE + STEP_VALUE / 2, STEP_VALUE):
+            # Set value (replace with instrument-specific SCPI)
+            # instr.write(f"SET {setpoint:.6g}")  # TODO: replace with actual SCPI command
+            time.sleep(SETTLE_TIME_S)
+
+            # Measure (replace with instrument-specific SCPI)
+            # raw = instr.query("READ?")
+            # measured = float(raw)
+            measured = float("nan")  # TODO: replace with actual SCPI command
+
+            result = {
+                "setpoint": float(setpoint),
+                "measured": measured,
+                "timestamp": time.time(),
+            }
+            results.append(result)
+            log.info("Measured: setpoint=%.4g  measured=%.6g", setpoint, measured)
+
+        # 4. Cleanup/reset
+        instr.write("*RST")
+        instr.close()
+
+    finally:
+        rm.close()
+
+    return results
+
+
+def save_csv(results: list[dict[str, float]], path: Path = OUTPUT_CSV) -> None:
+    """Save measurement results to CSV."""
+    if not results:
+        log.warning("No measurement results to save.")
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=list(results[0].keys()))
+        writer.writeheader()
+        writer.writerows(results)
+    log.info("Results saved: %s (%d rows)", path, len(results))
+
+
+if __name__ == "__main__":  # pragma: no cover
+    logging.basicConfig(level=logging.INFO)
+    print(
+        "★ This script is an auto-generated measurement script.\n"
+        "  Before running, pass safety validation with `maglab instr check`.\n"
+        "  Replace the VISA resource string and SCPI commands to match your actual instrument."
+    )
+    data = run_measurement()
+    save_csv(data)
+    print(f"Measurement complete: {len(data)} points")

@@ -1,0 +1,107 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "maglab"
+version = "0.0.1"
+description = "Magnetism/spintronics research lifecycle copilot — verifiable orchestrator CLI agent"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = "MIT"
+authors = [{ name = "MagLab" }]
+keywords = ["magnetism", "spintronics", "research", "cli", "agent", "micromagnetics"]
+
+dependencies = [
+  "typer>=0.12",
+  "rich>=13.7",
+  "prompt_toolkit>=3.0",
+  "pyfiglet>=1.0",
+  "platformdirs>=4.0",
+  "tomlkit>=0.13",
+  "keyring>=25.0",
+  "pydantic>=2.6",
+  "jinja2>=3.1",
+  "pyyaml>=6.0",
+  "numpy>=1.26",
+  "scipy>=1.12",
+  "pandas>=2.2",
+  "lmfit>=1.3",
+  "prov>=2.0",
+]
+
+# Optional dependencies. Heavy or platform-specific packages are left without floor pins —
+# install per-phase with `uv pip install -e ".[extra]"` to match the current interpreter
+# (avoids universal lock files).
+[project.optional-dependencies]
+llm = ["litellm", "ollama"]
+mcp = ["fastmcp", "mcp"]
+sim = ["discretisedfield", "micromagneticmodel", "oommfc", "magnumnp"]
+figure = ["matplotlib", "scienceplots", "pyvista", "cairosvg"]
+instr = ["pyvisa", "pyvisa-sim", "pdfplumber"]
+literature = [
+  "pyalex", "semanticscholar", "arxiv", "habanero",
+  "scikit-learn", "keybert", "yake", "lancedb", "pdfplumber",
+]
+reviewer = ["rank-bm25"]
+authoring = ["bibtexparser", "pylatex", "python-pptx", "python-docx"]
+gateway = ["slack-bolt", "python-telegram-bot", "discord.py"]
+dev = ["ruff", "mypy", "pytest", "pytest-cov", "pre-commit"]
+
+[project.scripts]
+maglab = "maglab.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["maglab"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W", "N", "SIM", "C4"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802", "N803", "N806", "N812", "SIM108", "SIM222", "SIM300"]
+# Physics formula module: uppercase variable names such as A·K·Ms·H·D follow physics notation conventions
+"maglab/physics/formulas.py" = ["N803", "N806", "E741"]
+"maglab/physics/units.py" = ["N803", "N806"]
+"maglab/physics/oracle.py" = ["N803", "N806"]
+"maglab/physics/materials.py" = ["N803", "N806"]
+"tests/golden/*" = ["N803", "N806", "N812"]
+# Analysis/effect modules: uppercase variables/arguments following physics notation are allowed
+"maglab/analysis/effects/*.py" = ["N803", "N806", "E741"]
+"maglab/analysis/device_fom.py" = ["N803", "N806"]
+"maglab/analysis/bilevel.py" = ["B905"]
+# Catalogue primitives: uppercase physics geometry variables (W, L, etc.) are allowed
+"maglab/figure/primitives/catalog/**/primitive.py" = ["N803", "N806", "E741"]
+# simviz: micromagnetics visualisation module — quiver variables X/Y/U/V/C, l (lightness), etc. follow physics notation
+"maglab/figure/renderers/simviz.py" = ["N806", "E741", "SIM105", "SIM108", "SIM115", "I001"]
+# P3 multiscale — J_ij·MAE·DMI·T_C·K and similar physics notation conventions
+"maglab/sim/handoff.py" = ["N803", "N806", "N815", "E741", "SIM108"]
+"maglab/sim/dft/*.py" = ["N803", "N806", "N815", "E741"]
+"maglab/sim/atomistic/*.py" = ["N803", "N806", "N815", "E741", "SIM108"]
+"maglab/sim/pipeline.py" = ["N803", "N806", "N815", "E741"]
+"maglab/sim/backends/*.py" = ["N803", "N806", "N815", "SIM108", "SIM300"]
+"maglab/sim/device/*.py" = ["N803", "N806", "N815", "E741"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_redundant_casts = true
+warn_unused_ignores = false
+no_implicit_optional = true
+ignore_missing_imports = true
+exclude = ["build/", "\\.venv/", "maglab/figure/renderers/simviz\\.py", "maglab/figure/primitives/catalog"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q --strict-markers"
+asyncio_mode = "auto"
+markers = [
+  "golden: external benchmark reproduction tests (µMAG·VAMPIRE·literature values)",
+  "integration: pipeline integration tests",
+  "smoke: CLI/MCP startup smoke tests",
+  "integrity: honesty gate and citation verification tests",
+]

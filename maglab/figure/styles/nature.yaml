@@ -1,0 +1,49 @@
+# Nature / Nature sister journals / Nature Communications / npj style profile (Appendix G)
+# Normative source: Nature author guidelines, sn-jnl LaTeX class
+journal: nature
+
+# Figure column widths (mm) — Appendix G reference values
+column_width_mm:
+  single: 89
+  double: 183
+
+# Fonts
+font_family: "sans-serif"
+font_size_pt:
+  label: 8       # axis label
+  tick: 7        # tick label
+  title: 8       # panel title
+  panel_label: 9 # a/b/c labels (bold)
+  caption: 8     # caption
+
+# Line widths (pt)
+line_width_pt:
+  axis: 0.75
+  data: 1.0
+  thin: 0.5
+
+# DPI (for raster export)
+dpi: 300
+
+# Colorblind-safe palette (Wong 2011, 8-color)
+palette:
+  - "#000000"  # black
+  - "#E69F00"  # orange
+  - "#56B4E9"  # sky blue
+  - "#009E73"  # bluish green
+  - "#F0E442"  # yellow
+  - "#0072B2"  # blue
+  - "#D55E00"  # vermillion
+  - "#CC79A7"  # reddish purple
+
+# matplotlib rcParams overrides
+rcparams:
+  axes.linewidth: 0.75
+  xtick.major.width: 0.75
+  ytick.major.width: 0.75
+  xtick.minor.width: 0.5
+  ytick.minor.width: 0.5
+  xtick.direction: in
+  ytick.direction: in
+  xtick.top: true
+  ytick.right: true

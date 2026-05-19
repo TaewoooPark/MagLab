@@ -1,0 +1,56 @@
+%% MagLab Beamerposter A0 template
+%% maglab/authoring/present/templates/beamerposter/template.tex
+%% HUMAN REVIEW REQUIRED — AI draft, the presenter bears full responsibility.
+%%
+%% Usage: loaded by PosterDrafter when fmt="beamerposter" (LaTeX poster output).
+%% Placeholders substituted at render time: %%TITLE%%, %%AUTHOR%%, %%CONTENT%%.
+
+\documentclass[final]{beamer}
+
+\usepackage[
+  size=a0,
+  scale=1.4
+]{beamerposter}
+
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{siunitx}
+\usepackage{booktabs}
+\usepackage{multicol}
+
+% -- MagLab poster colour theme --
+\definecolor{maglabblue}{RGB}{0, 83, 161}
+\definecolor{maglablock}{RGB}{50, 50, 50}
+\setbeamercolor{headline}{fg=white, bg=maglabblue}
+\setbeamercolor{block title}{fg=white, bg=maglabblue}
+\setbeamercolor{block body}{fg=maglablock, bg=white}
+
+\setbeamertemplate{navigation symbols}{}
+
+\title{%%TITLE%%}
+\author{%%AUTHOR%% \\ [FILL: Affiliation]}
+\date{\today}
+
+\begin{document}
+\begin{frame}[t]
+
+%% Headline
+\begin{beamercolorbox}[wd=\paperwidth]{headline}
+  \vskip1ex
+  \centering
+  {\Huge\bfseries \inserttitle}\\[1ex]
+  {\Large \insertauthor}
+  \vskip1ex
+\end{beamercolorbox}
+
+%% HUMAN REVIEW REQUIRED notice
+\vskip0.5ex
+\begin{center}
+  \textbf{HUMAN REVIEW REQUIRED — AI draft. Replace all [FILL] fields before printing.}
+\end{center}
+\vskip0.5ex
+
+%%CONTENT%%
+
+\end{frame}
+\end{document}

@@ -1,0 +1,18 @@
+# MagLab journal style profile — revtex4-2 (APS: PRL, PRB, PRX, PR Applied, PR Materials)
+journal_class: revtex4-2
+figure_width_single_mm: 86
+figure_width_double_mm: 178
+body_word_limit: 3750          # PRL: ~4 printed pages; PRB/PRX: no strict limit
+abstract_char_limit: 600       # APS limit is in characters, not words
+font_type: 42
+min_line_width_pt: 0.25
+min_font_size_pt: 8
+vector_format: pdf
+dpi_raster: 600                # APS recommends 600 dpi for line art
+template_name: "APS (revtex4-2)"
+variants:
+  prl: "Physical Review Letters"
+  prb: "Physical Review B"
+  prx: "PRX"
+  prapplied: "Physical Review Applied"
+  prmaterials: "Physical Review Materials"

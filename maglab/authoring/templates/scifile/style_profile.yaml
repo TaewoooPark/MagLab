@@ -1,0 +1,14 @@
+# MagLab journal style profile — scifile (Science, Science Advances)
+journal_class: scifile
+figure_width_single_mm: 85    # 55 mm (narrow 1-col) or 85 mm (wide 1-col)
+figure_width_narrow_mm: 55
+figure_width_double_mm: 174
+body_word_limit: 5000          # ~5000 words for Research Articles
+abstract_word_limit: 125       # ~125 words structured abstract (Science)
+font_type: 42
+min_line_width_pt: 0.5
+min_font_size_pt: 8
+vector_format: eps             # Science prefers EPS or PDF
+dpi_raster: 300
+template_name: "Science / AAAS (scifile)"
+note: "Science Advances allows ~10000 total words."

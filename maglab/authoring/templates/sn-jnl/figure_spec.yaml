@@ -1,0 +1,38 @@
+# MagLab figure style constraints — sn-jnl (Nature Portfolio, npj Spintronics)
+# Used by the figure engine (§12) and section_drafter (§16.5).
+# HUMAN REVIEW REQUIRED — verify against current journal author guidelines.
+
+journal_class: sn-jnl
+
+# Column widths (mm)
+column_single_mm: 89
+column_double_mm: 183
+
+# Resolution (DPI)
+dpi_raster: 300
+dpi_line_art: 600
+
+# Font constraints
+min_font_size_pt: 8
+font_type: 42              # Type 42 (TrueType embedded) required by Nature Portfolio
+
+# Line width
+min_line_width_pt: 0.5
+
+# Colour palette (Nature Portfolio recommended)
+colour_mode: cmyk          # CMYK preferred for print; RGB acceptable for online-only
+colour_blind_safe: true    # Required for Nature journals
+
+# File format
+vector_format: pdf         # PDF or EPS preferred
+raster_format: tiff        # TIFF for final submission; PNG acceptable in revision
+max_file_size_mb: 10
+
+# Panel layout
+max_panels_per_figure: 6
+panel_label_font_size_pt: 8
+panel_label_style: bold    # Bold uppercase letters (a, b, c …)
+
+# White space
+panel_gap_mm: 1.5
+figure_border_mm: 0        # No border around the figure box

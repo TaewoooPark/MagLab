@@ -1,0 +1,49 @@
+# APS (PRL / PRB / PRX / PR Applied / APL / JAP) style profile (Appendix G)
+# Normative source: REVTeX 4.2 / APS author guidelines
+journal: aps
+
+# Figure column widths (mm) — Appendix G reference values
+column_width_mm:
+  single: 86
+  double: 178
+
+# Fonts
+font_family: "serif"
+font_size_pt:
+  label: 9
+  tick: 8
+  title: 9
+  panel_label: 10
+  caption: 9
+
+# Line widths (pt)
+line_width_pt:
+  axis: 0.75
+  data: 1.0
+  thin: 0.5
+
+# DPI
+dpi: 300
+
+# Colorblind-safe palette (Wong 2011)
+palette:
+  - "#000000"
+  - "#E69F00"
+  - "#56B4E9"
+  - "#009E73"
+  - "#F0E442"
+  - "#0072B2"
+  - "#D55E00"
+  - "#CC79A7"
+
+# matplotlib rcParams overrides
+rcparams:
+  axes.linewidth: 0.75
+  xtick.major.width: 0.75
+  ytick.major.width: 0.75
+  xtick.minor.width: 0.5
+  ytick.minor.width: 0.5
+  xtick.direction: in
+  ytick.direction: in
+  xtick.top: true
+  ytick.right: true

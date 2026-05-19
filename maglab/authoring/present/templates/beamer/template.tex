@@ -1,0 +1,46 @@
+%% MagLab Beamer slide template — maglab/authoring/present/templates/beamer/template.tex
+%% HUMAN REVIEW REQUIRED — AI draft, the presenter bears full responsibility.
+%%
+%% Usage: loaded by SlidesDrafter when fmt="beamer" and template="default".
+%% The drafter substitutes %%TITLE%%, %%AUTHOR%%, and %%SLIDES%% placeholders.
+
+\documentclass{beamer}
+
+% -- Theme --
+\usetheme{Madrid}
+\usecolortheme{default}
+
+% -- Packages --
+\usepackage{graphicx}
+\usepackage{siunitx}
+\usepackage{amsmath}
+\usepackage{booktabs}
+
+% -- Metadata (filled by SlidesDrafter) --
+\title{%%TITLE%%}
+\author{%%AUTHOR%%}
+\institute{[FILL: Institution]}
+\date{\today}
+
+% -- Custom colours (MagLab palette) --
+\definecolor{maglabblue}{RGB}{0, 83, 161}
+\setbeamercolor{frametitle}{bg=maglabblue, fg=white}
+\setbeamercolor{title}{fg=maglabblue}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+  \vfill
+  \begin{center}
+    \small HUMAN REVIEW REQUIRED — AI draft
+  \end{center}
+\end{frame}
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+%%SLIDES%%
+
+\end{document}

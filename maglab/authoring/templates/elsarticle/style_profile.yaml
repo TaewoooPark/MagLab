@@ -1,0 +1,15 @@
+# MagLab journal style profile — elsarticle (Elsevier: JMMM, Acta Materialia)
+journal_class: elsarticle
+figure_width_single_mm: 90
+figure_width_double_mm: 190
+body_word_limit: 11000         # Acta Materialia; JMMM is flexible
+abstract_word_limit: 200
+font_type: 42
+min_line_width_pt: 0.5
+min_font_size_pt: 8
+vector_format: pdf
+dpi_raster: 300
+template_name: "Elsevier (elsarticle)"
+variants:
+  jmmm: "Journal of Magnetism and Magnetic Materials"
+  acta: "Acta Materialia"

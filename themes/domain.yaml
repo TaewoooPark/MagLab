@@ -1,0 +1,13 @@
+# domain — default theme. Magnetisation gradient blue (spin-up) → red (spin-down). (§7.8)
+name: domain
+mode: dark
+palette:
+  accent: "#38bdf8"       # field blue · spin-up
+  spin_down: "#f43f5e"    # rose · spin-down · error
+  success: "#10b981"      # emerald
+  warning: "#f59e0b"      # amber
+  dim: "#64748b"          # slate
+  background: "#0f172a"
+gradient:
+  start: "#38bdf8"
+  end: "#f43f5e"

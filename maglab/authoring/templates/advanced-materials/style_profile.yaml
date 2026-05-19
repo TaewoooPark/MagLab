@@ -1,0 +1,26 @@
+# MagLab journal style profile — advanced-materials (Wiley-VCH: Advanced Materials)
+# Read by figure/ engine (§12) and section_drafter (§16.5).
+# HUMAN REVIEW REQUIRED
+
+journal_class: advanced-materials
+figure_width_single_mm: 83        # Wiley single-column ≈ 83 mm (3.25 in)
+figure_width_double_mm: 172       # Full-width ≈ 172 mm (6.75 in)
+figure_width_toc_mm: 55           # Table-of-Contents figure: 55 × 50 mm
+figure_height_toc_mm: 50
+body_word_limit_communication: 3000   # Communications (letter format)
+body_word_limit_full_paper: 8000
+body_word_limit_review: 15000
+abstract_word_limit: 300          # 200–300 words; also used as TOC text
+font_type: 42
+min_line_width_pt: 0.5
+min_font_size_pt: 8
+vector_format: pdf
+dpi_raster: 300
+template_name: "Wiley Advanced Materials"
+variants:
+  advanced-materials: "Advanced Materials"
+  advanced-functional-materials: "Advanced Functional Materials"
+  small: "Small"
+  advanced-science: "Advanced Science"
+  angewandte-chemie: "Angewandte Chemie"
+note: "Wiley accepts both LaTeX and Word submissions. See word/advanced_materials.dotx."

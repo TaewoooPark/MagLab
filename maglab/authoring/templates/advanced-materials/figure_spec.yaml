@@ -1,0 +1,40 @@
+# MagLab figure style constraints — advanced-materials (Wiley-VCH: Advanced Materials)
+# Used by the figure engine (§12) and section_drafter (§16.5).
+# HUMAN REVIEW REQUIRED — verify against current journal author guidelines.
+
+journal_class: advanced-materials
+
+# Column widths (mm)
+column_single_mm: 83       # Wiley single-column ≈ 83 mm (3.25 inches)
+column_double_mm: 172      # Full-width ≈ 172 mm (6.75 inches)
+column_toc_mm: 55          # TOC/Frontispiece panel width
+column_toc_height_mm: 50   # TOC/Frontispiece panel height
+
+# Resolution (DPI)
+dpi_raster: 300
+dpi_line_art: 600
+
+# Font constraints
+min_font_size_pt: 8
+font_type: 42              # Type 42 required for Wiley production
+
+# Line width
+min_line_width_pt: 0.5
+
+# Colour palette
+colour_mode: rgb            # Wiley accepts RGB; converted for print production
+colour_blind_safe: true
+
+# File format
+vector_format: pdf          # PDF or EPS; Wiley recommends PDF
+raster_format: tiff         # TIFF at 300 dpi; PNG acceptable for revision
+max_file_size_mb: 10
+
+# Panel layout
+max_panels_per_figure: 6
+panel_label_font_size_pt: 8
+panel_label_style: bold    # Advanced Materials uses bold a), b), c)
+
+# White space
+panel_gap_mm: 1.5
+figure_border_mm: 0

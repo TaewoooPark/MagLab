@@ -1,0 +1,13 @@
+# mono — high-contrast monochrome theme. (§7.8)
+name: mono
+mode: dark
+palette:
+  accent: "#ffffff"
+  spin_down: "#ffffff"
+  success: "#ffffff"
+  warning: "#ffffff"
+  dim: "#888888"
+  background: "#000000"
+gradient:
+  start: "#ffffff"
+  end: "#888888"

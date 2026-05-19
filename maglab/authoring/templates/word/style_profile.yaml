@@ -1,0 +1,26 @@
+# MagLab Word template style profile — word/ (Wiley Advanced Materials)
+# HUMAN REVIEW REQUIRED
+
+journal_class: advanced-materials
+template_name: "Wiley Advanced Materials Word Template"
+word_template_file: advanced_materials.dotx
+figure_width_single_mm: 83
+figure_width_double_mm: 172
+abstract_word_limit: 300
+body_word_limit_communication: 3000
+body_word_limit_full_paper: 8000
+
+# Wiley paragraph style IDs used in the .dotx template
+styles:
+  Title: "ArticleTitle"
+  Authors: "Authors"
+  Affiliations: "Affiliations"
+  Abstract: "Abstract"
+  Keywords: "Keywords"
+  BodyText: "BodyText"
+  SectionHeading: "Heading1"
+  SubsectionHeading: "Heading2"
+  FigureCaption: "FigureCaption"
+  TableTitle: "TableTitle"
+  References: "References"
+note: "Load this template via JournalTemplate('advanced-materials').word_template_path"

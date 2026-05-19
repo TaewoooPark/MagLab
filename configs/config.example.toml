@@ -1,0 +1,36 @@
+# MagLab configuration example — copy to `~/.config/maglab/config.toml` (XDG).
+# Credential priority: env var MAGLAB_<PROVIDER>_API_KEY > keyring > auth.json.
+# Do not store API keys in plain text in this file.
+
+[backend]
+# LLM backend mode: "api" (BYO key) | "delegated_cli" (delegated CLI) | "local" (Ollama)
+mode = "api"
+
+[backend.api]
+provider = "anthropic"          # anthropic | openai | google | openai-compatible
+model = "claude-opus-4-7"
+
+[backend.delegated_cli]
+# Runs officially installed and authenticated codex / claude / gemini as a subprocess backend
+tool = "claude"
+
+[backend.local]
+host = "http://localhost:11434"
+model = "llama3.1"
+
+[routing]
+# Stage-wise model routing (§7.3) — different model per pipeline stage
+plan = "claude-opus-4-7"
+build = "claude-haiku-4-5-20251001"
+summarize = "claude-haiku-4-5-20251001"
+vision_critic = "claude-opus-4-7"
+
+[autonomy]
+mode = "copilot"                # copilot | semi-auto | autonomous (§5.8)
+
+[ui]
+theme = "domain"                # domain | mono | moke | light (§7.8)
+
+[budget]
+max_usd_per_session = 10.0
+max_iterations_default = 20     # Default upper bound for the Ralph loop (§6.2)
