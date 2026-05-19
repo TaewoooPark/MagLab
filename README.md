@@ -195,44 +195,224 @@ maglab -p "QUERY"         # non-interactive single query
 
 ## Architecture overview
 
+MagLab is not a chatbot wrapped around a few scripts. It is a layered research
+operating system: entrypoints at the edge, orchestration in the middle,
+deterministic engines underneath, and provenance wrapped around every claim.
+
 ```
-maglab/
-├── core/          Orchestrator · hook registry · autonomy gate · budget tracker ·
-│                  checkpoint/resume · context engine · model router · manifest loader ·
-│                  Ralph autonomous loop · sub-agent dispatcher
-├── llm/           Multi-backend LLM abstraction (litellm · Ollama · OpenAI-compat) ·
-│                  credential manager · tool definitions · MCP client
-├── physics/       Deterministic formula library · SI unit converter ·
-│                  physics oracle · curated materials DB · Quantity type
-├── sim/           Micromagnetic single-scale (OOMMF · MuMax3 · magnum.np) ·
-│                  DFT parser (VASP/QE) · atomistic (VAMPIRE) · multiscale handoff ·
-│                  macrospin + 2-sublattice LLG · custodian job runner
-├── analysis/      Effect-fitting registry (~25 effects) · bilevel optimiser ·
-│                  calibration · consistency checker · symmetry analyser ·
-│                  device FoM registry
-├── figure/        DataPlot renderer · schematic primitives catalog (11 primitives) ·
-│                  micromagnetics visualiser · composition engine · export with provenance
-├── instrument/    SCPI workflow · safety gate · manual RAG · PyVISA-sim mock ·
-│                  skill generator
-├── literature/    OpenAlex · Semantic Scholar · arXiv · Crossref connectors ·
-│                  corpus + RAG · author graph · keyword extractor · journal DB ·
-│                  evidence matrix · citation auditor
-├── reviewer/      Multi-persona panel · meta-reviewer · APL rubric · corpus RAG ·
-│                  AI disclosure
-├── authoring/     Section drafter · BibTeX manager · citation auditor · data vault ·
-│                  journal templates · slide / poster drafter · communications
-├── lab/           Electronic lab notebook · measurement planner · DOE · active learning
-├── gateway/       Slack · Telegram · Discord adapters · daemon runner · session DB
-├── provenance/    DataPoint model · W3C PROV ledger · store
-├── report/        Honesty gate · report renderers
-└── mcp_server.py  MCP server (expose tools to external agents)
+MagLab repository
+├── runtime package: maglab/
+│   │
+│   ├── entrypoints and surfaces
+│   │   ├── cli.py                         full command tree
+│   │   ├── repl.py                        interactive research agent
+│   │   ├── __main__.py                    python -m maglab
+│   │   ├── mcp_server.py                  MCP tool server for external agents
+│   │   ├── ui/
+│   │   │   ├── banner.py                  terminal identity
+│   │   │   ├── prompt.py                  interactive prompts
+│   │   │   ├── render.py                  structured terminal rendering
+│   │   │   ├── spinner.py                 progress feedback
+│   │   │   └── theme.py                   theme loading
+│   │   └── gateway/
+│   │       ├── runner.py                  long-running bot daemon
+│   │       ├── session_db.py              persistent chat/session state
+│   │       └── adapters/
+│   │           ├── slack.py               Slack gateway
+│   │           ├── telegram.py            Telegram gateway
+│   │           └── discord.py             Discord gateway
+│   │
+│   ├── orchestration and agent control
+│   │   ├── core/
+│   │   │   ├── orchestrator.py            top-level tool-using agent loop
+│   │   │   ├── reasoning.py               planning and decision structure
+│   │   │   ├── hooks.py                   pre/post tool hook registry
+│   │   │   ├── verify.py                  common verification contracts
+│   │   │   ├── autonomy.py                autonomy and approval gates
+│   │   │   ├── budget.py                  token, cost, and run budget tracking
+│   │   │   ├── checkpoint.py              checkpoint / resume system
+│   │   │   ├── context.py                 context assembly
+│   │   │   ├── memory.py                  durable project memory
+│   │   │   ├── manifest.py                harness manifest loader
+│   │   │   ├── skills.py                  skill discovery and routing
+│   │   │   ├── subagents.py               delegated worker dispatcher
+│   │   │   └── ralph.py                   autonomous hypothesis tree search
+│   │   ├── llm/
+│   │   │   ├── base.py                    provider-neutral model interface
+│   │   │   ├── auth.py                    credential resolution
+│   │   │   ├── tools.py                   tool schema definitions
+│   │   │   ├── mcp_client.py              MCP client bridge
+│   │   │   ├── backends/                  provider adapters
+│   │   │   └── prompts/                   system and workflow prompts
+│   │   └── commands/
+│   │       ├── p2_analysis.py             fitting and result-analysis commands
+│   │       ├── p4_ralph.py                autonomous loop commands
+│   │       ├── p5_literature.py           literature workflow commands
+│   │       └── p6_authoring.py            manuscript and communications commands
+│   │
+│   ├── verification boundary
+│   │   ├── provenance/
+│   │   │   ├── datapoint.py               typed value + unit + source wrapper
+│   │   │   ├── ledger.py                  W3C PROV graph writer
+│   │   │   └── store.py                   queryable provenance store
+│   │   ├── report/
+│   │   │   ├── honesty_gate.py            blocks bare floats and unsupported claims
+│   │   │   └── reporting.py               provenance-aware report rendering
+│   │   └── physics/
+│   │       └── oracle.py                  range, dimension, and plausibility checks
+│   │
+│   ├── deterministic physics and materials
+│   │   └── physics/
+│   │       ├── quantity.py                SI-safe quantity model
+│   │       ├── units.py                   conversion and normalization
+│   │       ├── constants.py               physical constants
+│   │       ├── formulas.py                exchange length, FMR, DW, skyrmion formulae
+│   │       ├── materials.py               curated magnetic materials
+│   │       ├── material_builder.py        Materials Project / OPTIMADE integration
+│   │       └── data/                      DOI-sourced material and journal datasets
+│   │
+│   ├── multiscale simulation stack
+│   │   └── sim/
+│   │       ├── spec.py                    simulation schema
+│   │       ├── validate.py                deterministic validation
+│   │       ├── pipeline.py                end-to-end simulation pipeline
+│   │       ├── custodian.py               job runner and failure handling
+│   │       ├── handoff.py                 DFT -> atomistic -> micromagnetic handoff
+│   │       ├── parse.py                   simulation output parsing
+│   │       ├── plot.py                    quick-look simulation plotting
+│   │       ├── dft/
+│   │       │   ├── input_gen.py           VASP / QE input generation
+│   │       │   ├── parse_dft.py           DFT output parser
+│   │       │   └── tb2j.py                exchange extraction bridge
+│   │       ├── atomistic/
+│   │       │   ├── input_gen.py           VAMPIRE input generation
+│   │       │   └── parse_atomistic.py     atomistic output parser
+│   │       ├── micro/
+│   │       │   ├── oommf.py               OOMMF backend
+│   │       │   ├── mumax3.py              MuMax3 backend
+│   │       │   └── magnumnp.py            magnum.np backend
+│   │       ├── backends/
+│   │       │   ├── local.py               local execution
+│   │       │   ├── cpu.py                 CPU fallback
+│   │       │   ├── ssh_hpc.py             HPC execution
+│   │       │   └── ssh_gpu.py             remote GPU execution
+│   │       └── device/
+│   │           └── spec.py                device-level simulation specs
+│   │
+│   ├── fitting, analysis, and device metrics
+│   │   └── analysis/
+│   │       ├── fit.py                     effect fit runner
+│   │       ├── bilevel.py                 nested optimization
+│   │       ├── calibration.py             calibration workflows
+│   │       ├── consistency.py             cross-checks and sanity tests
+│   │       ├── symmetry.py                symmetry-aware analysis
+│   │       ├── device_fom.py              MTJ / spin-valve / SOT / magnon FoM
+│   │       ├── io.py                      measured/simulated data ingestion
+│   │       ├── effects/                   AMR, AHE, SMR, ST-FMR, ISHE, TH, DW, ...
+│   │       └── providers/                 lmfit and backend adapters
+│   │
+│   ├── figure and visual evidence engine
+│   │   └── figure/
+│   │       ├── spec.py                    figure schema
+│   │       ├── compose.py                 multi-panel figure composition
+│   │       ├── export.py                  provenance-tagged exports
+│   │       ├── renderers/
+│   │       │   ├── dataplot.py            measured/simulated data plots
+│   │       │   ├── schematic.py           physics schematic renderer
+│   │       │   └── simviz.py              micromagnetics visualization
+│   │       ├── primitives/
+│   │       │   ├── spec.py                primitive schema
+│   │       │   └── catalog/               Hall bars, MTJs, domains, skyrmions, axes
+│   │       └── styles/                    APS, Nature, IEEE, Elsevier profiles
+│   │
+│   ├── instruments and experiment execution
+│   │   └── instrument/
+│   │       ├── scpi.py                    SCPI sequence model
+│   │       ├── safety.py                  instrument safety gate
+│   │       ├── script.py                  executable instrument scripts
+│   │       ├── scaffold.py                workflow scaffolding
+│   │       ├── mock.py                    PyVISA-sim mock mode
+│   │       ├── manual_search.py           instrument manual search
+│   │       ├── manual_rag.py              manual-grounded RAG
+│   │       ├── skillgen.py                instrument skill generator
+│   │       └── templates/                 reusable instrument workflows
+│   │
+│   ├── literature intelligence
+│   │   └── literature/
+│   │       ├── connectors.py              OpenAlex, Semantic Scholar, arXiv, Crossref
+│   │       ├── corpus.py                  local paper corpus
+│   │       ├── rag.py                     retrieval-augmented literature QA
+│   │       ├── graph.py                   citation and author graph
+│   │       ├── authors.py                 author-network utilities
+│   │       ├── keywords.py                keyword extraction
+│   │       ├── journals.py                journal metadata database
+│   │       └── index.py                   searchable literature index
+│   │
+│   ├── lab notebook and experimental planning
+│   │   └── lab/
+│   │       ├── notebook/
+│   │       │   ├── entry.py               structured ELN entries
+│   │       │   └── auto_draft.py          measurement-note drafting
+│   │       └── planning/
+│   │           ├── planner.py             measurement planner
+│   │           ├── state.py               experiment state model
+│   │           └── active_learning.py     active-learning next-step selector
+│   │
+│   ├── review and scientific criticism
+│   │   └── reviewer/
+│   │       ├── panel.py                   multi-persona review panel
+│   │       ├── meta_reviewer.py           consensus and dissent synthesis
+│   │       ├── rubrics.py                 APL Matters and journal rubrics
+│   │       ├── corpus_rag.py              corpus-grounded review
+│   │       ├── disclosure.py              AI-assistance disclosure
+│   │       └── loop_a.py                  review workflow loop
+│   │
+│   └── authoring and communication
+│       └── authoring/
+│           ├── section_drafter.py         manuscript section drafting
+│           ├── bib_manager.py             BibTeX management
+│           ├── citation_auditor.py        DOI, metadata, OA, retraction checks
+│           ├── data_vault.py              source data vault
+│           ├── loop_c.py                  authoring workflow loop
+│           ├── templates/                 RevTeX, IEEEtran, elsarticle, SN, Word
+│           ├── present/
+│           │   ├── slide_drafter.py       talks and slide decks
+│           │   ├── poster_drafter.py      conference posters
+│           │   └── templates/             Beamer, PPTX, Marp, SVG, beamerposter
+│           └── comms/
+│               ├── cover_letter.py        journal cover letters
+│               ├── revision_letter.py     revision letters
+│               ├── rebuttal.py            response to reviewers
+│               ├── conference_abstract.py conference abstracts
+│               ├── grant_text.py          grant text
+│               └── academic_email.py      research email drafting
+│
+├── orchestration assets
+│   ├── harness.manifest.json              sub-agent, workflow, model routing registry
+│   ├── MAGLAB.md                          persistent project context
+│   ├── skills/                            project-local agent skills
+│   └── themes/                            terminal theme packs
+│
+├── quality and verification assets
+│   ├── tests/                             smoke, integrity, golden, integration tests
+│   ├── pyproject.toml                     package, lint, type, test configuration
+│   └── uv.lock                            reproducible Python environment lockfile
+│
+└── design and implementation record
+    ├── plan/                              design specification by subsystem
+    ├── impl/                              P0-P6 implementation execution notes
+    ├── examples/                          runnable examples and sample artifacts
+    └── workflow.html                      visual workflow artifact
 ```
 
-Sub-agents (defined in `harness.manifest.json`): `citation-auditor`,
-`local-context-librarian`, `paper-reviewer`, `physics-validator`, `result-analyst`,
-`search-scout`, `synthesis-editor`, `comms-writer`, `experiment-manager`,
-`hypothesis-gen`. Workflows: `survey`, `paper-review`, `citation-map`, `local-gap`,
-`physics-validation`, `result-analysis`, `hypothesis-generation`.
+`harness.manifest.json` turns this tree into an agent society rather than a single
+monolith: `local-context-librarian` checks the user's corpus, `search-scout` expands
+query families, `citation-auditor` validates metadata and retractions,
+`paper-reviewer` reads verified papers in depth, `synthesis-editor` writes the final
+synthesis, `physics-validator` checks dimensional and physical plausibility,
+`result-analyst` digests simulation and measurement batches, `experiment-manager`
+owns the research tree, `hypothesis-gen` ranks falsifiable hypotheses, and
+`comms-writer` translates technical conclusions into external communications.
 
 ---
 
