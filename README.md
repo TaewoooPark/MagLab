@@ -26,6 +26,8 @@
 > all outputs carry W3C PROV provenance; an honesty gate blocks fabrication before any
 > result reaches you.
 
+![MagLab research lifecycle](image1.png)
+
 ---
 
 ## Why MagLab
@@ -69,28 +71,7 @@ any computation runs.
 
 ## Verifiable orchestrator — the core principle
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        MagLab agent                         │
-│                                                             │
-│  ┌──────────────┐   tool calls   ┌─────────────────────┐   │
-│  │  LLM layer   │ ─────────────► │  Deterministic       │   │
-│  │  (reasoning, │ ◄───────────── │  tools (physics ·    │   │
-│  │   planning,  │  DataPoint +   │  sim · fit · lit ·   │   │
-│  │   drafting)  │  provenance    │  figure · instr)     │   │
-│  └──────────────┘                └─────────────────────┘   │
-│          │                                │                 │
-│          ▼                                ▼                 │
-│  ┌────────────────────────────────────────────────────┐     │
-│  │  Verification layer                                 │     │
-│  │  1. Schema check  2. Physics oracle  3. Trust gate  │     │
-│  │  4. Honesty gate (blocks bare floats in output)     │     │
-│  └────────────────────────────────────────────────────┘     │
-│          │                                                   │
-│          ▼                                                   │
-│  W3C PROV ledger  ─►  every result traceable to its source  │
-└─────────────────────────────────────────────────────────────┘
-```
+![MagLab agent architecture](image2.png)
 
 **Three layers that must never blur:**
 
