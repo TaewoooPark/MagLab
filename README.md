@@ -1,7 +1,8 @@
-# MagLab
+<h1 align="center">MagLab</h1>
 
-**Magnetism and spintronics research lifecycle copilot — from first literature search to
-submitted manuscript, in a single verifiable CLI agent.**
+<p align="center">
+  <strong>Magnetism and spintronics research lifecycle copilot — from first literature search to submitted manuscript, in a single verifiable CLI agent.</strong>
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/github/license/TaewoooPark/MagLab?style=flat-square&labelColor=000000&color=333333" alt="License">
@@ -279,11 +280,11 @@ Test markers:
 
 ## Certification
 
-The implementation has been reviewed in three rounds against `plan/01–11` and
-`PLAN.md` (five domain areas × three rounds). All CRITICAL and HIGH findings were
-patched and re-verified before the certification stamp.
+The implementation has been reviewed against the full design specification —
+five domain areas across multiple review rounds. All CRITICAL and HIGH findings
+were patched and re-verified before the certification stamp.
 
-**CERTIFIED — `impl/review/REQUIREMENTS-CERTIFICATION.md`**
+**Status — CERTIFIED**
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -349,10 +350,8 @@ MIT. See [`LICENSE`](LICENSE).
 
 ## Documentation
 
-- [`PLAN.md`](PLAN.md) and [`plan/`](plan/) — full design specification (P0–P6)
-- [`impl/`](impl/) — implementation execution plan and review records
-- [`impl/review/REQUIREMENTS-CERTIFICATION.md`](impl/review/REQUIREMENTS-CERTIFICATION.md) — certification record
-- [`MAGLAB.md`](MAGLAB.md) — persistent project context (invariant principles, directory map)
+- [`MAGLAB.md`](MAGLAB.md) — project context: invariant principles, architecture, and directory map
+- `maglab --help` and `maglab <command> --help` — full CLI reference
 
 ---
 
