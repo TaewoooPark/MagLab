@@ -26,7 +26,7 @@ from maglab.config import load_config
 
 app = typer.Typer(
     name="maglab",
-    help="Magnetism & spintronics research lifecycle copilot (verifiable orchestrator).",
+    help="AI for Science harness for magnetism and spintronics research.",
     no_args_is_help=False,
     add_completion=False,
     invoke_without_command=True,

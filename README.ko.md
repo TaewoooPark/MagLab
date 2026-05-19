@@ -1,11 +1,11 @@
 <h1 align="center">MagLab</h1>
 
 <p align="center">
-  <strong>An AI for Science harness for magnetism and spintronics research.</strong>
+  <strong>자성 및 스핀트로닉스 연구를 위한 AI for Science 하네스.</strong>
 </p>
 
 <p align="center">
-  <a href="README.ko.md">한국어 README</a> ·
+  <a href="README.md">English README</a> ·
   <a href="docs/manuals/en/index.md">Manuals</a> ·
   <a href="docs/manuals/ko/index.md">한국어 매뉴얼</a>
 </p>
@@ -25,44 +25,42 @@
 
 ![MagLab research lifecycle](image1.png)
 
-## Why MagLab Exists
+## MagLab을 만든 이유
 
-MagLab was built for researchers in magnetism and spintronics who want AI for
-Science to become a practical lab instrument, not a demo prompt. The goal is to
-support the parts of research that actually slow scientists down: finding and
-auditing literature, translating material stacks into parameters, checking units
-and physical ranges, moving between simulation scales, fitting spintronic
-effects, generating reproducible figures, drafting instrument scripts, keeping
-an electronic lab notebook, reviewing manuscripts, and turning verified results
-into papers, posters, slides, rebuttals, and grant text.
+MagLab은 자성 및 스핀트로닉스 연구자가 AI for Science를 실제 연구 도구로
+사용할 수 있게 만들기 위한 플랫폼입니다. 목표는 멋진 데모 프롬프트를 만드는
+것이 아니라, 연구자가 실제로 시간을 빼앗기는 지점을 구체적으로 지원하는
+것입니다. 문헌 탐색과 검증, 물질 스택의 파라미터화, 단위 변환, 물리 범위
+체크, 다중 스케일 시뮬레이션 연결, 스핀트로닉스 효과 피팅, 재현 가능한 그림
+생성, 계측기 스크립트 작성, 전자 연구노트, 논문 리뷰, 그리고 검증된 결과를
+논문, 포스터, 발표, rebuttal, grant text로 옮기는 과정까지 하나의 하네스로
+묶습니다.
 
-The central design choice is that MagLab is a harness platform. The LLM layer
-plans, routes, explains, and drafts. Domain modules perform the scientific work:
-physics formulae, unit conversion, material lookup, simulation pipelines,
-fitters, figure renderers, literature connectors, SCPI safety checks, data
-lineage, and review workflows. The point is not to replace the scientist. The
-point is to make the scientist's research loop faster, more organized, and more
-reproducible.
+핵심 설계는 MagLab이 하네스 플랫폼이라는 점입니다. LLM 계층은 계획하고,
+라우팅하고, 설명하고, 초안을 작성합니다. 실제 과학 작업은 물리 공식, 단위
+변환, 물질 데이터베이스, 시뮬레이션 파이프라인, 피팅 모델, 그림 렌더러,
+문헌 커넥터, SCPI 안전 검사, 데이터 lineage, 리뷰 워크플로 같은 도메인
+모듈이 수행합니다. 연구자를 대체하려는 도구가 아니라, 연구자의 루프를 더
+빠르고 구조적이며 재현 가능하게 만드는 도구입니다.
 
-## What It Helps With
+## MagLab이 줄이는 연구 병목
 
-| Research bottleneck | MagLab support |
+| 연구 병목 | MagLab이 지원하는 것 |
 |---|---|
-| Literature overload | Extract keywords from a paper folder, search OpenAlex/Semantic Scholar/arXiv/Crossref, build an evidence matrix, inspect authors, journal metrics, citation graphs, and local corpus context. |
-| Material and unit friction | Query magnetic materials, build multilayer stacks, compute exchange length/FMR/domain-wall/skyrmion formulae, convert magnetic units, and run a physics oracle before downstream work. |
-| Simulation handoff | Generate and validate micromagnetic specs, prepare DFT and atomistic inputs, parse solver outputs, and connect DFT -> atomistic -> micromagnetic -> device-scale workflows. |
-| Fitting and interpretation | Fit AMR, AHE, OHE, PHE, SMR, USMR, ST-FMR, FMR/Kittel, damping, spin pumping/ISHE, DMI, domain-wall, skyrmion/Thiele, hysteresis, and Curie-temperature models. |
-| Figure reproducibility | Build `FigureSpec` JSON, render journal-aware vector figures, compose multi-panel outputs, and use a schematic primitive catalog for spintronics figures. |
-| Instrument scripting | Scaffold PyVISA drivers, validate SCPI sequences, ingest manuals for RAG, generate scripts from experiment descriptions, and run safety checks before hardware use. |
-| Lab memory | Create structured ELN entries, list notes by date/sample/tag/type, generate measurement plans, and create DOE/active-learning next-step suggestions. |
-| Review and critique | Run persona-style manuscript review, synthesize consensus/dissent, explain anomalous results, and keep AI assistance disclosure explicit. |
-| Authoring and communication | Draft manuscript sections, cover letters, revision letters, rebuttals, abstracts, grants, emails, slides, and posters while preserving human review requirements. |
-| Orchestration | Use the interactive REPL, Ralph loops, MCP server/client, subagents, skills, gateway bots, cost tracking, checkpoints, and provenance records to coordinate a full research lifecycle. |
+| 문헌 과부하 | 논문 폴더에서 키워드 추출, OpenAlex/Semantic Scholar/arXiv/Crossref 검색, evidence matrix 생성, 저자/저널/인용 그래프/로컬 corpus 확인. |
+| 물질과 단위 처리 | 자성 물질 조회, multilayer stack 생성, exchange length/FMR/domain-wall/skyrmion 공식 계산, 자기 단위 변환, physics oracle 실행. |
+| 시뮬레이션 handoff | micromagnetic spec 생성과 검증, DFT/atomistic 입력 생성, solver 출력 파싱, DFT -> atomistic -> micromagnetic -> device workflow 연결. |
+| 피팅과 해석 | AMR, AHE, OHE, PHE, SMR, USMR, ST-FMR, FMR/Kittel, damping, spin pumping/ISHE, DMI, domain-wall, skyrmion/Thiele, hysteresis, Curie-temperature 모델 피팅. |
+| 그림 재현성 | `FigureSpec` JSON 생성, journal-aware vector figure 렌더링, multi-panel composition, spintronics schematic primitive catalog 사용. |
+| 계측기 스크립팅 | PyVISA driver scaffold, SCPI sequence 검증, manual RAG ingest, 실험 설명 기반 script 생성, hardware 실행 전 safety check. |
+| 실험 기억 | 구조화된 ELN entry 작성, 날짜/샘플/tag/type별 note 조회, measurement plan 생성, DOE/active-learning 기반 다음 실험 제안. |
+| 리뷰와 비판 | persona-style manuscript review, consensus/dissent synthesis, anomalous result explanation, AI assistance disclosure. |
+| 논문과 커뮤니케이션 | manuscript section, cover letter, revision letter, rebuttal, abstract, grant, email, slides, poster 초안 생성. |
+| 오케스트레이션 | interactive REPL, Ralph loop, MCP server/client, subagent, skill, gateway bot, cost tracking, checkpoint, provenance record로 연구 lifecycle 조율. |
 
-## Start Here
+## 바로 시작하기
 
-Install the core package first. Add optional extras only for the subsystems you
-need.
+먼저 core package를 설치하고, 필요한 subsystem만 optional extra로 추가합니다.
 
 ```sh
 uv venv --python 3.12
@@ -72,7 +70,7 @@ uv pip install -e .
 uv pip install -e ".[llm,literature,sim,figure,instr,authoring]"
 ```
 
-Run deterministic tools without an LLM key:
+LLM key 없이 deterministic tool부터 사용할 수 있습니다.
 
 ```sh
 maglab physics compute exchange_length A=13e-12 Ms=860e3
@@ -82,8 +80,8 @@ maglab analyze model stfmr
 maglab figure primitives list
 ```
 
-Register an LLM provider when you want natural-language orchestration, drafting,
-review, or agent workflows:
+자연어 오케스트레이션, 초안 작성, 리뷰, agent workflow를 쓰려면 LLM provider를
+등록합니다.
 
 ```sh
 maglab auth set anthropic sk-ant-...
@@ -91,33 +89,33 @@ maglab auth test anthropic
 maglab
 ```
 
-One-shot mode is useful in scripts and CI:
+스크립트나 CI에서는 one-shot 모드를 사용할 수 있습니다.
 
 ```sh
 maglab -p "Plan a reproducible ST-FMR analysis workflow for Pt/CoFeB/MgO"
 ```
 
-## Manuals
+## 매뉴얼
 
-The README is the map. The manuals are the operating instructions.
+README는 지도이고, 매뉴얼은 실제 사용 설명서입니다.
 
-| Area | English | Korean |
+| 영역 | English | 한국어 |
 |---|---|---|
-| Manual index | [docs/manuals/en/index.md](docs/manuals/en/index.md) | [docs/manuals/ko/index.md](docs/manuals/ko/index.md) |
-| Literature intelligence | [English](docs/manuals/en/literature.md) | [한국어](docs/manuals/ko/literature.md) |
-| Materials and physics | [English](docs/manuals/en/materials-physics.md) | [한국어](docs/manuals/ko/materials-physics.md) |
-| Simulation | [English](docs/manuals/en/simulation.md) | [한국어](docs/manuals/ko/simulation.md) |
-| Analysis and fitting | [English](docs/manuals/en/analysis-fitting.md) | [한국어](docs/manuals/ko/analysis-fitting.md) |
-| Figures | [English](docs/manuals/en/figures.md) | [한국어](docs/manuals/ko/figures.md) |
-| Instruments | [English](docs/manuals/en/instruments.md) | [한국어](docs/manuals/ko/instruments.md) |
-| Lab notebook and planning | [English](docs/manuals/en/lab-planning.md) | [한국어](docs/manuals/ko/lab-planning.md) |
-| Review and anomaly explanation | [English](docs/manuals/en/review-explain.md) | [한국어](docs/manuals/ko/review-explain.md) |
-| Authoring and communications | [English](docs/manuals/en/authoring-comms.md) | [한국어](docs/manuals/ko/authoring-comms.md) |
-| Orchestration, agents, MCP, gateway | [English](docs/manuals/en/orchestration.md) | [한국어](docs/manuals/ko/orchestration.md) |
+| 매뉴얼 인덱스 | [docs/manuals/en/index.md](docs/manuals/en/index.md) | [docs/manuals/ko/index.md](docs/manuals/ko/index.md) |
+| 문헌 인텔리전스 | [English](docs/manuals/en/literature.md) | [한국어](docs/manuals/ko/literature.md) |
+| 물질과 물리 | [English](docs/manuals/en/materials-physics.md) | [한국어](docs/manuals/ko/materials-physics.md) |
+| 시뮬레이션 | [English](docs/manuals/en/simulation.md) | [한국어](docs/manuals/ko/simulation.md) |
+| 분석과 피팅 | [English](docs/manuals/en/analysis-fitting.md) | [한국어](docs/manuals/ko/analysis-fitting.md) |
+| 그림 | [English](docs/manuals/en/figures.md) | [한국어](docs/manuals/ko/figures.md) |
+| 계측기 | [English](docs/manuals/en/instruments.md) | [한국어](docs/manuals/ko/instruments.md) |
+| 연구노트와 계획 | [English](docs/manuals/en/lab-planning.md) | [한국어](docs/manuals/ko/lab-planning.md) |
+| 리뷰와 이상 현상 설명 | [English](docs/manuals/en/review-explain.md) | [한국어](docs/manuals/ko/review-explain.md) |
+| 논문 작성과 커뮤니케이션 | [English](docs/manuals/en/authoring-comms.md) | [한국어](docs/manuals/ko/authoring-comms.md) |
+| 오케스트레이션, agent, MCP, gateway | [English](docs/manuals/en/orchestration.md) | [한국어](docs/manuals/ko/orchestration.md) |
 
-## Example Research Loops
+## 예시 연구 루프
 
-**Literature to experiment plan**
+**문헌에서 실험 계획까지**
 
 ```sh
 maglab lit search papers/pt_cofeb_mgo --top-n 40
@@ -125,7 +123,7 @@ maglab lit authors "spin orbit torque CoFeB MgO"
 maglab lab plan "SOT efficiency in Pt/CoFeB/MgO" --n-doe 16 --output sot_plan.yaml
 ```
 
-**Measurement to fit to figure**
+**측정 데이터에서 피팅과 그림까지**
 
 ```sh
 maglab analyze load data/stfmr.csv --columns frequency,field,voltage
@@ -134,7 +132,7 @@ maglab fit --effect stfmr data/stfmr.csv --method least_squares
 maglab sim plot data/stfmr.csv --journal aps --format pdf --output figures/stfmr.pdf
 ```
 
-**Multiscale simulation handoff**
+**다중 스케일 시뮬레이션 handoff**
 
 ```sh
 maglab sim dft --structure bcc_fe --engine qe --calc-type jij --output-dir runs/dft_fe
@@ -142,7 +140,7 @@ maglab sim atomistic --engine vampire --j-ij-k 398 --t-max-k 1300 --output-dir r
 maglab sim pipeline --structure bcc_fe --scales dft,atomistic,micro,device --backend mock
 ```
 
-**Instrument workflow**
+**계측기 workflow**
 
 ```sh
 maglab instr ingest "Keithley 2400" --manufacturer Keithley --manual-path manuals/keithley_2400.pdf
@@ -150,7 +148,7 @@ maglab instr script "Keithley 2400" --description "field sweep Hall voltage meas
 maglab instr check hall_sweep.py
 ```
 
-**Authoring after verified results**
+**검증된 결과를 바탕으로 authoring**
 
 ```sh
 maglab write "ST-FMR fit gives xi_DL=0.12 with provenance IDs ..." --journal prl --dry-run
@@ -158,7 +156,7 @@ maglab comms cover-letter --journal "Physical Review Letters" --title "Spin-orbi
 maglab present slides "Key results and figures from the SOT study" --format beamer --n-slides 12
 ```
 
-## Command Surface
+## 명령어 표면
 
 ```text
 maglab                    interactive research agent
@@ -193,11 +191,11 @@ theme     list · set
 version · info
 ```
 
-## Architecture
+## 아키텍처
 
 ![MagLab agent architecture](image2.png)
 
-MagLab is organized as a layered harness:
+MagLab은 계층형 하네스로 구성됩니다.
 
 ```text
 researcher intent
@@ -211,12 +209,12 @@ researcher intent
   -> human-reviewed scientific output
 ```
 
-The verification layer is not the mission statement. It is the safety rail that
-lets MagLab be useful in scientific work. MagLab should help a researcher move
-from question to evidence to experiment to analysis to communication while
-keeping enough structure that the work can be inspected later.
+검증 계층은 MagLab의 목적 자체가 아닙니다. 과학 연구에서 실제로 유용한 도구가
+되기 위한 안전 레일입니다. MagLab은 질문에서 evidence, 실험, 분석,
+커뮤니케이션으로 이어지는 루프를 빠르게 돌리되, 나중에 다시 검토할 수 있는
+구조를 남기도록 설계되어 있습니다.
 
-## Package Layout
+## 패키지 구조
 
 ```text
 maglab/
@@ -238,14 +236,14 @@ maglab/
 └── mcp_server.py  external agent tool server
 ```
 
-`harness.manifest.json` defines the agent society around this package:
+`harness.manifest.json`는 이 패키지를 agent society로 묶습니다.
 `local-context-librarian`, `search-scout`, `citation-auditor`, `paper-reviewer`,
 `synthesis-editor`, `physics-validator`, `result-analyst`, `experiment-manager`,
-`hypothesis-gen`, and `comms-writer`.
+`hypothesis-gen`, `comms-writer`가 정의되어 있습니다.
 
-## Installation Details
+## 설치 세부 사항
 
-Python 3.11 to 3.13 is supported.
+Python 3.11부터 3.13까지 지원합니다.
 
 ```sh
 uv pip install -e .                    # core
@@ -261,13 +259,12 @@ uv pip install -e ".[gateway]"         # messaging gateway
 uv pip install -e ".[dev]"             # ruff, mypy, pytest, pre-commit
 ```
 
-Some simulation engines require external binaries or external Python packages
-that must be installed separately: OOMMF, MuMax3, magnum.np, VAMPIRE, VASP,
-Quantum ESPRESSO, or HPC/GPU execution environments. MagLab can still generate
-inputs, validate specs, run mock paths, and parse prepared outputs without
-owning those solver installations.
+일부 시뮬레이션 엔진은 별도 외부 바이너리나 실행 환경이 필요합니다. 예를 들면
+OOMMF, MuMax3, magnum.np, VAMPIRE, VASP, Quantum ESPRESSO, HPC/GPU 환경입니다.
+MagLab은 이런 solver를 직접 소유하지 않아도 입력 생성, spec 검증, mock path,
+준비된 출력 파싱을 수행할 수 있습니다.
 
-## Development
+## 개발
 
 ```sh
 uv pip install -e ".[dev]"
@@ -276,20 +273,20 @@ mypy maglab/
 pytest
 ```
 
-The test suite is organized around smoke, integrity, golden, and integration
-markers. Quantitative validation is expected to be deterministic. LLM-as-judge
-is not used for physics, fitting, citation, or numerical correctness.
+테스트는 smoke, integrity, golden, integration marker로 구성됩니다. 물리,
+피팅, 인용, 수치 정확성은 deterministic validation을 기준으로 하며,
+LLM-as-judge를 사용하지 않습니다.
 
-## Project Docs
+## 프로젝트 문서
 
-- [MAGLAB.md](MAGLAB.md): persistent project context and invariant principles
-- [harness.manifest.json](harness.manifest.json): subagents, workflows, and model routing
+- [MAGLAB.md](MAGLAB.md): persistent project context와 invariant principles
+- [harness.manifest.json](harness.manifest.json): subagent, workflow, model routing
 - [Manuals](docs/manuals/en/index.md): feature-by-feature operating guide
 - [한국어 매뉴얼](docs/manuals/ko/index.md): 기능별 한국어 사용 설명서
 
-## License
+## 라이선스
 
-MIT. See [LICENSE](LICENSE).
+MIT. [LICENSE](LICENSE)를 참고하세요.
 
 <p align="center">
 Built with Python, NumPy, SciPy, lmfit, Matplotlib, Pydantic, and the assumption that researchers remain responsible for science.

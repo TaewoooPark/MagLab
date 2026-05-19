@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "maglab"
 version = "0.0.1"
-description = "Magnetism/spintronics research lifecycle copilot — verifiable orchestrator CLI agent"
+description = "AI for Science harness for magnetism and spintronics research"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 license = "MIT"
