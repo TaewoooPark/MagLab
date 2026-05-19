@@ -12,6 +12,7 @@ Structure:
 from __future__ import annotations
 
 import contextlib
+import json
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -91,21 +92,25 @@ class ELNEntry:
     is_draft: bool = False
 
     def to_markdown(self) -> str:
-        """Serialize the entry to YAML frontmatter + Markdown format."""
-        tags_str = ", ".join(f'"{t}"' for t in self.tags)
-        dp_ids_str = ", ".join(f'"{d}"' for d in self.datapoint_ids)
-        prov_ids_str = ", ".join(f'"{p}"' for p in self.provenance_entity_ids)
+        """Serialize the entry to YAML frontmatter + Markdown format.
 
+        All string fields (sample, instrument) are serialized as JSON strings
+        using ``json.dumps``.  List fields (tags, datapoints,
+        provenance_entities) are serialized as JSON arrays.  JSON correctly
+        handles embedded double-quotes, backslashes, commas, brackets, and
+        unicode, giving a permanently correct round-trip regardless of value
+        content.
+        """
         frontmatter = (
             "---\n"
             f"entry_id: {self.entry_id}\n"
             f"date: {self.date.isoformat()}\n"
-            f'sample: "{self.sample}"\n'
-            f'instrument: "{self.instrument}"\n'
+            f"sample: {json.dumps(self.sample)}\n"
+            f"instrument: {json.dumps(self.instrument)}\n"
             f"measurement_type: {self.measurement_type.value}\n"
-            f"tags: [{tags_str}]\n"
-            f"datapoints: [{dp_ids_str}]\n"
-            f"provenance_entities: [{prov_ids_str}]\n"
+            f"tags: {json.dumps(self.tags)}\n"
+            f"datapoints: {json.dumps(self.datapoint_ids)}\n"
+            f"provenance_entities: {json.dumps(self.provenance_entity_ids)}\n"
             f"is_draft: {str(self.is_draft).lower()}\n"
             f"created_at: {self.created_at.isoformat()}\n"
             "---\n\n"
@@ -135,26 +140,43 @@ class ELNEntry:
                 with contextlib.suppress(ValueError):
                     entry.date = date.fromisoformat(v)
             if v := _extract("sample"):
-                entry.sample = v.strip('"')
+                try:
+                    entry.sample = json.loads(v)
+                except (json.JSONDecodeError, ValueError):
+                    entry.sample = v.strip('"')
             if v := _extract("instrument"):
-                entry.instrument = v.strip('"')
+                try:
+                    entry.instrument = json.loads(v)
+                except (json.JSONDecodeError, ValueError):
+                    entry.instrument = v.strip('"')
             if v := _extract("measurement_type"):
                 with contextlib.suppress(ValueError):
                     entry.measurement_type = MeasurementType(v)
             if v := _extract("is_draft"):
                 entry.is_draft = v.lower() == "true"
+            if v := _extract("created_at"):
+                with contextlib.suppress(ValueError):
+                    entry.created_at = datetime.fromisoformat(v)
 
             # tags, datapoints, provenance_entities
+            # to_markdown() writes these fields as JSON arrays (json.dumps).
+            # Parse them back with json.loads, which correctly round-trips
+            # double-quotes, backslashes, commas, brackets, and unicode.
+            # On any parse failure, fall back gracefully to an empty list.
             for attr, key in [
                 ("tags", "tags"),
                 ("datapoint_ids", "datapoints"),
                 ("provenance_entity_ids", "provenance_entities"),
             ]:
-                m2 = re.search(rf"^{key}:\s*\[([^\]]*)\]", fm_text, re.MULTILINE)
-                if m2:
-                    raw = m2.group(1)
-                    items = [i.strip().strip('"') for i in raw.split(",") if i.strip()]
-                    setattr(entry, attr, items)
+                m = re.search(rf"^{key}:\s*(\[.*\])\s*$", fm_text, re.MULTILINE)
+                if m:
+                    raw = m.group(1)
+                    try:
+                        items = json.loads(raw)
+                        if isinstance(items, list):
+                            setattr(entry, attr, [str(x) for x in items])
+                    except (json.JSONDecodeError, ValueError):
+                        setattr(entry, attr, [])
 
             # Split title and body (parse # title after frontmatter end \n\n)
             body_text = text[body_start:].lstrip("\n")

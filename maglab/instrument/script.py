@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from maglab.instrument.safety import SafetyCheckResult, check_script
 
@@ -49,6 +49,14 @@ class SweepConfig(BaseModel):
     stop: float = 1.0
     step: float = 0.1
     settle_time_s: float = 0.1
+
+    @field_validator("step")
+    @classmethod
+    def step_must_be_nonzero(cls, v: float) -> float:
+        """Reject step=0 to prevent ZeroDivisionError in the generated np.arange loop."""
+        if v == 0.0:
+            raise ValueError("sweep step must be non-zero (step=0.0 would cause ZeroDivisionError in the generated script)")
+        return v
 
 
 class ScriptConfig(BaseModel):

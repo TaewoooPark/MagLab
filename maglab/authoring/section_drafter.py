@@ -75,8 +75,11 @@ class DraftResult:
     used_cite_keys:
         Cite-keys referenced in the draft.
     remaining_placeholders:
-        Placeholder keys that were NOT found in the vault (should be empty after
-        successful ``DataVault.inject_into_draft``).
+        Placeholder keys whose vault lookup failed.  Always ``[]`` — a
+        ``DraftResult`` is only returned when the ``DataVault`` injection
+        succeeds (all placeholders resolved).  When injection fails,
+        ``SectionDrafter.draft_section`` raises ``AuthoringBlockedError``
+        instead of returning a ``DraftResult``.
     human_review_required:
         Always ``True`` — AI drafts, human is the author.
     """
@@ -266,16 +269,14 @@ class SectionDrafter:
             final_tex = self._vault.inject_into_draft(
                 raw_tex_with_disclosure, section=section_type.value
             )
-            remaining: list[str] = []
         except AuthoringBlockedError:
-            # Report which placeholders are missing
-            remaining = self._vault.find_placeholders(raw_tex_with_disclosure)
-            final_tex = raw_tex_with_disclosure
             raise
 
-        # Abstract word limit check
+        # Abstract word limit check — count only the raw LLM output before the
+        # HUMAN_REVIEW_MARKER and _AI_DISCLOSURE boilerplate are prepended/appended,
+        # so that the ~40-word footer does not trigger spurious over-limit warnings.
         if section_type == SectionType.ABSTRACT and self._abstract_word_limit is not None:
-            word_count = len(final_tex.split())
+            word_count = len(raw_tex.split())
             if word_count > self._abstract_word_limit:
                 log.warning(
                     "Abstract word count %d exceeds limit %d.",
@@ -287,7 +288,7 @@ class SectionDrafter:
             section=section_type,
             tex=final_tex,
             used_cite_keys=used_keys,
-            remaining_placeholders=remaining,
+            remaining_placeholders=[],
         )
 
     # ------------------------------------------------------------------

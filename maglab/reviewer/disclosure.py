@@ -276,6 +276,7 @@ def check_first_person(text: str) -> list[DisclosureViolationRecord]:
 def check_fabricated_citations(
     text: str,
     verified_dois: set[str] | None = None,
+    verified_arxivs: set[str] | None = None,
 ) -> list[DisclosureViolationRecord]:
     """Safeguard ③: detect citations without DOIs (possible fabrication).
 
@@ -286,14 +287,24 @@ def check_fabricated_citations(
     text:
         Text to check.
     verified_dois:
-        Set of verified DOIs. If None, only checks for DOI presence.
+        Set of verified DOIs (lowercase-normalised). If None, only checks
+        for DOI presence.
+    verified_arxivs:
+        Set of verified arXiv IDs (e.g. ``{'2305.00001'}``).  When provided,
+        arXiv IDs found in *text* are validated against this set in addition
+        to the basic presence check.  If None, arXiv IDs are accepted whenever
+        any reference ID is present.
     """
     citations_found = _CITATION_PATTERN_RE.findall(text)
-    if not citations_found:
-        return []
-
     dois_found = set(_DOI_RE.findall(text))
     arxivs_found = set(_ARXIV_RE.findall(text))
+
+    # Early exit: no citation patterns and no arXiv IDs — nothing to validate.
+    # (When verified_arxivs is provided, arXiv IDs are themselves a citation
+    # form that must be individually validated even without a bracketed pattern.)
+    if not citations_found and not arxivs_found:
+        return []
+
     all_refs = dois_found | arxivs_found
 
     violations = []
@@ -309,17 +320,37 @@ def check_fabricated_citations(
             )
         )
 
-    # If a verified DOI set is provided, check for DOI matches
+    # If a verified DOI set is provided, check for DOI matches.
+    # Normalise both sides to lowercase so mixed-case DOIs in review text
+    # are not incorrectly flagged against a lowercase-stored verified set.
     if verified_dois is not None:
+        verified_lower = {d.lower() for d in verified_dois}
         for doi in dois_found:
             clean = doi.rstrip(".,;")
-            if clean not in verified_dois:
+            if clean.lower() not in verified_lower:
                 violations.append(
                     DisclosureViolationRecord(
                         violation=DisclosureViolation.FABRICATED_CITATION,
                         message=f"Unverified DOI: {clean}. "
                         "Only DOIs from chunks retrieved by the corpus RAG may be used.",
                         excerpt=clean,
+                    )
+                )
+
+    # If a verified arXiv set is provided, validate each arXiv ID found in text.
+    # Strip the leading "arXiv:" prefix for comparison.
+    if verified_arxivs is not None:
+        verified_arxivs_lower = {a.lower() for a in verified_arxivs}
+        for arxiv_ref in arxivs_found:
+            # _ARXIV_RE matches "arXiv:NNNN.NNNNN"; strip the prefix for lookup.
+            arxiv_id = re.sub(r"(?i)^arxiv:", "", arxiv_ref).rstrip(".,;").lower()
+            if arxiv_id not in verified_arxivs_lower:
+                violations.append(
+                    DisclosureViolationRecord(
+                        violation=DisclosureViolation.FABRICATED_CITATION,
+                        message=f"Unverified arXiv ID: {arxiv_ref}. "
+                        "Only arXiv IDs from chunks retrieved by the corpus RAG may be used.",
+                        excerpt=arxiv_ref,
                     )
                 )
 
@@ -454,6 +485,9 @@ class PersonaGuard:
         Author corpus keyword set (used by safeguard ④).
     verified_dois:
         Verified DOI set from corpus RAG search results (used by safeguard ③).
+    verified_arxivs:
+        Verified arXiv ID set from corpus RAG search results (used by safeguard ③).
+        When provided, arXiv IDs in review text are validated against this set.
     """
 
     def __init__(
@@ -462,11 +496,13 @@ class PersonaGuard:
         author_name: str = "",
         corpus_keywords: set[str] | None = None,
         verified_dois: set[str] | None = None,
+        verified_arxivs: set[str] | None = None,
     ) -> None:
         self._author_id = author_id
         self._author_name = author_name
         self._corpus_keywords = corpus_keywords
         self._verified_dois = verified_dois
+        self._verified_arxivs = verified_arxivs
 
     def check_author_eligibility(self) -> list[DisclosureViolationRecord]:
         """Check whether the author is opted out (safeguard ⑥)."""
@@ -498,7 +534,7 @@ class PersonaGuard:
         # ②: first-person attribution
         violations.extend(check_first_person(text))
         # ③: fabricated citations
-        violations.extend(check_fabricated_citations(text, self._verified_dois))
+        violations.extend(check_fabricated_citations(text, self._verified_dois, self._verified_arxivs))
         # ④: scope limit
         violations.extend(check_scope(text, corpus_keywords=self._corpus_keywords))
         # ⑤: fabricated expertise

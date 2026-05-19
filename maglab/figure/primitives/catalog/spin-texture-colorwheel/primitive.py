@@ -66,7 +66,8 @@ class SpinTextureColorwheelPrimitive:
     def render(self, params: dict[str, Any], backend: str = "svg", style: str = "nature") -> str:
         """Generate the color wheel SVG."""
         radius = float(params.get("radius", 30.0))
-        n = int(params.get("n_sectors", 36))
+        # R11-F3: clamp n_sectors to a positive minimum so division never raises
+        n = max(1, int(params.get("n_sectors", 36)))
         show_labels = bool(params.get("show_labels", True))
 
         size = radius * 2 + 30

@@ -590,11 +590,21 @@ class Orchestrator:
                 )
                 self._tool_log.append({"tool": tc.name, "status": "success"})
 
-            # Add tool results to messages
+            # Add tool results to messages.
+            # Each TOOL-role message must carry the originating tool_call_id so
+            # that OpenAI/Anthropic APIs can match results to the correct call in
+            # multi-tool-call responses.  Dropping tool_call_id causes API errors
+            # and corrupts the conversation context.
             if response.content:
                 msg_objects.append(Message(role=Role.ASSISTANT, content=response.content))
             for tr in tool_results:
-                msg_objects.append(Message(role=Role.TOOL, content=tr["content"]))
+                msg_objects.append(
+                    Message(
+                        role=Role.TOOL,
+                        content=tr["content"],
+                        tool_call_id=tr.get("tool_call_id"),
+                    )
+                )
 
         return "[Warning] Tool loop reached maximum iterations."
 
@@ -864,6 +874,32 @@ class Orchestrator:
             )
         except Exception as exc:  # noqa: BLE001
             log.warning("Failed to send gateway notification: %s", exc)
+
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Resource management (Fix 6)
+    # ------------------------------------------------------------------
+
+    def close(self) -> None:
+        """Close all owned SQLite connections.
+
+        Call this when the orchestrator is no longer needed to release
+        database file handles.  On Windows and network file-systems, unclosed
+        SQLite connections can prevent file access by other processes or cause
+        locking errors across sessions.
+        """
+        self._budget.close()
+        self._checkpoint.close()
+        self._session_memory.close()
+
+    def __enter__(self) -> Orchestrator:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
 
     # ------------------------------------------------------------------
     # Properties

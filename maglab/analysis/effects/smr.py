@@ -183,12 +183,20 @@ class SMREffect(EffectModel):
             m_y_g = self._m_y(a_g, g)
             datasets.append({"x": a_g, "y": y_g, "geometry": g, "_my": m_y_g})
 
+        # delta_rho_2 (SMR Hall coefficient) enters only the Hall signal
+        # (ρ_Hall = Δρ₂·m_y), which is NOT included in the residual here.
+        # Fitting it from rho_long data would leave it unidentifiable (zero
+        # Jacobian column, singular covariance).  Restrict the fit to the
+        # two identifiable longitudinal parameters and report delta_rho_2 as
+        # NaN — the same treatment applied to ghost tau_DL/tau_FL in R4.
+        long_specs = [p for p in self.parameters if p.name in ("rho_0", "delta_rho_1")]
+
         if not datasets:
             # Single-geometry fallback
             geom_key = str(geometry.get("geom", "alpha")) if geometry else "alpha"
 
             def model_fn_single(
-                x: np.ndarray, rho_0: float, delta_rho_1: float, delta_rho_2: float
+                x: np.ndarray, rho_0: float, delta_rho_1: float
             ) -> np.ndarray:
                 _m = self._m_y(x, geom_key)
                 return rho_0 + delta_rho_1 * (1.0 - _m**2)
@@ -196,34 +204,37 @@ class SMREffect(EffectModel):
             init = {
                 "rho_0": float(np.mean(rho_long)),
                 "delta_rho_1": float(np.std(rho_long)),
-                "delta_rho_2": float(np.std(rho_long)),
             }
-            return run_fit(
+            fit_result = run_fit(
                 model_fn=model_fn_single,
                 x_data=angle,
                 y_data=rho_long,
-                param_specs=self.parameters,
+                param_specs=long_specs,
+                init_values=init,
+                effect_name=self.name,
+            )
+        else:
+            # Multi-dataset: call model_fn for each dataset
+            def multi_model_fn(
+                x: np.ndarray, geom_str: str, rho_0: float, delta_rho_1: float
+            ) -> np.ndarray:
+                m_y = self._m_y(x, geom_str)
+                return rho_0 + delta_rho_1 * (1.0 - m_y**2)
+
+            init = {
+                "rho_0": float(np.mean(rho_long)),
+                "delta_rho_1": float(np.std(rho_long)) * 2,
+            }
+            fit_result = run_fit_multi(
+                model_fn=multi_model_fn,
+                datasets=datasets,
+                param_specs=long_specs,
                 init_values=init,
                 effect_name=self.name,
             )
 
-        # Multi-dataset: call model_fn for each dataset
-        def multi_model_fn(
-            x: np.ndarray, geom_str: str, rho_0: float, delta_rho_1: float, delta_rho_2: float
-        ) -> np.ndarray:
-            m_y = self._m_y(x, geom_str)
-            return rho_0 + delta_rho_1 * (1.0 - m_y**2)
-
-        init = {
-            "rho_0": float(np.mean(rho_long)),
-            "delta_rho_1": float(np.std(rho_long)) * 2,
-            "delta_rho_2": float(np.std(rho_long)) * 2,
-        }
-
-        return run_fit_multi(
-            model_fn=multi_model_fn,
-            datasets=datasets,
-            param_specs=self.parameters,
-            init_values=init,
-            effect_name=self.name,
-        )
+        # Append delta_rho_2 as a non-fitted placeholder (NaN).
+        # It requires rho_hall data and a separate fit pass (Hall branch).
+        fit_result.params["delta_rho_2"] = float("nan")
+        fit_result.uncertainties["delta_rho_2"] = float("nan")
+        return fit_result

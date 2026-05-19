@@ -231,6 +231,12 @@ class LLG2SublatticeModel(EffectModel):
     ) -> np.ndarray:
         """Fixed-step RK4 integration of coupled two-sublattice LLG.
 
+        Uses an internal oversampled time grid (at least 10 steps per
+        exchange-driven precession period) to remain numerically stable
+        for large AFM exchange fields (H_E ~ 10⁸–10⁹ A/m).  Mirrors the
+        pattern used in ``MacrospinModel._llg_rk4`` and ``LLGModel.forward()``.
+        Output is sampled at the requested ``t_arr`` points.
+
         Returns array of shape (N, 6): columns 0:3 = m_a, columns 3:6 = m_b.
         """
         gamma_eff_a = gamma_a / (1.0 + alpha_a**2)
@@ -256,22 +262,51 @@ class LLG2SublatticeModel(EffectModel):
                 + H_A * mb[2] * np.array([0.0, 0.0, 1.0])
             )
 
-            mxH_a = np.cross(ma, H_eff_a)
-            mxH_b = np.cross(mb, H_eff_b)
+            # H_eff_a/b are in A/m; multiply by MU_0 to convert to T.
+            # LLG in SI: dm/dt = -γ·μ₀·(m×H_eff) + ...
+            mxH_a = np.cross(ma, MU_0 * H_eff_a)
+            mxH_b = np.cross(mb, MU_0 * H_eff_b)
 
             dma = -gamma_eff_a * (mxH_a + alpha_a * np.cross(ma, mxH_a))
             dmb = -gamma_eff_b * (mxH_b + alpha_b * np.cross(mb, mxH_b))
             return dma, dmb
 
-        for i in range(1, n_out):
-            dt = t_arr[i] - t_arr[i - 1]
-            k1a, k1b = _rhs(m_a, m_b)
-            k2a, k2b = _rhs(m_a + 0.5 * dt * k1a, m_b + 0.5 * dt * k1b)
-            k3a, k3b = _rhs(m_a + 0.5 * dt * k2a, m_b + 0.5 * dt * k2b)
-            k4a, k4b = _rhs(m_a + dt * k3a, m_b + dt * k3b)
+        # Build internal oversampled grid: at least 10 steps per exchange
+        # precession period.  The dominant frequency for an AFM/FiM is set
+        # by the exchange field H_E; anisotropy H_A and external field H_ext
+        # are secondary but included in the max-frequency estimate.
+        t_start = float(t_arr[0])
+        t_end = float(t_arr[-1])
+        H_ext_mag = float(np.linalg.norm(H_ext))
+        omega_max = abs(GAMMA_E) * float(MU_0) * max(abs(H_E), abs(H_A), H_ext_mag)
+        if omega_max > 0 and t_end > t_start:
+            max_step = min(
+                (t_end - t_start) / 5.0,
+                2.0 * np.pi / omega_max / 10.0,
+            )
+        elif t_end > t_start:
+            max_step = (t_end - t_start) / 100.0
+        else:
+            # Degenerate interval: nothing to integrate.
+            return result
 
-            m_a = m_a + dt / 6.0 * (k1a + 2.0 * k2a + 2.0 * k3a + k4a)
-            m_b = m_b + dt / 6.0 * (k1b + 2.0 * k2b + 2.0 * k3b + k4b)
+        n_internal = max(int((t_end - t_start) / max_step) + 1, 4 * n_out)
+        t_internal = np.linspace(t_start, t_end, n_internal + 1)
+        dt_int = t_internal[1] - t_internal[0]
+
+        # Collect output points starting from index 1 (index 0 already stored).
+        out_idx = 1
+
+        for i in range(len(t_internal) - 1):
+            if dt_int == 0.0:
+                break
+            k1a, k1b = _rhs(m_a, m_b)
+            k2a, k2b = _rhs(m_a + 0.5 * dt_int * k1a, m_b + 0.5 * dt_int * k1b)
+            k3a, k3b = _rhs(m_a + 0.5 * dt_int * k2a, m_b + 0.5 * dt_int * k2b)
+            k4a, k4b = _rhs(m_a + dt_int * k3a, m_b + dt_int * k3b)
+
+            m_a = m_a + dt_int / 6.0 * (k1a + 2.0 * k2a + 2.0 * k3a + k4a)
+            m_b = m_b + dt_int / 6.0 * (k1b + 2.0 * k2b + 2.0 * k3b + k4b)
 
             # Renormalise
             norm_a = np.linalg.norm(m_a)
@@ -281,8 +316,18 @@ class LLG2SublatticeModel(EffectModel):
             if norm_b > 1e-12:
                 m_b /= norm_b
 
-            result[i, :3] = m_a
-            result[i, 3:] = m_b
+            # Collect requested output points that fall within this step
+            t_next = t_internal[i + 1]
+            while out_idx < n_out and t_arr[out_idx] <= t_next + 1e-15:
+                result[out_idx, :3] = m_a
+                result[out_idx, 3:] = m_b
+                out_idx += 1
+
+        # Fill any remaining output points
+        while out_idx < n_out:
+            result[out_idx, :3] = m_a
+            result[out_idx, 3:] = m_b
+            out_idx += 1
 
         return result
 
@@ -330,27 +375,43 @@ class LLG2SublatticeModel(EffectModel):
             except Exception:
                 H_E_init = 1e6
 
-            H_A_mid = float(np.median(H_A_arr))
+            # AFMR analytic mode: x is the H_A sweep; only H_E is a true free
+            # parameter (the model calls afmr_frequency(H_E, ha, gamma) for
+            # each ha in x).  H_A, alpha_a, alpha_b are not identifiable from
+            # this data and must NOT be included in the fit — doing so produces
+            # a degenerate covariance matrix (FINDING 5).
+            afmr_specs = [
+                ParamSpec(
+                    "H_E",
+                    "A/m",
+                    lower=0.0,
+                    upper=None,
+                    description="Intersublattice exchange field H_E [A/m]",
+                ),
+            ]
 
-            def model_fn(
-                x: np.ndarray, H_E: float, H_A: float, alpha_a: float, alpha_b: float
-            ) -> np.ndarray:
+            def model_fn(x: np.ndarray, H_E: float) -> np.ndarray:
                 return np.array([afmr_frequency(H_E, float(ha), gamma) for ha in x])
 
-            init = {
-                "H_E": H_E_init,
-                "H_A": H_A_mid,
-                "alpha_a": 0.005,
-                "alpha_b": 0.005,
-            }
-            return run_fit(
+            fit_result = run_fit(
                 model_fn=model_fn,
                 x_data=H_A_arr,
                 y_data=f_afmr_data,
-                param_specs=self.parameters,
-                init_values=init,
+                param_specs=afmr_specs,
+                init_values={"H_E": H_E_init},
                 effect_name=self.name,
             )
+
+            # Promote to full 4-parameter FitResult for API consistency.
+            # H_A, alpha_a, alpha_b are returned at their default/initial values
+            # with zero uncertainty (they are not constrained by AFMR data alone).
+            fit_result.params.setdefault("H_A", float(np.median(H_A_arr)))
+            fit_result.params.setdefault("alpha_a", 0.005)
+            fit_result.params.setdefault("alpha_b", 0.005)
+            fit_result.uncertainties.setdefault("H_A", 0.0)
+            fit_result.uncertainties.setdefault("alpha_a", 0.0)
+            fit_result.uncertainties.setdefault("alpha_b", 0.0)
+            return fit_result
 
         elif "m_a" in data and "m_b" in data and "f_comp" in data:
             # --- FiM compensation mode ---
@@ -361,50 +422,49 @@ class LLG2SublatticeModel(EffectModel):
             gamma_a = float(geo.get("gamma_a", abs(GAMMA_E)))
             gamma_b = float(geo.get("gamma_b", abs(GAMMA_E)))
 
-            # Analytic single-point inversion:
-            # f_comp = (|γ_a m_a − γ_b m_b| / (m_a + m_b)) · μ₀ · H_E
-            # → H_E = f_comp · (m_a + m_b) / (|γ_a m_a − γ_b m_b| · μ₀)
+            # Analytic single-point inversion.
+            # ferrimagnet_compensation_freq() returns f [Hz] = ω/(2π) where
+            # ω = (|γ_a m_a − γ_b m_b| / (m_a + m_b)) · μ₀ · H_E
+            # Solving for H_E from f_comp [Hz]:
+            # f_comp = ω / (2π) → ω = 2π · f_comp
+            # H_E = 2π · f_comp · (m_a + m_b) / (|γ_a m_a − γ_b m_b| · μ₀)
             denom_gamma = abs(gamma_a * m_a_val - gamma_b * m_b_val)
             if denom_gamma < 1e-30:
                 H_E_solved = 1e6  # fallback
             else:
-                H_E_solved = f_comp_val * (m_a_val + m_b_val) / (denom_gamma * MU_0)
+                H_E_solved = (
+                    2.0 * math.pi * f_comp_val * (m_a_val + m_b_val) / (denom_gamma * MU_0)
+                )
 
-            # Build a minimal FitResult using only H_E (single-point fit is
-            # analytically determined — wrap in run_fit with a 1-parameter
-            # model over a small H_E neighbourhood so provenance is recorded)
-            he_spec = [ParamSpec("H_E", "A/m", lower=0.0, upper=None, description="Exchange field")]
-
-            def model_fn_he(x: np.ndarray, H_E: float) -> np.ndarray:
-                return np.array([
-                    ferrimagnet_compensation_freq(m_a_val, m_b_val, H_E, gamma_a, gamma_b)
-                    for _ in x
-                ])
-
-            # Provide a small sweep of H_E values around the analytic solution
-            # to give lmfit enough data points (M ≥ N requirement)
-            n_pts = max(5, len(np.atleast_1d(data["f_comp"])))
-            x_sweep = np.linspace(max(H_E_solved * 0.9, 1.0), H_E_solved * 1.1, n_pts)
-            y_sweep = np.array([
-                ferrimagnet_compensation_freq(m_a_val, m_b_val, float(he), gamma_a, gamma_b)
-                for he in x_sweep
-            ])
-            fit_he = run_fit(
-                model_fn=model_fn_he,
-                x_data=x_sweep,
-                y_data=y_sweep,
-                param_specs=he_spec,
-                init_values={"H_E": H_E_solved},
+            # Single-point analytic inversion: H_E is fully determined by
+            # f_comp, m_a, m_b, gamma_a, gamma_b with no degrees of freedom.
+            # Wrapping this in a run_fit call over *synthetic* data generated
+            # from H_E_solved would be circular (FINDING 8) — the fit would
+            # always converge to H_E_solved regardless of the input f_comp.
+            # Instead, return a FitResult directly from the analytic inversion
+            # and record the data-vs-model residual for provenance.
+            f_model = ferrimagnet_compensation_freq(m_a_val, m_b_val, H_E_solved, gamma_a, gamma_b)
+            residual = float(abs(f_comp_val - f_model))
+            fit_he = FitResult(
+                params={
+                    "H_E": H_E_solved,
+                    "H_A": 1e3,          # not constrained by this measurement
+                    "alpha_a": 0.005,    # not constrained by this measurement
+                    "alpha_b": 0.005,    # not constrained by this measurement
+                },
+                uncertainties={
+                    "H_E": 0.0,   # analytic result — no statistical uncertainty
+                    "H_A": 0.0,
+                    "alpha_a": 0.0,
+                    "alpha_b": 0.0,
+                },
+                chi2=residual**2,
+                reduced_chi2=residual**2,  # 1 data point, 0 DOF
+                covariance=np.zeros((1, 1)),
+                message="COMPUTED: analytic single-point inversion; no statistical fit performed.",
+                success=True,
                 effect_name=self.name,
             )
-
-            # Promote to full 4-parameter FitResult for API consistency
-            fit_he.params.setdefault("H_A", 1e3)
-            fit_he.params.setdefault("alpha_a", 0.005)
-            fit_he.params.setdefault("alpha_b", 0.005)
-            fit_he.uncertainties.setdefault("H_A", 0.0)
-            fit_he.uncertainties.setdefault("alpha_a", 0.0)
-            fit_he.uncertainties.setdefault("alpha_b", 0.0)
             return fit_he
 
         else:

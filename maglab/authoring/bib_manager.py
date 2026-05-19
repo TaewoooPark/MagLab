@@ -126,10 +126,10 @@ class BibManager:
         fields: list[Field] = [Field("doi", norm_doi)]
 
         # Map common metadata fields to BibTeX fields.
+        # "author" takes priority over "authors" to avoid duplicate author fields
+        # when a metadata dict contains both keys (e.g. from some APIs).
         _field_map = {
             "title": "title",
-            "author": "author",
-            "authors": "author",
             "year": "year",
             "journal": "journal",
             "volume": "volume",
@@ -140,12 +140,19 @@ class BibManager:
         for src_key, bib_key in _field_map.items():
             val = metadata.get(src_key)
             if val is not None:
-                str_val = (
-                    " and ".join(val)
-                    if src_key in ("authors",) and isinstance(val, list)
-                    else str(val)
-                )
-                fields.append(Field(bib_key, str_val))
+                fields.append(Field(bib_key, str(val)))
+
+        # Handle author/authors with explicit priority: "author" wins over "authors".
+        if metadata.get("author") is not None:
+            fields.append(Field("author", str(metadata["author"])))
+        elif metadata.get("authors") is not None:
+            authors_val = metadata["authors"]
+            str_val = (
+                " and ".join(authors_val)
+                if isinstance(authors_val, list)
+                else str(authors_val)
+            )
+            fields.append(Field("author", str_val))
 
         entry = Entry(entry_type, cite_key, fields)
         self._library.add(entry)

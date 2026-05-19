@@ -84,20 +84,27 @@ class FigureComposer:
 
         with plt.rc_context(rcparams):
             fig = plt.figure(figsize=figsize)
-            gs = gridspec.GridSpec(
-                nrows,
-                ncols,
-                figure=fig,
-                hspace=spec.layout.hspace,
-                wspace=spec.layout.wspace,
-            )
+            try:
+                gs = gridspec.GridSpec(
+                    nrows,
+                    ncols,
+                    figure=fig,
+                    hspace=spec.layout.hspace,
+                    wspace=spec.layout.wspace,
+                )
 
-            renderer = DataPlotRenderer(style_rcparams=rcparams)
+                renderer = DataPlotRenderer(style_rcparams=rcparams)
 
-            for idx, panel in enumerate(spec.panels):
-                ax = self._make_axes(fig, gs, panel, nrows, ncols)
-                self._render_panel(renderer, panel, ax, ledger)
-                self._add_panel_label(ax, idx, style, rcparams)
+                for idx, panel in enumerate(spec.panels):
+                    ax = self._make_axes(fig, gs, panel, nrows, ncols)
+                    self._render_panel(renderer, panel, ax, ledger)
+                    self._add_panel_label(ax, idx, style, rcparams)
+            except Exception:
+                # HIGH-2 fix: close the figure on any rendering error so that
+                # matplotlib's internal figure manager does not hold an orphaned
+                # reference, preventing memory leaks in long-running sessions.
+                plt.close(fig)
+                raise
 
         return fig
 
@@ -122,6 +129,12 @@ class FigureComposer:
             raise ValueError(
                 f"Panel '{panel.panel_id}': grid_position (row={pos.row}, col={pos.col}) "
                 f"is outside the layout ({nrows}×{ncols})."
+            )
+        # MEDIUM-2 fix: also validate that the span end stays within bounds.
+        if row_end > nrows or col_end > ncols:
+            raise ValueError(
+                f"Panel '{panel.panel_id}': span [{pos.row}:{row_end}, {pos.col}:{col_end}] "
+                f"exceeds layout bounds ({nrows}×{ncols})."
             )
         return fig.add_subplot(gs[pos.row : row_end, pos.col : col_end])
 

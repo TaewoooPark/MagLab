@@ -10,7 +10,12 @@ import logging
 from datetime import date
 from typing import Any
 
-from maglab.lab.notebook.entry import ELNEntry, ELNNotebook, MeasurementType
+from maglab.lab.notebook.entry import (
+    _TEMPLATES,
+    ELNEntry,
+    ELNNotebook,
+    MeasurementType,
+)
 
 log = logging.getLogger(__name__)
 
@@ -91,18 +96,22 @@ def draft_from_fit_result(
     if eff:
         tags.append(eff.replace(" ", "_"))
 
-    entry = notebook.create_entry(
-        body,
+    mtype = _infer_measurement_type(eff)
+    # Build the entry with the correct title before any write so the entry is
+    # persisted exactly once with the right title.  Prepend the measurement-type
+    # template the same way create_entry() would, keeping body content identical.
+    entry = ELNEntry(
+        date=date.today(),
+        title=title,
         sample=sample,
         instrument=instrument,
-        measurement_type=_infer_measurement_type(eff),
+        measurement_type=mtype,
         tags=tags,
         datapoint_ids=datapoint_ids or [],
+        body=_TEMPLATES.get(mtype, "") + "\n" + body,
         provenance_entity_ids=provenance_entity_ids or [],
         is_draft=True,
     )
-    # Override title
-    entry.title = title
     notebook.save_entry(entry)
 
     log.info("[ELN auto-draft] Entry created: entry_id=%s", entry.entry_id)

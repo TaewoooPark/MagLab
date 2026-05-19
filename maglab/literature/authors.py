@@ -16,6 +16,7 @@ from maglab.literature.connectors import (
     SemanticScholarConnector,
     _cache_get,
     _cache_put,
+    _is_retriable,
     _make_cache_key,
     _with_backoff,
 )
@@ -127,9 +128,15 @@ def _enrich_with_s2(profile: AuthorProfile) -> AuthorProfile:
 
 
 def _name_similar(a: str, b: str) -> bool:
-    """Simple comparison to determine whether two author names refer to the same person."""
+    """Simple comparison to determine whether two author names refer to the same person.
+
+    Returns False immediately when either name is empty so that an empty
+    ``profile.name`` cannot match any S2 candidate (fix for F-09).
+    """
     a_parts = set(a.lower().split())
     b_parts = set(b.lower().split())
+    if not a_parts or not b_parts:
+        return False
     return len(a_parts & b_parts) >= min(2, len(a_parts))
 
 
@@ -185,7 +192,9 @@ def find_authoritative_authors(
                 .sort("cited_by_count", descending=True)
                 .get(per_page=max_results)
             )
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            if _is_retriable(exc):
+                raise
             authors_raw = []
 
         for auth in authors_raw or []:
@@ -204,19 +213,24 @@ def find_authoritative_authors(
                         recent = [
                             OpenAlexConnector._work_to_record(w) for w in (recent_works or [])
                         ]
-                    except Exception:  # noqa: BLE001
-                        pass
+                    except Exception as exc:  # noqa: BLE001
+                        if _is_retriable(exc):
+                            raise
 
                 profile = _oa_author_to_profile(auth, recent_papers=recent)
                 if enrich_s2 and profile.name:
                     profile = _enrich_with_s2(profile)
                 profiles.append(profile)
             except Exception as exc:  # noqa: BLE001
+                if _is_retriable(exc):
+                    raise
                 log.debug("Author profile conversion failed: %s", exc)
 
     except ImportError:
         log.warning("pyalex not installed — authoritative author search unavailable")
     except Exception as exc:  # noqa: BLE001
+        if _is_retriable(exc):
+            raise
         log.warning("Authoritative author search failed (topic=%s): %s", topic, exc)
 
     # Sort by h-index and citation count

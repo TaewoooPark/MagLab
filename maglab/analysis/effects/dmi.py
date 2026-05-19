@@ -22,16 +22,19 @@ from maglab.analysis.effects.base import (
     ParamSpec,
 )
 from maglab.analysis.fit import run_fit
-from maglab.physics.constants import GAMMA_E, MU_0
+from maglab.physics.constants import GAMMA_E
 
 
 class DMIEffect(EffectModel):
     """DMI (interfacial Dzyaloshinskii-Moriya interaction) BLS EffectModel.
 
     BLS non-reciprocal frequency shift:
-    Δf(k) = f(+k) − f(−k) = 2·γ·D_i·k / (π·μ₀·M_s)
+    Δf(k) = f(+k) − f(−k) = 2·γ_p·D_i·k / M_s
 
-    where γ = γ/(2π) [GHz/T], k [m⁻¹], D_i [J/m²], M_s [A/m].
+    where γ_p = γ/(2π) [Hz/T], k [m⁻¹], D_i [J/m²], M_s [A/m].
+    No μ₀ in the denominator: D_i is in J/m², M_s in A/m, and the formula
+    is dimensionally consistent without μ₀ (verified against Di et al.
+    PRL 114, 047201 (2015) Eq. (2) in SI units).
 
     D_i > 0: counterclockwise DMI (stabilizes Néel skyrmions).
 
@@ -93,7 +96,11 @@ class DMIEffect(EffectModel):
         params: dict[str, float],
         geometry: dict[str, Any] | None = None,
     ) -> np.ndarray:
-        """Compute Δf = 2γD_i k / (πμ₀M_s).
+        """Compute Δf = 2·γ_p·D_i·k / M_s.
+
+        Correct BLS non-reciprocal frequency shift formula (Di et al. PRL 2015):
+            Δf = 2γD_ik / (2π·Mₛ) = 2γ_p·D_i·k / Mₛ
+        where γ_p = γ/(2π).  No μ₀ in the denominator.
 
         Args:
             params: {"D_i": float [J/m²]}.
@@ -105,9 +112,10 @@ class DMIEffect(EffectModel):
         D_i = params["D_i"]
         k = geometry["k"] if geometry and "k" in geometry else np.array([1e7])
         Ms = float((geometry or {}).get("Ms", 8e5))
-        # γ' = γ/(2π) [GHz/T], where γ = GAMMA_E [rad/(s·T)]
+        # γ_p = γ/(2π) [GHz/T], where γ = GAMMA_E [rad/(s·T)]
         gamma_p = abs(GAMMA_E) / (2.0 * np.pi) * 1e-9  # GHz/T
-        return 2.0 * gamma_p * D_i * k / (np.pi * MU_0 * Ms)
+        # Correct formula: no μ₀, no standalone π in denominator
+        return 2.0 * gamma_p * D_i * k / Ms
 
     def fit(
         self,
@@ -128,10 +136,10 @@ class DMIEffect(EffectModel):
         Ms = float((geometry or {}).get("Ms", 8e5))
         gamma_p = abs(GAMMA_E) / (2.0 * np.pi) * 1e-9  # GHz/T
 
-        # Linear regression: Δf = slope·k, slope = 2γD_i/(πμ₀M_s)
+        # Linear regression: Δf = slope·k, slope = 2·γ_p·D_i / Ms
         try:
             slope = float(np.polyfit(k, delta_f, 1)[0])
-            D_i_init = slope * np.pi * MU_0 * Ms / (2.0 * gamma_p)
+            D_i_init = slope * Ms / (2.0 * gamma_p)
         except Exception:
             D_i_init = 1e-3
 
@@ -139,7 +147,7 @@ class DMIEffect(EffectModel):
         _gamma_p = gamma_p
 
         def model_fn(x: np.ndarray, D_i: float) -> np.ndarray:
-            return 2.0 * _gamma_p * D_i * x / (np.pi * MU_0 * _Ms)
+            return 2.0 * _gamma_p * D_i * x / _Ms
 
         return run_fit(
             model_fn=model_fn,

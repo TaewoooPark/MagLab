@@ -175,16 +175,20 @@ class MacrospinModel(EffectModel):
     ) -> np.ndarray:
         """Fixed-step RK4 LLG integration (macrospin).
 
+        Uses an internal oversampled time grid to ensure at least 10 steps
+        per precession period at the applied field (matching LLGModel.forward()).
+
         Returns m(t) array of shape (N, 3) where N = len(t_arr).
         """
         gamma_eff = abs(GAMMA_E) / (1.0 + alpha**2)
         m_curr = m_0.copy().astype(float)
         n_out = len(t_arr)
         result = np.zeros((n_out, 3))
-        result[0] = m_curr
 
         def rhs(m: np.ndarray) -> np.ndarray:
-            mxH = np.cross(m, H_eff)
+            # H_eff is in A/m; multiply by MU_0 to convert to T.
+            # LLG in SI: dm/dt = -γ·μ₀·(m×H_eff) + ...
+            mxH = np.cross(m, MU_0 * H_eff)
             precession = -gamma_eff * mxH
             damping = -alpha * gamma_eff * np.cross(m, mxH)
             mxmp = np.cross(m, m_p)
@@ -192,17 +196,48 @@ class MacrospinModel(EffectModel):
             stt_fl = tau_FL * mxmp
             return precession + damping + stt_dl + stt_fl
 
-        for i in range(1, n_out):
-            dt = t_arr[i] - t_arr[i - 1]
+        # Build internal oversampled grid: at least 10 steps per precession period
+        t_start = float(t_arr[0])
+        t_end = float(t_arr[-1])
+        H_mag = float(np.linalg.norm(H_eff))
+        if H_mag > 0:
+            omega_max = abs(GAMMA_E) * float(MU_0) * H_mag
+            max_step = min(
+                (t_end - t_start) / 5.0 if t_end > t_start else 1e-12,
+                2.0 * np.pi / omega_max / 10.0,
+            )
+        else:
+            max_step = (t_end - t_start) / 100.0 if t_end > t_start else 1e-12
+
+        n_internal = max(int((t_end - t_start) / max_step) + 1, 4 * n_out) if t_end > t_start else n_out
+        t_internal = np.linspace(t_start, t_end, n_internal + 1)
+        dt_int = t_internal[1] - t_internal[0] if n_internal > 0 else 0.0
+
+        # Store initial condition exactly at t_arr[0]
+        result[0] = m_curr
+        out_idx = 1
+
+        for i in range(len(t_internal) - 1):
+            if dt_int == 0.0:
+                break
             k1 = rhs(m_curr)
-            k2 = rhs(m_curr + 0.5 * dt * k1)
-            k3 = rhs(m_curr + 0.5 * dt * k2)
-            k4 = rhs(m_curr + dt * k3)
-            m_curr = m_curr + dt / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+            k2 = rhs(m_curr + 0.5 * dt_int * k1)
+            k3 = rhs(m_curr + 0.5 * dt_int * k2)
+            k4 = rhs(m_curr + dt_int * k3)
+            m_curr = m_curr + dt_int / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
             norm = np.linalg.norm(m_curr)
             if norm > 1e-12:
                 m_curr /= norm
-            result[i] = m_curr
+            # Collect requested output points that fall within this step
+            t_next = t_internal[i + 1]
+            while out_idx < n_out and t_arr[out_idx] <= t_next + 1e-15:
+                result[out_idx] = m_curr
+                out_idx += 1
+
+        # Fill any remaining output points
+        while out_idx < n_out:
+            result[out_idx] = m_curr
+            out_idx += 1
 
         return result
 
@@ -283,20 +318,32 @@ class MacrospinModel(EffectModel):
             idx_easy = int(np.argmax(H_sw_data))
             H_k_init = float(H_sw_data[idx_easy])
 
-            def model_fn(
-                x: np.ndarray, H_k: float, alpha: float, tau_DL: float, tau_FL: float
-            ) -> np.ndarray:
+            # Only H_k is identifiable from a static switching-field astroid.
+            # alpha, tau_DL, tau_FL are dynamic quantities; keeping them as free
+            # parameters produces a degenerate covariance (they do not appear in
+            # sw_switching_field).  Fit only H_k; report the rest as fixed.
+            hk_spec = [p for p in self.parameters if p.name == "H_k"]
+
+            def model_fn(x: np.ndarray, H_k: float) -> np.ndarray:
                 return self.sw_switching_field(H_k, x)
 
-            init = {"H_k": H_k_init, "alpha": 0.01, "tau_DL": 0.0, "tau_FL": 0.0}
-            return run_fit(
+            init = {"H_k": H_k_init}
+            fit_result = run_fit(
                 model_fn=model_fn,
                 x_data=theta_H,
                 y_data=H_sw_data,
-                param_specs=self.parameters,
+                param_specs=hk_spec,
                 init_values=init,
                 effect_name=self.name,
             )
+            # Report non-fitted parameters as fixed defaults in FitResult.
+            fit_result.params.setdefault("alpha", 0.01)
+            fit_result.params.setdefault("tau_DL", 0.0)
+            fit_result.params.setdefault("tau_FL", 0.0)
+            fit_result.uncertainties.setdefault("alpha", 0.0)
+            fit_result.uncertainties.setdefault("tau_DL", 0.0)
+            fit_result.uncertainties.setdefault("tau_FL", 0.0)
+            return fit_result
 
         elif "t" in data and "mz" in data:
             # --- Time-series damping fitting mode ---
@@ -305,21 +352,34 @@ class MacrospinModel(EffectModel):
             H_k_fixed = float(geo.get("H_k", 1e5))  # A/m
             omega_0 = abs(GAMMA_E) * MU_0 * H_k_fixed
 
-            def model_fn_t(
-                x: np.ndarray, H_k: float, alpha: float, tau_DL: float, tau_FL: float
-            ) -> np.ndarray:
-                mz_0 = float(mz[0]) if len(mz) > 0 else 0.8
-                return 1.0 - (1.0 - mz_0) * np.exp(-alpha * omega_0 * x)
+            # Only α is identifiable from the ring-down signal.  H_k is held
+            # fixed (supplied via geometry); tau_DL and tau_FL do not enter the
+            # model expression and are reported as fixed defaults to avoid a
+            # singular covariance matrix.
+            alpha_spec = [p for p in self.parameters if p.name == "alpha"]
 
-            init = {"H_k": H_k_fixed, "alpha": 0.01, "tau_DL": 0.0, "tau_FL": 0.0}
-            return run_fit(
+            def model_fn_t(x: np.ndarray, alpha: float) -> np.ndarray:
+                mz_0 = float(mz[0]) if len(mz) > 0 else 0.8
+                # Oscillatory FMR ring-down: m_z(t) = 1 - A·exp(-α·ω₀·t)·cos(ω₀·t)
+                return 1.0 - (1.0 - mz_0) * np.exp(-alpha * omega_0 * x) * np.cos(omega_0 * x)
+
+            init = {"alpha": 0.01}
+            fit_result = run_fit(
                 model_fn=model_fn_t,
                 x_data=t,
                 y_data=mz,
-                param_specs=self.parameters,
+                param_specs=alpha_spec,
                 init_values=init,
                 effect_name=self.name,
             )
+            # Report non-fitted parameters as fixed defaults in FitResult.
+            fit_result.params.setdefault("H_k", H_k_fixed)
+            fit_result.params.setdefault("tau_DL", 0.0)
+            fit_result.params.setdefault("tau_FL", 0.0)
+            fit_result.uncertainties.setdefault("H_k", 0.0)
+            fit_result.uncertainties.setdefault("tau_DL", 0.0)
+            fit_result.uncertainties.setdefault("tau_FL", 0.0)
+            return fit_result
 
         else:
             raise ValueError(

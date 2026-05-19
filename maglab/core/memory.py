@@ -15,6 +15,7 @@ Depends only on maglab.config.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
 import sqlite3
@@ -27,6 +28,8 @@ from pathlib import Path
 from typing import Any
 
 import platformdirs
+
+log = logging.getLogger(__name__)
 
 _APP = "maglab"
 
@@ -376,7 +379,11 @@ class ResearchPool:
         for json_file in sorted(self._dir.glob("*.json"), reverse=True):
             if len(results) >= max_results:
                 break
-            rec = self._load(json_file)
+            try:
+                rec = self._load(json_file)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("ResearchPool: skipping malformed record %s: %s", json_file.name, exc)
+                continue
             if kind and rec.kind != kind:
                 continue
             if topic_tag and topic_tag not in rec.topic_tags:
@@ -420,7 +427,11 @@ class ResearchPool:
         """
         records: list[PoolRecord] = []
         for json_file in sorted(self._dir.glob("*.json"), reverse=True):
-            rec = self._load(json_file)
+            try:
+                rec = self._load(json_file)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("ResearchPool: skipping malformed record %s: %s", json_file.name, exc)
+                continue
             if kind and rec.kind != kind:
                 continue
             records.append(rec)

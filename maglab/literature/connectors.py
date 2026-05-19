@@ -22,6 +22,9 @@ from typing import Any
 import platformdirs
 from pydantic import BaseModel, Field
 
+# HTTP status codes that should be retried (rate-limit and server errors).
+_RETRIABLE_STATUS_CODES: frozenset[int] = frozenset({429, 500, 502, 503, 504})
+
 log = logging.getLogger(__name__)
 
 _APP = "maglab"
@@ -39,7 +42,7 @@ class LiteratureRecord(BaseModel):
     """
 
     doi: str = ""
-    """DOI (normalized: lowercase, leading 'https://doi.org/' removed)."""
+    """DOI (normalized: lowercase, leading 'https://doi.org/' or 'http://doi.org/' removed)."""
     title: str = ""
     """Paper title."""
     authors: list[str] = Field(default_factory=list)
@@ -113,19 +116,28 @@ def _get_cache_conn() -> sqlite3.Connection:
 
 
 def _cache_get(key: str, ttl_s: float = 86400.0) -> Any:
-    """Retrieve a record from cache. Returns None if TTL is exceeded."""
+    """Retrieve a record from cache. Returns None if missing or TTL is exceeded.
+
+    Expired rows are deleted on access so the cache table does not grow
+    without bound (fix for F-08: stale row accumulation).
+    """
     try:
         conn = _get_cache_conn()
-        row = conn.execute(
-            "SELECT payload, cached_at FROM literature_cache WHERE key = ?", (key,)
-        ).fetchone()
-        conn.close()
-        if row is None:
-            return None
-        payload, cached_at = row
-        if time.time() - cached_at > ttl_s:
-            return None
-        return json.loads(payload)  # type: ignore[no-any-return]
+        try:
+            row = conn.execute(
+                "SELECT payload, cached_at FROM literature_cache WHERE key = ?", (key,)
+            ).fetchone()
+            if row is None:
+                return None
+            payload, cached_at = row
+            if time.time() - cached_at > ttl_s:
+                # Delete the expired entry so stale rows do not accumulate.
+                conn.execute("DELETE FROM literature_cache WHERE key = ?", (key,))
+                conn.commit()
+                return None
+            return json.loads(payload)  # type: ignore[no-any-return]
+        finally:
+            conn.close()
     except Exception as exc:  # noqa: BLE001
         log.debug("Cache read error (key=%s): %s", key, exc)
         return None
@@ -135,12 +147,14 @@ def _cache_put(key: str, data: Any) -> None:
     """Write a record to cache."""
     try:
         conn = _get_cache_conn()
-        conn.execute(
-            "INSERT OR REPLACE INTO literature_cache (key, payload, cached_at) VALUES (?,?,?)",
-            (key, json.dumps(data), time.time()),
-        )
-        conn.commit()
-        conn.close()
+        try:
+            conn.execute(
+                "INSERT OR REPLACE INTO literature_cache (key, payload, cached_at) VALUES (?,?,?)",
+                (key, json.dumps(data), time.time()),
+            )
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as exc:  # noqa: BLE001
         log.debug("Cache write error (key=%s): %s", key, exc)
 
@@ -149,6 +163,54 @@ def _make_cache_key(*parts: str) -> str:
     """Generate a cache key."""
     raw = "|".join(parts)
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+
+# ---------------------------------------------------------------------------
+# Retriable-error classifier
+# ---------------------------------------------------------------------------
+
+
+def _is_retriable(exc: BaseException) -> bool:
+    """Return True when *exc* represents a transient error worth retrying.
+
+    Inspects:
+    * ``requests.exceptions.HTTPError`` / ``httpx.HTTPStatusError`` — checks
+      the response status code against ``_RETRIABLE_STATUS_CODES``.
+    * ``requests.exceptions.ConnectionError``, ``TimeoutError``,
+      ``ConnectionResetError``, ``BrokenPipeError`` — always retriable.
+    * Any exception whose string representation starts with "429" or "5xx"
+      pattern (covers library-specific wrappers without a standard status attr).
+    """
+    # --- standard requests/httpx HTTP errors with a status code attribute ---
+    status: int | None = None
+    # requests.exceptions.HTTPError
+    resp = getattr(exc, "response", None)
+    if resp is not None:
+        status = getattr(resp, "status_code", None)
+    # httpx.HTTPStatusError
+    if status is None:
+        status = getattr(exc, "status_code", None)
+
+    if status is not None:
+        return int(status) in _RETRIABLE_STATUS_CODES
+
+    # --- network-level transient errors ---
+    _retriable_types = (
+        TimeoutError,
+        ConnectionError,       # broad: includes ConnectionResetError etc.
+        BrokenPipeError,
+        OSError,               # catches socket-level timeouts
+    )
+    if isinstance(exc, _retriable_types):
+        return True
+
+    # --- heuristic: exception message starts with 429/5xx status string ---
+    msg = str(exc)
+    for code in ("429", "500", "502", "503", "504"):
+        if msg.startswith(code) or f" {code} " in msg or f":{code}" in msg:
+            return True
+
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -259,6 +321,8 @@ class OpenAlexConnector:
             _cache_put(key, rec.model_dump())
             return rec
         except Exception as exc:  # noqa: BLE001
+            if _is_retriable(exc):
+                raise
             log.warning("OpenAlex DOI lookup failed (doi=%s): %s", doi, exc)
             return None
 
@@ -280,6 +344,8 @@ class OpenAlexConnector:
             _cache_put(key, [r.model_dump() for r in records])
             return records
         except Exception as exc:  # noqa: BLE001
+            if _is_retriable(exc):
+                raise
             log.warning("OpenAlex search failed (query=%s): %s", query, exc)
             return []
 
@@ -303,6 +369,8 @@ class OpenAlexConnector:
             _cache_put(key, result)
             return result
         except Exception as exc:  # noqa: BLE001
+            if _is_retriable(exc):
+                raise
             log.warning("OpenAlex author lookup failed (topic=%s): %s", topic_id, exc)
             return []
 
@@ -326,6 +394,8 @@ class OpenAlexConnector:
             _cache_put(key, result)
             return result
         except Exception as exc:  # noqa: BLE001
+            if _is_retriable(exc):
+                raise
             log.warning("OpenAlex journal lookup failed (id=%s): %s", venue_id, exc)
             return {}
 
@@ -421,6 +491,8 @@ class SemanticScholarConnector:
             _cache_put(key, rec.model_dump())
             return rec
         except Exception as exc:  # noqa: BLE001
+            if _is_retriable(exc):
+                raise
             log.warning("S2 DOI lookup failed (doi=%s): %s", doi, exc)
             return None
 
@@ -437,6 +509,8 @@ class SemanticScholarConnector:
             _cache_put(key, [r.model_dump() for r in records])
             return records
         except Exception as exc:  # noqa: BLE001
+            if _is_retriable(exc):
+                raise
             log.warning("S2 search failed (query=%s): %s", query, exc)
             return []
 
@@ -456,11 +530,14 @@ class SemanticScholarConnector:
                     detail = self._api.get_paper(p["paperId"], fields=self._FIELDS)
                     if detail:
                         records.append(self._paper_to_record(detail))
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as inner_exc:  # noqa: BLE001
+                    if _is_retriable(inner_exc):
+                        raise
             _cache_put(key, [r.model_dump() for r in records])
             return records
         except Exception as exc:  # noqa: BLE001
+            if _is_retriable(exc):
+                raise
             log.warning("S2 author paper lookup failed (author=%s): %s", author_id, exc)
             return []
 
@@ -556,6 +633,8 @@ class ArXivConnector:
             _cache_put(key, [r.model_dump() for r in records])
             return records
         except Exception as exc:  # noqa: BLE001
+            if _is_retriable(exc):
+                raise
             log.warning("arXiv search failed (query=%s): %s", query, exc)
             return []
 
@@ -576,6 +655,8 @@ class ArXivConnector:
             _cache_put(key, rec.model_dump())
             return rec
         except Exception as exc:  # noqa: BLE001
+            if _is_retriable(exc):
+                raise
             log.warning("arXiv ID lookup failed (id=%s): %s", arxiv_id, exc)
             return None
 
@@ -584,7 +665,12 @@ class ArXivConnector:
         """Convert an arXiv Result object to a LiteratureRecord."""
         doi = ""
         if result.doi:
-            doi = str(result.doi).lower().replace("https://doi.org/", "")
+            doi = (
+                str(result.doi)
+                .lower()
+                .replace("https://doi.org/", "")
+                .replace("http://doi.org/", "")
+            )
 
         authors = [str(a) for a in (result.authors or [])]
 
@@ -647,6 +733,8 @@ class CrossRefConnector:
             _cache_put(key, rec.model_dump())
             return rec
         except Exception as exc:  # noqa: BLE001
+            if _is_retriable(exc):
+                raise
             log.warning("CrossRef DOI lookup failed (doi=%s): %s", doi, exc)
             return None
 

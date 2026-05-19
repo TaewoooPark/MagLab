@@ -174,8 +174,9 @@ class DataVault:
     def _format_value(dp: DataPoint) -> str:
         """Format a DataPoint's value as a string for LaTeX insertion."""
         if isinstance(dp.value, list):
-            # Array — format as comma-separated list or defer to user
-            return ", ".join(f"{v:.6g}" for v in dp.value)
+            # Array — format as comma-separated list with SI unit annotation
+            values = ", ".join(f"{v:.6g}" for v in dp.value)
+            return rf"({values})\,\si{{{dp.units}}}"
         val = dp.scalar()
         if dp.uncertainty is not None:
             return rf"{val:.6g}\,\pm\,{dp.uncertainty:.6g}\,\si{{{dp.units}}}"

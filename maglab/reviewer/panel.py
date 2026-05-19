@@ -44,12 +44,16 @@ class PersonaSpec:
         Number of corpus papers (for disclosure label).
     verified_dois:
         Verified DOI set retrieved from corpus RAG.
+    verified_arxivs:
+        Verified arXiv ID set retrieved from corpus RAG.
+        Passed to ``PersonaGuard`` so safeguard ③ can validate arXiv citations.
     """
 
     author_id: str
     author_name: str = ""
     paper_count: int = 0
-    verified_dois: set[str] = field(default_factory=set)
+    verified_dois: set[str] | None = None
+    verified_arxivs: set[str] | None = None
 
 
 @dataclass
@@ -122,9 +126,16 @@ class ReviewPanel:
         Target journal identifier for evaluation.
     llm_review_fn:
         LLM review generation function.
-        Signature: (persona: PersonaSpec, manuscript: str, rag_results: list[SearchResult],
-                   rubric: Rubric) -> str
-        None generates dummy reviews (test mode).
+        Signature (two supported forms):
+
+        * ``(persona, manuscript, rag_results, rubric) -> str``
+          — returns review text only.  ``ReviewScore`` is derived by parsing
+          the returned text; a dummy score is used if parsing fails.
+        * ``(persona, manuscript, rag_results, rubric) -> (str, ReviewScore)``
+          — returns a ``(review_text, ReviewScore)`` tuple.  The score is used
+          directly without any parsing.
+
+        ``None`` generates dummy reviews and dummy scores (test mode).
     """
 
     def __init__(
@@ -200,6 +211,7 @@ class ReviewPanel:
             author_id=persona.author_id,
             author_name=persona.author_name,
             verified_dois=persona.verified_dois,
+            verified_arxivs=persona.verified_arxivs,
         )
         optout_violations = guard.check_author_eligibility()
         if optout_violations:
@@ -212,9 +224,15 @@ class ReviewPanel:
             top_k=rag_top_k,
         )
 
-        # Generate LLM review
+        # Generate LLM review (and optionally a real ReviewScore).
+        llm_score: ReviewScore | None = None
         if self._llm_fn is not None:
-            raw_review = self._llm_fn(persona, manuscript, rag_results, self._rubric)
+            llm_result = self._llm_fn(persona, manuscript, rag_results, self._rubric)
+            # Accept either plain str or (str, ReviewScore) from the LLM callable.
+            if isinstance(llm_result, tuple) and len(llm_result) == 2:
+                raw_review, llm_score = llm_result
+            else:
+                raw_review = llm_result
         else:
             # Test dummy review
             raw_review = self._dummy_review(persona, rag_results)
@@ -223,14 +241,16 @@ class ReviewPanel:
         raw_review = guard.add_disclosure(raw_review, persona.paper_count)
         disclosure_passed = True
         try:
-            guard.guard(raw_review, raise_on_violation=raise_on_disclosure_violation)
+            guard_result = guard.guard(raw_review, raise_on_violation=raise_on_disclosure_violation)
+            disclosure_passed = guard_result.passed
         except PersonaDisclosureError:
             disclosure_passed = False
             if raise_on_disclosure_violation:
                 raise
 
-        # Generate dummy scores (when no LLM)
-        score = self._make_dummy_score(persona)
+        # Use the LLM-provided score when available; fall back to dummy only
+        # when no real LLM review function was supplied (test/mock mode).
+        score = llm_score if llm_score is not None else self._make_dummy_score(persona)
         validation_errors = score.validate(self._rubric)
 
         return PersonaReview(

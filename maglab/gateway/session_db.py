@@ -157,20 +157,25 @@ class SessionDB:
     def get_or_create_session(
         self,
         platform: str,
-        user_id: str,
+        user_id_hash: str,
         channel_id: str = "",
     ) -> Session:
         """Return an existing session or create a new one.
 
-        The *user_id* argument is hashed before persistence — the raw value
-        is never written to disk.
+        The caller is responsible for hashing the raw user identifier before
+        calling this method — the adapter's ``parse_message`` already produces
+        a ``SHA-256(user_id)`` hex digest in ``UnifiedMessage.user_id_hash``.
+        Passing the pre-hashed value here ensures the stored hash is exactly
+        ``SHA-256(original_user_id)``, not a double-hash.
 
         Parameters
         ----------
         platform:
             Originating platform (``"slack"``, ``"telegram"``, ``"discord"``).
-        user_id:
-            Platform-specific user identifier (will be SHA-256 hashed).
+        user_id_hash:
+            SHA-256 hex digest of the platform-specific user identifier (as
+            produced by ``hash_user_id`` / ``UnifiedMessage.user_id_hash``).
+            The raw user ID must never be passed here.
         channel_id:
             Channel or chat identifier (stored as-is).
 
@@ -180,7 +185,7 @@ class SessionDB:
             Either the existing session or a freshly created one.
         """
         conn = self._get_conn()
-        uid_hash = _hash_user_id(user_id)
+        uid_hash = user_id_hash
         now = time.time()
 
         row = conn.execute(

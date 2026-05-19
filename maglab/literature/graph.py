@@ -7,6 +7,7 @@ Literature integrity: retraction checks + contradiction detection.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import sqlite3
@@ -441,9 +442,46 @@ class KnowledgeGraph:
                     relative_diff=rel_diff,
                 )
                 flags.append(flag)
-                # Create a contradicts edge
-                node_a_id = f"paper:{row['doi'] or 'unknown'}"
-                node_b_id = f"paper:{doi or 'unknown'}"
+                # Create a contradicts edge.  F6: DOI-less papers must not all
+                # collapse to "paper:unknown" (that would cause every DOI-less
+                # contradiction to share the same edge_id and be silently
+                # dropped).  Use a 12-hex-char MD5 of the title as a unique
+                # fallback when DOI is absent.
+                def _paper_node_id(d: str, t: str) -> str:
+                    if d:
+                        return f"paper:{d}"
+                    h = hashlib.md5(t.encode()).hexdigest()[:12]
+                    return f"paper:noid-{h}"
+
+                node_a_id = _paper_node_id(row["doi"], row["title"])
+                node_b_id = _paper_node_id(doi, title)
+
+                # Ensure both paper nodes exist in the nodes table so that
+                # get_neighbors() can resolve them during graph traversal.
+                # INSERT OR IGNORE avoids overwriting existing richer node data
+                # (e.g. nodes added explicitly via add_node()).
+                self._conn.execute(
+                    "INSERT OR IGNORE INTO nodes "
+                    "(node_id, node_type, label, properties, created_at) "
+                    "VALUES (?,?,?,?,?)",
+                    (node_a_id, "paper", row["title"] or row["doi"] or node_a_id,
+                     "{}", time.time()),
+                )
+                self._conn.execute(
+                    "INSERT OR IGNORE INTO nodes "
+                    "(node_id, node_type, label, properties, created_at) "
+                    "VALUES (?,?,?,?,?)",
+                    (node_b_id, "paper", title or doi or node_b_id,
+                     "{}", time.time()),
+                )
+                # Commit the node rows immediately so they are durable regardless
+                # of whether add_edge() succeeds or raises IntegrityError (duplicate
+                # edge).  Without this commit, a duplicate-edge IntegrityError in
+                # add_edge() would silently roll back the INSERT OR IGNORE node rows,
+                # leaving the graph in an inconsistent state where an edge references
+                # nodes that do not exist in the nodes table.
+                self._conn.commit()
+
                 edge = GraphEdge(
                     edge_id=f"contra_{node_a_id}_{node_b_id}_{property_name}",
                     source_id=node_b_id,
@@ -474,24 +512,36 @@ class KnowledgeGraph:
     # Literature integrity checks (§14.6)
     # ------------------------------------------------------------------
 
+    # Cache TTL: 7 days in seconds.  After this period a cached entry is
+    # considered stale and the retraction status is re-fetched from OpenAlex.
+    _RETRACTION_CACHE_TTL_S: int = 7 * 86400
+
     def check_retraction(self, doi: str) -> IntegrityResult:
         """Retraction check — block or warn on retracted/corrected papers.
 
-        1. Check local cache.
+        1. Check local cache (respects a 7-day TTL — stale entries are
+           re-fetched so a paper retracted after its first check is caught).
         2. Query OpenAlex ``retraction_status`` (if pyalex is available).
         3. Set ``is_blocked=True`` if status is a blocked status.
         """
-        doi_norm = doi.lower().replace("https://doi.org/", "")
+        # F5: apply the same three-prefix normalization as corpus.py:get_by_doi()
+        doi_norm = (
+            doi.lower()
+            .replace("https://doi.org/", "")
+            .replace("http://doi.org/", "")
+            .replace("doi:", "")
+        )
         result = IntegrityResult(doi=doi_norm)
 
-        # Check cache
+        # Check cache — include checked_at for TTL evaluation (F2)
         cached = self._conn.execute(
-            "SELECT status FROM retraction_cache WHERE doi = ?", (doi_norm,)
+            "SELECT status, checked_at FROM retraction_cache WHERE doi = ?", (doi_norm,)
         ).fetchone()
-        if cached:
+        if cached and (time.time() - cached["checked_at"] < self._RETRACTION_CACHE_TTL_S):
+            # Cache hit within TTL window — use stored status
             status = cached["status"]
         else:
-            # Query OpenAlex
+            # Cache miss or stale entry — re-fetch from OpenAlex
             status = self._fetch_retraction_status_from_oa(doi_norm)
             self._conn.execute(
                 "INSERT OR REPLACE INTO retraction_cache (doi, status, checked_at) VALUES (?,?,?)",
@@ -534,7 +584,12 @@ class KnowledgeGraph:
 
     def set_retraction_cache(self, doi: str, status: str) -> None:
         """For testing/manual use: set the retraction cache entry directly."""
-        doi_norm = doi.lower()
+        doi_norm = (
+            doi.lower()
+            .replace("https://doi.org/", "")
+            .replace("http://doi.org/", "")
+            .replace("doi:", "")
+        )
         self._conn.execute(
             "INSERT OR REPLACE INTO retraction_cache (doi, status, checked_at) VALUES (?,?,?)",
             (doi_norm, status, time.time()),

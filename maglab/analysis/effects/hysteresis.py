@@ -11,6 +11,7 @@ Sources:
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import numpy as np
@@ -148,21 +149,47 @@ class HysteresisLoop(EffectModel):
     def extract_loop_params(self, H: np.ndarray, M: np.ndarray) -> dict[str, float]:
         """Deterministically extract M_s, M_r, H_c from an M(H) loop.
 
+        M_r and H_c require the data to contain actual zero-crossings.  If the
+        H (or M) array does not straddle zero, the corresponding quantity is
+        returned as float('nan') and a warning is emitted — returning the
+        nearest-boundary value would be physically meaningless.
+
         Args:
             H: External magnetic field array [A/m].
             M: Magnetization array [A/m].
 
         Returns:
             Dictionary {"M_s": float, "M_r": float, "H_c": float}.
+            M_r and/or H_c may be nan if the data lacks a zero-crossing.
         """
         M_s = float(np.max(np.abs(M)))
 
-        # M_r: M value at H ≈ 0 (linear interpolation)
-        idx_zero = int(np.argmin(np.abs(H)))
-        M_r = float(abs(M[idx_zero]))
+        # M_r: M at H = 0 — requires H to straddle zero
+        H_min, H_max = float(np.min(H)), float(np.max(H))
+        if H_min >= 0.0 or H_max <= 0.0:
+            warnings.warn(
+                "extract_loop_params: H data does not cross zero "
+                f"(range [{H_min:.3g}, {H_max:.3g}] A/m). "
+                "Returning M_r = nan.",
+                stacklevel=2,
+            )
+            M_r = float("nan")
+        else:
+            idx_zero = int(np.argmin(np.abs(H)))
+            M_r = float(abs(M[idx_zero]))
 
-        # H_c: H value at M ≈ 0 (zero crossing)
-        idx_mc = int(np.argmin(np.abs(M)))
-        H_c = float(abs(H[idx_mc]))
+        # H_c: H at M = 0 — requires M to straddle zero
+        M_min, M_max = float(np.min(M)), float(np.max(M))
+        if M_min >= 0.0 or M_max <= 0.0:
+            warnings.warn(
+                "extract_loop_params: M data does not cross zero "
+                f"(range [{M_min:.3g}, {M_max:.3g}] A/m). "
+                "Returning H_c = nan.",
+                stacklevel=2,
+            )
+            H_c = float("nan")
+        else:
+            idx_mc = int(np.argmin(np.abs(M)))
+            H_c = float(abs(H[idx_mc]))
 
         return {"M_s": M_s, "M_r": M_r, "H_c": H_c}

@@ -386,9 +386,18 @@ def theme_set(
 
         cfg_path.write_text(tomli_w.dumps(raw), encoding="utf-8")
     except ImportError:
-        # Fallback to basic TOML serialization (simple case)
-        lines = [f'[ui]\ntheme = "{name}"\n']
-        cfg_path.write_text("\n".join(lines), encoding="utf-8")
+        # Fallback: hand-serialise the full `raw` dict so no keys are dropped.
+        lines_out: list[str] = []
+        for section, vals in raw.items():
+            if isinstance(vals, dict):
+                lines_out.append(f"[{section}]")
+                for k, v in vals.items():
+                    if isinstance(v, str):
+                        lines_out.append(f'{k} = "{v}"')
+                    else:
+                        lines_out.append(f"{k} = {v}")
+                lines_out.append("")
+        cfg_path.write_text("\n".join(lines_out), encoding="utf-8")
 
     console.print(f"[green]✓[/] Theme set to [bold]{name}[/].")
 
@@ -1252,6 +1261,10 @@ def figure_render_cmd(
     out_path = Path(output) if output else Path(spec_path).with_suffix(f".{fmt}")
 
     with console.status("[dim]Rendering figure…[/]"):
+        import contextlib
+
+        import matplotlib.pyplot as plt
+
         try:
             composer = FigureComposer()
             exporter = FigureExporter()
@@ -1260,6 +1273,9 @@ def figure_render_cmd(
         except Exception as exc:
             console.print(f"[red]Render failed:[/] {exc}")
             raise typer.Exit(1) from exc
+        finally:
+            with contextlib.suppress(Exception):
+                plt.close(fig)
 
     console.print(f"[green]✓[/] Figure saved: [bold]{saved}[/]")
 
@@ -1286,12 +1302,19 @@ def figure_compose_cmd(
     out_path = Path(output) if output else Path(spec_path).with_suffix(f".{fmt}")
 
     with console.status("[dim]Composing multi-panel figure…[/]"):
+        import contextlib
+
+        import matplotlib.pyplot as plt
+
         try:
             fig = FigureComposer().compose(spec, {})
             saved = FigureExporter().export(fig, out_path, fmt=fmt)  # type: ignore[arg-type]
         except Exception as exc:
             console.print(f"[red]Composition failed:[/] {exc}")
             raise typer.Exit(1) from exc
+        finally:
+            with contextlib.suppress(Exception):
+                plt.close(fig)
 
     console.print(f"[green]✓[/] Multi-panel figure saved: [bold]{saved}[/]")
     console.print(f"  Panels: {len(spec.panels)} | Journal: {spec.journal.value}")
@@ -1322,6 +1345,10 @@ def figure_export_cmd(
     fmt_list = list(formats) if formats else ["pdf", "svg"]
 
     with console.status("[dim]Exporting figure…[/]"):
+        import contextlib
+
+        import matplotlib.pyplot as plt
+
         try:
             fig = FigureComposer().compose(spec, {})
             results = FigureExporter().export_all(
@@ -1332,6 +1359,9 @@ def figure_export_cmd(
         except Exception as exc:
             console.print(f"[red]Export failed:[/] {exc}")
             raise typer.Exit(1) from exc
+        finally:
+            with contextlib.suppress(Exception):
+                plt.close(fig)
 
     for fmt_key, path in results.items():
         console.print(f"[green]✓[/] [{fmt_key.upper()}] {path}")

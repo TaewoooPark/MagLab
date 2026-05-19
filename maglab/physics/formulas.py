@@ -162,26 +162,35 @@ def walker_breakdown_field(alpha: float, Ms: float, K: float, A: float) -> float
     return alpha * K / (2.0 * MU_0 * Ms)
 
 
-def walker_velocity(alpha: float, Ms: float, gamma: float = GAMMA_E) -> float:
+def walker_velocity(
+    alpha: float,
+    Ms: float,
+    Delta: float,
+    gamma: float = GAMMA_E,
+) -> float:
     r"""Compute the maximum domain-wall velocity just below the Walker breakdown v_W.
 
     .. math::
-        v_W = \frac{\gamma \mu_0 M_s}{2}
+        v_W = \frac{\gamma \Delta \mu_0 M_s}{2}
+
+    Dimensional analysis:
+        gamma [rad/(s·T)] × Delta [m] × MU_0 [T·m/A] × Ms [A/m] = m/s
 
     References:
-        Walker, in *Magnetism*, ed. Rado & Suhl (1963), Vol. 3.
-        Mougin et al., *EPL* 78, 57007 (2007), Eq. (1).
+        Mougin, A. et al., *EPL* 78, 57007 (2007), Eq. (1).
+        Schryer, N. L., Walker, L. R., *J. Appl. Phys.* 45, 5406 (1974), Eq. (8a).
 
     Args:
         alpha: Gilbert damping constant [dimensionless].
         Ms: Saturation magnetization [A/m].
+        Delta: Domain-wall width parameter Δ [m].
         gamma: Gyromagnetic ratio [rad/(s·T)] (default: electron γ).
 
     Returns:
         Walker velocity [m/s].
     """
     _ = alpha
-    return gamma * MU_0 * Ms / 2.0
+    return gamma * Delta * MU_0 * Ms / 2.0
 
 
 def dw_velocity_below_walker(
@@ -194,13 +203,15 @@ def dw_velocity_below_walker(
     r"""Compute the domain-wall velocity below the Walker breakdown v_DW.
 
     .. math::
-        v_{DW} = \frac{\gamma \Delta}{\alpha} \mu_0 H
+        v_{DW} = \frac{\gamma \Delta \mu_0 H}{1 + \alpha^2}
 
-    (1D LLG model, assuming α ≪ 1.)
+    Schryer–Walker (1974) exact result for the steady-state DW velocity
+    below the Walker breakdown field.
 
     References:
-        Thiaville & Nakatani, in *Spin Dynamics in Confined Magnetic Structures III*,
-        Springer (2006), p. 180, Eq. (3.19).
+        Schryer, N. L., Walker, L. R.,
+        J. Appl. Phys. 45, 5406 (1974), Eq. (8a).
+        DOI: 10.1063/1.1663252
 
     Args:
         H: Applied magnetic field [A/m].
@@ -213,7 +224,7 @@ def dw_velocity_below_walker(
         Domain wall velocity [m/s].
     """
     _ = Ms  # Ms is implicit in delta derivation
-    return (gamma * delta / alpha) * MU_0 * H
+    return gamma * delta * MU_0 * H / (1.0 + alpha**2)
 
 
 # ===========================================================================
@@ -471,7 +482,13 @@ def afmr_frequency(
         Keffer & Kittel, *Phys. Rev.* 85, 329 (1952), Eq. (13).
         Jungwirth et al., *Nature Nanotechnology* 11, 231 (2016), Eq. (2).
     """
-    return (gamma / (2.0 * math.pi)) * MU_0 * math.sqrt(2.0 * H_E * H_A)
+    product = 2.0 * H_E * H_A
+    if product < 0.0:
+        # Unphysical parameter combination (optimizer excursion into negative H_E or H_A).
+        # Return 0 so the Levenberg-Marquardt residual stays finite instead of raising
+        # ValueError, allowing the optimizer to recover toward physical values.
+        return 0.0
+    return (gamma / (2.0 * math.pi)) * MU_0 * math.sqrt(product)
 
 
 # ===========================================================================
@@ -489,8 +506,12 @@ def ferrimagnet_compensation_freq(
     r"""Compute the resonance frequency of a ferrimagnet near the angular-momentum
     compensation point (simple two-sublattice model).
 
+    The intermediate quantity is the angular frequency:
+
     .. math::
-        f_{res} \approx \frac{|\gamma_a m_a - \gamma_b m_b|}{\mu_0(m_a + m_b)} \mu_0 H_{ex}
+        \omega_{res} = \frac{|\gamma_a m_a - \gamma_b m_b|}{m_a + m_b} \mu_0 H_{ex}
+
+    This function returns the ordinary frequency f = ω / (2π) [Hz].
 
     This is a highly simplified model. Accurate computation requires solving
     a 4×4 LLG matrix equation.
@@ -505,13 +526,14 @@ def ferrimagnet_compensation_freq(
         gamma_a, gamma_b: Gyromagnetic ratios of the two sublattices [rad/(s·T)].
 
     Returns:
-        Resonance frequency [Hz] (magnitude only, no sign).
+        Resonance frequency f [Hz] (magnitude only, no sign).
     """
     numerator = abs(gamma_a * m_a - gamma_b * m_b)
     denominator = m_a + m_b
     if denominator <= 0.0:
         raise ValueError("Sum of sublattice magnetizations is zero or negative.")
-    return (numerator / denominator) * MU_0 * H_ex_ab
+    omega = (numerator / denominator) * MU_0 * H_ex_ab  # angular frequency [rad/s]
+    return omega / (2.0 * math.pi)  # convert to Hz
 
 
 # ===========================================================================
@@ -612,4 +634,5 @@ def skyrmion_hall_angle(
     # Gyrovector |G| = 4πQ, dissipation tensor D normalized to 1 (approximation)
     G = 4.0 * math.pi * Q
     D_norm = 1.0  # normalization factor — replaced by integral in detailed calculations
-    return math.atan(G / (alpha * D_norm))
+    # Use atan2 to handle alpha=0 correctly (returns π/2, matching Thiele eq.)
+    return math.atan2(G, alpha * D_norm)

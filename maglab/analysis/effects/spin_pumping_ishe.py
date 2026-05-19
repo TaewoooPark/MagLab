@@ -26,14 +26,14 @@ from maglab.analysis.effects.base import (
     ParamSpec,
 )
 from maglab.analysis.fit import run_fit
-from maglab.physics.constants import GAMMA_E, HBAR, MU_0
+from maglab.physics.constants import GAMMA_E, HBAR
 
 
 class SpinPumpingISHE(EffectModel):
     """Spin pumping/ISHE EffectModel.
 
     FMR linewidth enhancement formula:
-    Δα = (γ ħ g↑↓) / (4π μ₀ M_s d_FM)
+    Δα = (γ ħ g↑↓) / (4π M_s d_FM)
     → Extract g↑↓ from FMR linewidth vs. NM thickness.
 
     ISHE voltage:
@@ -77,6 +77,13 @@ class SpinPumpingISHE(EffectModel):
                 upper=1.0,
                 description="Intrinsic FM Gilbert damping (without NM layer)",
             ),
+            ParamSpec(
+                name="lambda_sf",
+                unit="m",
+                lower=1e-12,
+                upper=None,
+                description="Spin diffusion length λ_sf [m] of the NM layer",
+            ),
         ]
 
     @property
@@ -99,26 +106,36 @@ class SpinPumpingISHE(EffectModel):
         params: dict[str, float],
         geometry: dict[str, Any] | None = None,
     ) -> np.ndarray:
-        """Compute Δα(d_NM) = γħg↑↓ / (4πμ₀M_s·d_FM) (including constant·d_FM).
+        """Compute Δα(d_NM) = γħg↑↓ / (4π M_s·d_FM) · tanh(d_NM / (2λ_sf)).
 
-        Simplified: Δα = C·g↑↓ (C is supplied from geometry).
+        Full thickness-dependent formula including spin backflow (Mosendz 2010):
+            Δα(d_NM) = (γħg↑↓)/(4π·M_s·d_FM) · tanh(d_NM / (2λ_sf))
+
+        This varies with d_NM and saturates for d_NM ≫ λ_sf.
 
         Args:
-            params: {"g_eff": float, "alpha_0": float}.
-            geometry: {"d_NM": ndarray, "Ms": float, "d_FM": float}.
+            params: {"g_eff": float, "alpha_0": float, "lambda_sf": float}.
+            geometry: {"d_NM": ndarray [m], "Ms": float [A/m], "d_FM": float [m]}.
 
         Returns:
-            Total α = alpha_0 + Δα array, or Δα array.
+            Total α = alpha_0 + Δα(d_NM) array, same shape as d_NM.
         """
         g_eff = params["g_eff"]
         alpha_0 = params["alpha_0"]
+        lambda_sf = params.get("lambda_sf", 5e-9)
         Ms = float(geometry.get("Ms", 8e5)) if geometry else 8e5
         d_FM = float(geometry.get("d_FM", 5e-9)) if geometry else 5e-9
-        d_NM = geometry.get("d_NM", np.array([5e-9])) if geometry else np.array([5e-9])
+        d_NM = np.asarray(
+            geometry.get("d_NM", np.array([5e-9])) if geometry else np.array([5e-9]),
+            dtype=float,
+        )
 
         gamma_rad = abs(GAMMA_E)  # rad/(s·T)
-        delta_alpha = (gamma_rad * HBAR * g_eff) / (4.0 * np.pi * MU_0 * Ms * d_FM)
-        return np.full_like(d_NM, alpha_0 + delta_alpha, dtype=float)
+        # Mosendz et al., PRB 82, 214403 (2010), Eq. (2):
+        # Δα = γ·ħ·g↑↓ / (4π·Ms·d_FM)   — no μ₀ in denominator.
+        prefactor = (gamma_rad * HBAR * g_eff) / (4.0 * np.pi * Ms * d_FM)
+        delta_alpha = prefactor * np.tanh(d_NM / (2.0 * lambda_sf))
+        return alpha_0 + delta_alpha
 
     def fit(
         self,
@@ -140,16 +157,16 @@ class SpinPumpingISHE(EffectModel):
         d_FM = float((geometry or {}).get("d_FM", 5e-9))
         gamma_rad = abs(GAMMA_E)
 
-        # Δα ≈ C·g_eff (constant), alpha_total = alpha_0 + Δα
-        prefactor = (gamma_rad * HBAR) / (4.0 * np.pi * MU_0 * Ms * d_FM)
+        # Mosendz et al., PRB 82, 214403 (2010), Eq. (2): no μ₀ in denominator.
+        prefactor = (gamma_rad * HBAR) / (4.0 * np.pi * Ms * d_FM)
 
-        def model_fn(x: np.ndarray, g_eff: float, alpha_0: float) -> np.ndarray:
-            return np.full_like(x, alpha_0 + prefactor * g_eff, dtype=float)
+        def model_fn(x: np.ndarray, g_eff: float, alpha_0: float, lambda_sf: float) -> np.ndarray:
+            return alpha_0 + prefactor * g_eff * np.tanh(x / (2.0 * lambda_sf))
 
-        # Initial values
-        da_mean = float(np.mean(delta_alpha))
-        g_init = max(da_mean / prefactor, 1e17) if prefactor > 0 else 1e18
-        init = {"g_eff": g_init, "alpha_0": 0.005}
+        # Initial values: saturated Δα estimate for g_init; lambda_sf = 5 nm typical
+        da_max = float(np.max(delta_alpha - np.min(delta_alpha)))
+        g_init = max(da_max / prefactor, 1e17) if prefactor > 0 else 1e18
+        init = {"g_eff": g_init, "alpha_0": float(np.min(delta_alpha)), "lambda_sf": 5e-9}
 
         return run_fit(
             model_fn=model_fn,

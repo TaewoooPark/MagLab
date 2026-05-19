@@ -418,19 +418,57 @@ class SCPIIndex:
         texts = [c.to_embedding_text() for c in chunks]
         self._vecs = self._embedder.embed(texts)
 
-        # Serialize and save to SQLite
-        conn = sqlite3.connect(self._db_path)
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS chunks (id INTEGER PRIMARY KEY, data TEXT, vec TEXT)"
-        )
-        conn.execute("DELETE FROM chunks")
-        for i, (chunk, vec) in enumerate(zip(chunks, self._vecs, strict=False)):
+        # Determine embedder identity: class name and vector dimension.
+        # These are stored in a meta table so load() can detect cross-class mismatches.
+        model = self._embedder._load_model()
+        embedder_class = type(model).__name__
+        vec_dim = len(self._vecs[0]) if self._vecs else 0
+
+        # Serialize and save to SQLite — use context manager so the
+        # connection is always closed even if an exception occurs.
+        with sqlite3.connect(self._db_path) as conn:
             conn.execute(
-                "INSERT INTO chunks (id, data, vec) VALUES (?, ?, ?)",
-                (i, json.dumps(chunk.to_dict()), json.dumps(vec)),
+                "CREATE TABLE IF NOT EXISTS chunks (id INTEGER PRIMARY KEY, data TEXT, vec TEXT)"
             )
-        conn.commit()
-        conn.close()
+            # Persist embedder identity in a metadata table so load() can detect
+            # cross-class mismatches (e.g. sentence-transformers build → TF-IDF load).
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)"
+            )
+            conn.execute("DELETE FROM chunks")
+            conn.execute(
+                "INSERT OR REPLACE INTO meta (key, value) VALUES ('embedder_class', ?)",
+                (embedder_class,),
+            )
+            conn.execute(
+                "INSERT OR REPLACE INTO meta (key, value) VALUES ('vec_dim', ?)",
+                (str(vec_dim),),
+            )
+            for i, (chunk, vec) in enumerate(zip(chunks, self._vecs, strict=False)):
+                conn.execute(
+                    "INSERT INTO chunks (id, data, vec) VALUES (?, ?, ?)",
+                    (i, json.dumps(chunk.to_dict()), json.dumps(vec)),
+                )
+            # sqlite3 context manager commits on clean exit; explicit commit is
+            # kept here for clarity and forward-compatibility with isolation_level
+            # overrides.
+            conn.commit()
+
+        log.debug(
+            "Embedder metadata persisted: class=%s, dim=%d", embedder_class, vec_dim
+        )
+
+        # Persist the TF-IDF fallback vocabulary so that a new session can
+        # restore it via load() and produce same-dimension query vectors.
+        # Without this, load() would refit the vocab on the query alone
+        # (dim=1–5) while stored vecs have corpus-sized dimension, causing
+        # _cosine_similarity to truncate and return meaningless scores.
+        # Duck-type check: any model exposing _vocab is a TF-IDF-style fallback.
+        if hasattr(model, "_vocab") and hasattr(model, "_fitted"):
+            vocab_path = self._db_path.with_suffix(".vocab.json")
+            vocab_path.write_text(json.dumps(model._vocab), encoding="utf-8")
+            log.debug("TF-IDF vocabulary persisted: %d terms → %s", len(model._vocab), vocab_path)
+
         log.info("Index built: %d chunks → %s", len(chunks), self._db_path)
 
     def load(self) -> None:
@@ -438,11 +476,85 @@ class SCPIIndex:
         if not self._db_path.is_file():
             log.warning("Index file not found: %s", self._db_path)
             return
-        conn = sqlite3.connect(self._db_path)
-        rows = conn.execute("SELECT data, vec FROM chunks ORDER BY id").fetchall()
-        conn.close()
+        # Use context manager so the connection is always closed, even if
+        # sqlite3.OperationalError (e.g. DB locked) or another exception occurs.
+        with sqlite3.connect(self._db_path) as conn:
+            rows = conn.execute("SELECT data, vec FROM chunks ORDER BY id").fetchall()
+            # Read persisted embedder metadata — absent in older indexes (degrade gracefully).
+            try:
+                meta_rows = conn.execute("SELECT key, value FROM meta").fetchall()
+                stored_meta: dict[str, str] = dict(meta_rows)
+            except Exception:  # noqa: BLE001 — table may not exist in older indexes
+                stored_meta = {}
+
         self._chunks = [SCPIChunk.from_dict(json.loads(r[0])) for r in rows]
         self._vecs = [json.loads(r[1]) for r in rows]
+
+        # Restore TF-IDF fallback vocabulary FIRST (R8-F1 fix: must happen before the
+        # dimension probe so the probe reflects the corpus-size vocab, not the single-word
+        # "probe" vocab that an unfitted _TFIDFFallback would fit on the probe text).
+        # Without this ordering, a legitimate TF-IDF→TF-IDF cross-session reload emits a
+        # spurious dimension-mismatch warning even though the sidecar guarantees correctness.
+        # Older indexes that have no sidecar fall back gracefully — intentional for
+        # backward compatibility.
+        vocab_path = self._db_path.with_suffix(".vocab.json")
+        if vocab_path.is_file():
+            model = self._embedder._load_model()
+            # Duck-type check: restore vocab into any model that exposes _vocab/_fitted
+            # (i.e. _TFIDFFallback and compatible wrappers).
+            if hasattr(model, "_vocab") and hasattr(model, "_fitted"):
+                try:
+                    vocab: dict[str, int] = json.loads(vocab_path.read_text(encoding="utf-8"))
+                    model._vocab = vocab
+                    model._fitted = True
+                    log.debug(
+                        "TF-IDF vocabulary restored: %d terms ← %s", len(vocab), vocab_path
+                    )
+                except (json.JSONDecodeError, OSError) as exc:
+                    log.warning("Could not restore TF-IDF vocabulary from %s: %s", vocab_path, exc)
+
+        # Cross-class embedder mismatch check (R7-F2).
+        # When the index was built with sentence-transformers (384-dim) and the
+        # current session uses the TF-IDF fallback (low-dim), cosine similarity
+        # truncates stored vectors and returns semantically meaningless results
+        # without any error.  Emit a clear warning so the failure is visible.
+        # NOTE: vocab restore above runs first so the dimension probe below is accurate
+        # for TF-IDF→TF-IDF reloads (the restored corpus vocab gives the correct dim).
+        if stored_meta:
+            stored_class = stored_meta.get("embedder_class", "")
+            stored_dim_str = stored_meta.get("vec_dim", "")
+            current_model = self._embedder._load_model()
+            current_class = type(current_model).__name__
+            if stored_class and stored_class != current_class:
+                log.warning(
+                    "Embedder class mismatch: index was built with '%s' but the current "
+                    "session uses '%s'. Search results will be incorrect. "
+                    "Rebuild the index with the same embedder.",
+                    stored_class,
+                    current_class,
+                )
+            elif stored_dim_str:
+                stored_dim = int(stored_dim_str)
+                current_dim: int | None = None
+                # Probe current embedder dimension with a short test text — cheaper than
+                # embedding all chunks.  Only check when classes match (different classes
+                # are already warned above).  The vocab sidecar (if present) is already
+                # restored above, so the probe returns the corpus-sized dimension.
+                try:
+                    probe = self._embedder.embed(["probe"])
+                    current_dim = len(probe[0]) if probe else None
+                except Exception:  # noqa: BLE001
+                    pass
+                if current_dim is not None and stored_dim != current_dim:
+                    log.warning(
+                        "Embedder dimension mismatch: index has %d-dim vectors but the "
+                        "current embedder produces %d-dim vectors. "
+                        "Search results will be incorrect. "
+                        "Rebuild the index with the same embedder.",
+                        stored_dim,
+                        current_dim,
+                    )
+
         log.info("Index loaded: %d chunks ← %s", len(self._chunks), self._db_path)
 
     def search(self, query: str, k: int = 5) -> list[tuple[SCPIChunk, float]]:

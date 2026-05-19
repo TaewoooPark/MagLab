@@ -31,10 +31,15 @@ from __future__ import annotations
 
 import logging
 import random
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
+
+# Word-bounded pattern that matches a standalone "0 K" / "0k" claim,
+# but NOT a trailing zero inside a larger number like "100 K" or "300 K".
+_ABSOLUTE_ZERO_RE = re.compile(r"(?<!\d)0\s*k(?!\w)", re.IGNORECASE)
 
 log = logging.getLogger(__name__)
 
@@ -369,9 +374,13 @@ class AnomalyExplainer:
         if not raw_candidates:
             raw_candidates = templates
 
-        # Ensure minimum number of candidates
-        if len(raw_candidates) < self._min_candidates and not raw_candidates:
-            raw_candidates = self._fallback_candidates(query)
+        # Ensure minimum number of candidates.
+        # The former condition `len(...) < min AND not raw_candidates` was logically
+        # equivalent to `not raw_candidates` (empty list only).  When the LLM returns
+        # a non-empty but too-short list (e.g. 1 candidate when min=2) the fallback
+        # was never triggered.  The corrected form top-ups any under-count result.
+        if len(raw_candidates) < self._min_candidates:
+            raw_candidates = raw_candidates + self._fallback_candidates(query)
 
         # 3. Convert to MechanismCandidate objects
         candidates = []
@@ -870,9 +879,14 @@ def generate_candidates(
             for s in _HYPOTHESIS_SEEDS
             if any(word in s["idea"].lower() for word in topic_lower.split())
         ]
-        # Always use the full pool shuffled — matching seeds come first, then the rest
-        pool_shuffled = list(matching) + [s for s in _HYPOTHESIS_SEEDS if s not in matching]
-        rng.shuffle(pool_shuffled)
+        # Matching seeds first (shuffled within group), then non-matching (shuffled within group).
+        # Shuffling each group separately preserves topic-priority while keeping intra-group
+        # randomness so the same topic doesn't always return identical candidate order.
+        matching_group = list(matching)
+        rng.shuffle(matching_group)
+        nonmatching_group = [s for s in _HYPOTHESIS_SEEDS if s not in matching]
+        rng.shuffle(nonmatching_group)
+        pool_shuffled = matching_group + nonmatching_group
         raw_candidates.extend(pool_shuffled)
 
     candidates: list[HypothesisCandidate] = []
@@ -1076,7 +1090,7 @@ def reflection_physics_check(
 
     if oracle_check_fn is not None:
         params: dict[str, Any] = {}
-        if "absolute zero" in full_text or "0 k" in full_text:
+        if "absolute zero" in full_text or bool(_ABSOLUTE_ZERO_RE.search(full_text)):
             params["T"] = 0.0
 
         if params:

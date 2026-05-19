@@ -215,8 +215,11 @@ class SOTHarmonicHall(EffectModel):
             A_1w = np.column_stack([np.cos(phi), np.sin(2.0 * phi) * np.sin(phi)])
             try:
                 c = np.linalg.lstsq(A_1w, V_1w, rcond=None)[0]
-                # c[0] = R_AHE/2, c[1] = R_PHE → xi = R_PHE / (2·R_AHE/2) = c[1]/c[0]
-                xi_val = float(c[1] / c[0]) if abs(c[0]) > 1e-30 else 0.0
+                # Regression coefficients: c[0] = R_AHE/2, c[1] = R_PHE.
+                # Hayashi (2014) defines xi = R_PHE / (2*R_AHE).
+                # Substituting R_AHE = 2*c[0]:
+                #   xi = c[1] / (2 * 2*c[0]) = c[1] / (4*c[0])
+                xi_val = float(c[1] / (4.0 * c[0])) if abs(c[0]) > 1e-30 else 0.0
             except Exception:
                 xi_val = 0.0
         else:

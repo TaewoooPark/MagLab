@@ -141,6 +141,13 @@ def _load_ovf_numpy(path: Path) -> dict[str, Any]:
             except ValueError:
                 pass
 
+    # LOW-2 fix: guard against zero-size grids before reshape.
+    if nx == 0 or ny == 0 or nz == 0:
+        raise ValueError(
+            f"OVF file reports a zero-size grid: xnodes={nx}, ynodes={ny}, znodes={nz}. "
+            "Cannot render an empty magnetization field."
+        )
+
     # Robust reshape: truncate if long, zero-pad if short — reshape never fails.
     n_expected = nx * ny * nz
     m_flat = np.array(vals, dtype=float) if vals else np.zeros((0, 3))
@@ -377,7 +384,12 @@ def _render_hsl_direct(
         mx = m[:, :, idx, 0]
         my = m[:, :, idx, 1]
         mz = m[:, :, idx, 2]
-    else:
+    elif plane == "y":
+        idx = plane_index if plane_index is not None else m.shape[1] // 2
+        mx = m[:, idx, :, 0]
+        my = m[:, idx, :, 1]
+        mz = m[:, idx, :, 2]
+    else:  # plane == "x"
         idx = plane_index if plane_index is not None else m.shape[0] // 2
         mx = m[idx, :, :, 0]
         my = m[idx, :, :, 1]
@@ -480,7 +492,12 @@ def render_quiver(
         mx = m[:, :, idx, 0]
         my = m[:, :, idx, 1]
         mz = m[:, :, idx, 2]
-    else:
+    elif plane == "y":
+        idx = plane_index if plane_index is not None else m.shape[1] // 2
+        mx = m[:, idx, :, 0]
+        my = m[:, idx, :, 1]
+        mz = m[:, idx, :, 2]
+    else:  # plane == "x"
         idx = plane_index if plane_index is not None else m.shape[0] // 2
         mx = m[idx, :, :, 0]
         my = m[idx, :, :, 1]
@@ -595,26 +612,44 @@ def render_3d(
         glyphs = grid.glyph(orient="magnetization", scale="mz", factor=glyph_scale)
 
         plotter = pv.Plotter(off_screen=True)
-        plotter.add_mesh(
-            glyphs,
-            scalars="mz",
-            cmap=colormap,
-            clim=(-1, 1),
-            show_scalar_bar=True,
-            scalar_bar_args={"title": "m_z"},
-        )
-        plotter.set_background("white")
-        plotter.add_axes()
+        # R9-F1 fix: expand the try/finally to cover the ENTIRE plotter lifecycle
+        # starting immediately after Plotter() is constructed.  The R8-F2 fix only
+        # protected plotter.screenshot(); if add_mesh(), set_background(), or
+        # add_axes() raised (e.g., degenerate glyphs with zero cells), the plotter
+        # was never closed, leaking VTK/GPU renderer pipeline resources.  Moving
+        # the try here ensures plotter.close() is called for any failure anywhere
+        # in the plotter lifecycle.
+        try:
+            plotter.add_mesh(
+                glyphs,
+                scalars="mz",
+                cmap=colormap,
+                clim=(-1, 1),
+                show_scalar_bar=True,
+                scalar_bar_args={"title": "m_z"},
+            )
+            plotter.set_background("white")
+            plotter.add_axes()
 
-        if output_path is None:
-            tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-            output_path = Path(tmp.name)
-            tmp.close()
-        else:
-            output_path = Path(output_path)
+            # Track whether output_path was auto-created so we can clean it up on
+            # failure.  (On success the file is returned to the caller — no cleanup.)
+            auto_tmp_path: Path | None = None
+            if output_path is None:
+                tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                output_path = Path(tmp.name)
+                auto_tmp_path = output_path
+                tmp.close()
+            else:
+                output_path = Path(output_path)
 
-        plotter.screenshot(str(output_path))
-        plotter.close()
+            try:
+                plotter.screenshot(str(output_path))
+            except Exception:
+                if auto_tmp_path is not None and auto_tmp_path.exists():
+                    auto_tmp_path.unlink(missing_ok=True)
+                raise
+        finally:
+            plotter.close()
 
         return output_path
 
@@ -692,11 +727,19 @@ class SimVizRenderer:
         else:
             fig_tmp, ax_tmp = render_hsl(field, plane=plane, plane_index=plane_index)
 
-        # Transfer ax_tmp content to ax via image (direct render is more accurate in panel composition)
-        fig_tmp.canvas.draw()
-        img_array = np.frombuffer(fig_tmp.canvas.tostring_rgb(), dtype=np.uint8)
-        img_array = img_array.reshape(fig_tmp.canvas.get_width_height()[::-1] + (3,))
-        plt.close(fig_tmp)
+        # R10-F1 fix: replaced fig_tmp.canvas.tostring_rgb() (removed in matplotlib
+        # 3.8) with the modern buffer_rgba() equivalent. buffer_rgba() returns a
+        # flat RGBA buffer; reshaping to (h, w, 4) and slicing [:, :, :3] yields
+        # the same (h, w, 3) uint8 RGB array as the old API.
+        # Also wraps the canvas draw + rasterize block in a try/finally so
+        # fig_tmp is always closed even when canvas.draw() raises.
+        try:
+            # Transfer ax_tmp content to ax via image (direct render is more accurate in panel composition)
+            fig_tmp.canvas.draw()
+            buf = np.frombuffer(fig_tmp.canvas.buffer_rgba(), dtype=np.uint8)
+            img_array = buf.reshape(fig_tmp.canvas.get_width_height()[::-1] + (4,))[:, :, :3]
+        finally:
+            plt.close(fig_tmp)
 
         ax.imshow(img_array, origin="upper")
         ax.axis("off")

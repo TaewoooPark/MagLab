@@ -222,14 +222,18 @@ def racetrack_fom(
 
     gamma_0 = abs(GAMMA_E)
 
-    H_W = alpha * K_perp / (MU_0 * Ms)
+    # Schryer & Walker, J. Appl. Phys. 45, 5406 (1974), Eq. (8):
+    # H_W = α·K_⊥ / (2·μ₀·M_s)
+    # The factor of 2 is required; without it H_W is inflated 2×.
+    # Consistent with formulas.walker_breakdown_field and dw_1d.DW1DModel.walker_field.
+    H_W = alpha * K_perp / (2.0 * MU_0 * Ms)
     v_max_walker = gamma_0 * MU_0 * Delta_dw * H_W / (1.0 + alpha**2)
 
     # Current-driven (Zhang-Li mechanism simplified): v ∝ j
     v_drive = 1e-12 * j_drive  # simple proportionality (spin transfer velocity)
 
     foms: dict[str, dict[str, Any]] = {
-        "Walker_breakdown_field_H_W": {"value": float(H_W), "unit": "A/m", "formula": "H_W=αK_⊥/(μ₀M_s)"},
+        "Walker_breakdown_field_H_W": {"value": float(H_W), "unit": "A/m", "formula": "H_W=αK_⊥/(2μ₀M_s)"},
         "max_DW_velocity_below_Walker": {
             "value": float(v_max_walker),
             "unit": "m/s",
@@ -413,8 +417,7 @@ def spin_valve_sensor_fom(
     FoM list:
     - GMR ratio ΔR/R_P [%]
     - Field sensitivity S_H = (ΔR/R_P) / H_sat [1/(A/m)]
-    - Noise-equivalent field (NEF) = noise_floor / S_H [T/√Hz]
-    - Detectivity D = 1 / (S_H · √(noise_floor·bandwidth)) [dimensionless]
+    - Noise-equivalent field (NEF) = noise_floor / (S_H · R_sq) [A/m/√Hz]
     - Linear field range ≈ H_sat [A/m]
 
     Sources:
@@ -429,7 +432,12 @@ def spin_valve_sensor_fom(
         t_FM: Magnetic free-layer thickness [m].
         Ms: Saturation magnetization [A/m].
         H_sat: Saturation field of the free layer [A/m].
-        noise_floor: Voltage noise spectral density [V/√Hz] (white-noise floor).
+        noise_floor: Resistance noise spectral density [Ω/√Hz] (white-noise floor
+            of sensor resistance).  Dimensional reasoning: S_H has units [m/A]
+            (= [1/(A/m)]) and R_sq has units [Ω], so noise_floor / (S_H · R_sq)
+            = [Ω/√Hz] / ([m/A] · [Ω]) = [A/(m·√Hz)] = [A/m/√Hz]  ✓.
+            If voltage noise [V/√Hz] were supplied instead, the result would be
+            [V/√Hz] / ([m/A] · [Ω]) = [A²/(m·√Hz)] — not a field unit.
         bandwidth: Sensor bandwidth [Hz].
 
     Returns:
@@ -438,7 +446,12 @@ def spin_valve_sensor_fom(
     # Field sensitivity [1/(A/m)] — GMR swing per unit field
     S_H = GMR / H_sat
 
-    # Noise-equivalent field [A/m / √Hz] → convert to T/√Hz
+    # Noise-equivalent field.
+    # noise_floor [Ω/√Hz], S_H [m/A], R_sq [Ω]:
+    #   NEF [A/(m·√Hz)] = noise_floor / (S_H · R_sq)
+    #   = [Ω/√Hz] / ([m/A] · [Ω]) = [A/(m·√Hz)]  ✓
+    # Convert to T/√Hz via μ₀ [T·m/A]:
+    #   [A/(m·√Hz)] · [T·m/A] = [T/√Hz]  ✓
     NEF_Am_sqrtHz = noise_floor / (S_H * R_sq)
     NEF_T_sqrtHz = NEF_Am_sqrtHz * MU_0
 
@@ -456,7 +469,7 @@ def spin_valve_sensor_fom(
         "noise_equivalent_field_T_sqrtHz": {
             "value": float(NEF_T_sqrtHz),
             "unit": "T/sqrt(Hz)",
-            "formula": "NEF=noise_floor/(S_H·R_sq·μ₀)",
+            "formula": "NEF=noise_floor·μ₀/(S_H·R_sq)",
         },
         "linear_field_range_H_sat": {
             "value": float(H_sat),
@@ -645,7 +658,7 @@ def magnon_device_fom(
     to electronic logic.
 
     FoM list:
-    - Exchange spin-wave group velocity v_g = 2A·k / (μ₀ Ms) [m/s]
+    - Exchange spin-wave group velocity v_g = 4·γ·A·k / Ms [m/s]
     - Magnon propagation length λ_prop = v_g / (α·ω) [m]
     - Waveguide transit time τ = L_waveguide / v_g [ps]
     - Power per spin-wave packet P_sw [W] — thermal energy kT at room T
@@ -669,12 +682,24 @@ def magnon_device_fom(
     Returns:
         DeviceFoMResult.
     """
+    from maglab.physics.constants import GAMMA_E as _GAMMA_E
+
+    gamma_0 = abs(_GAMMA_E)  # |γ| = 1.7609e11 rad/(s·T)
+
     omega = 2.0 * np.pi * f_drive
 
-    # Exchange spin-wave dispersion: ω(k) = γ μ₀ (H_0 + (2A/Ms)·k²)
-    # Group velocity at k = π / d_waveguide (first mode, typical waveguide k)
+    # Exchange spin-wave dispersion (Kalinikos & Slavin 1986):
+    #   ω(k) = γ·μ₀·H_0 + γ·(2A/Ms)·k²
+    # Group velocity at k = π/d_waveguide (fundamental mode):
+    #   v_g = ∂ω/∂k = 2·γ·(2A/Ms)·k = 4·γ·A·k / Ms
+    # Dimensional check:
+    #   [rad/(s·T)] × [J/m] × [1/m] / [A/m]
+    #   = [A·s²/kg] × [kg·m²·s⁻²/m²] × [m/A]
+    #   = [m/s]  ✓
+    # The previous formula 2·A·k/(μ₀·Ms) had units of [A] (not m/s)
+    # because it dropped γ and incorrectly introduced μ₀.
     k_mode = np.pi / d_waveguide
-    v_g = 2.0 * A * k_mode / (MU_0 * Ms)  # ∂ω/∂k at exchange limit
+    v_g = 4.0 * gamma_0 * A * k_mode / Ms  # ∂ω/∂k = 4γAk/Ms [m/s]
 
     # Propagation length λ = v_g / (α ω)
     lambda_prop = v_g / (alpha * omega + 1e-30)
@@ -692,7 +717,7 @@ def magnon_device_fom(
         "spin_wave_group_velocity_v_g": {
             "value": float(v_g),
             "unit": "m/s",
-            "formula": "v_g=2A·k/(μ₀M_s)",
+            "formula": "v_g=4γAk/M_s",
         },
         "magnon_propagation_length_lambda": {
             "value": float(lambda_prop * 1e6),

@@ -116,7 +116,7 @@ class MeasurementGeometryPrimitive:
             x2 = cx + r
             parts.append(
                 f'<line x1="{cx - r:.1f}" y1="{cy:.1f}" '
-                f'x2="{x2 - 4:.1f}" y1="{cy:.1f}" '
+                f'x2="{x2 - 4:.1f}" y2="{cy:.1f}" '
                 f'stroke="#C00" stroke-width="2" marker-end="url(#arrowR)"/>'
             )
             parts.append(

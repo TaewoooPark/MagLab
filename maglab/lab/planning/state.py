@@ -76,10 +76,15 @@ class StandardState:
                 self.feasible_region[param] = (min(lo, value), max(hi, value))
 
     def conditions_array(self) -> np.ndarray:
-        """Return measurement conditions as a NumPy array."""
+        """Return measurement conditions as a NumPy array.
+
+        The column set is the *union* of all condition keys across every
+        measured point, sorted for determinism.  Missing values for a given
+        point are filled with 0.0.
+        """
         if not self.measured_points:
             return np.empty((0, 0))
-        keys = sorted(self.measured_points[0].conditions.keys())
+        keys = sorted(set().union(*(p.conditions.keys() for p in self.measured_points)))
         rows = [[p.conditions.get(k, 0.0) for k in keys] for p in self.measured_points]
         return np.array(rows, dtype=float)
 

@@ -124,7 +124,7 @@ class ProvenanceStore:
             for k, v in attributes.items():
                 attrs.append((self._qn(k), v))
         self._doc.entity(qn, other_attributes=attrs if attrs else None)
-        self._flush_to_db(qn, "entity")
+        self._flush_to_db(qn, "entity", attributes=attributes)
         return qn
 
     def add_activity(
@@ -146,7 +146,7 @@ class ProvenanceStore:
             endTime=end_time,
             other_attributes=attrs if attrs else None,
         )
-        self._flush_to_db(qn, "activity")
+        self._flush_to_db(qn, "activity", attributes=attributes)
         return qn
 
     def add_agent(
@@ -159,7 +159,7 @@ class ProvenanceStore:
             for k, v in attributes.items():
                 attrs.append((self._qn(k), v))
         self._doc.agent(qn, other_attributes=attrs if attrs else None)
-        self._flush_to_db(qn, "agent")
+        self._flush_to_db(qn, "agent", attributes=attributes)
         return qn
 
     # ------------------------------------------------------------------
@@ -236,13 +236,49 @@ class ProvenanceStore:
     # ------------------------------------------------------------------
 
     def get_entity_lineage(self, local_id: str) -> list[dict[str, Any]]:
-        """Return all PROV records connected to the given Entity."""
+        """Return all PROV records connected to the given Entity.
+
+        Matches:
+        - The entity row itself (``id = 'ml:<local_id>'``).
+        - Relation rows whose ID encodes the entity's local name:
+          ``wgb-<entity>-*``, ``wdf-<entity>-*``, ``wdf-*-<entity>``,
+          ``wat-<entity>-*``.
+
+        This replaces the former full-document LIKE scan, which returned
+        unrelated rows because every row stored the entire graph snapshot.
+        """
         qn_str = _qname(local_id)
+        ns_prefix = f"{_NS_PREFIX}:"
+        # Build relation ID prefix patterns for this entity's local name.
+        # Relation IDs are stored as "ml:wgb-<eid>-<aid>" etc.
+        relation_prefixes = [
+            f"{ns_prefix}wgb-{local_id}-%",   # wasGeneratedBy: entity is subject
+            f"{ns_prefix}wdf-{local_id}-%",   # wasDerivedFrom: entity was derived
+            f"{ns_prefix}wdf-%-{local_id}",   # wasDerivedFrom: entity is the used source
+            f"{ns_prefix}wat-{local_id}-%",   # wasAttributedTo: entity is subject
+        ]
+        rows: list[dict[str, Any]] = []
+        # 1. The entity/activity/agent row itself
         cursor = self._conn.execute(
-            "SELECT id, kind, prov_json, created_at FROM prov_records WHERE prov_json LIKE ?",
-            (f"%{qn_str}%",),
+            "SELECT id, kind, prov_json, created_at FROM prov_records WHERE id = ?",
+            (qn_str,),
         )
-        return [dict(row) for row in cursor.fetchall()]
+        rows.extend(dict(row) for row in cursor.fetchall())
+        # 2. Relation rows that name this entity in their ID
+        for pattern in relation_prefixes:
+            cursor = self._conn.execute(
+                "SELECT id, kind, prov_json, created_at FROM prov_records WHERE id LIKE ?",
+                (pattern,),
+            )
+            rows.extend(dict(row) for row in cursor.fetchall())
+        # Deduplicate while preserving order (row ids are unique)
+        seen: set[str] = set()
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            if row["id"] not in seen:
+                seen.add(row["id"])
+                result.append(row)
+        return result
 
     def list_entities(self) -> list[str]:
         """Return the list of registered Entity local IDs."""
@@ -276,9 +312,34 @@ class ProvenanceStore:
     # Internal: DB flush
     # ------------------------------------------------------------------
 
-    def _flush_to_db(self, qn: pm.QualifiedName, kind: str) -> None:
-        """Persist a record to the DB (upsert)."""
+    def _flush_to_db(
+        self,
+        qn: pm.QualifiedName,
+        kind: str,
+        attributes: dict[str, Any] | None = None,
+    ) -> None:
+        """Persist a record to the DB (upsert).
+
+        ``prov_records`` stores only the IDs and attributes that are *directly*
+        referenced by this record — not the full document snapshot.  The full
+        document is kept in ``prov_graph`` for export-only use.
+
+        The ``prov_json`` column for each row is a JSON object of the form
+        ``{"id": "<qualified-name>", "kind": "entity|activity|agent|relation",
+        **attributes}`` so that:
+        - The lineage LIKE query matches only rows whose *own* ``id`` column
+          matches the requested entity (no false positives from full-document
+          dumps).
+        - Callers of ``get_entity_lineage()`` receive the per-record attributes
+          (``provenance_type``, ``units``, ``source_ref``, ``timestamp``, …)
+          directly from the returned ``prov_json`` field — §17 invariant is met.
+        """
         record_id = str(qn)
+        # Store per-record JSON: id + kind + caller-supplied attributes.
+        # The LIKE patterns in get_entity_lineage match on the *id* column, not
+        # on prov_json, so including attributes here does NOT reintroduce the
+        # old false-positive problem that was fixed in R3.
+        record_json = json.dumps({"id": record_id, "kind": kind, **(attributes or {})})
         graph_json = _serialize_doc(self._doc)
         now = _now_iso()
         with self._conn:
@@ -287,7 +348,7 @@ class ProvenanceStore:
                 INSERT OR REPLACE INTO prov_records (id, kind, prov_json, created_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (record_id, kind, graph_json, now),
+                (record_id, kind, record_json, now),
             )
             self._conn.execute(
                 """

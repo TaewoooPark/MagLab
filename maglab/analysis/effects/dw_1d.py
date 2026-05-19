@@ -1,7 +1,7 @@
 """1D domain wall (DW) q–Φ coupled model EffectModel.
 
 Thiele-Schryer-Walker q–Φ ODE.
-Walker breakdown field: H_W = α·K_⊥/M_s.
+Walker breakdown field: H_W = α·K_⊥ / (2·μ₀·M_s).
 
 Sources:
     Schryer, N. L., Walker, L. R.,
@@ -36,7 +36,7 @@ class DW1DModel(EffectModel):
     dq/dt = Δ·γ₀·H / (1 + α²) − α·Δ·(γ₀·μ₀·M_s/2)·sin(2Φ) / (1+α²)
     dΦ/dt = α·γ₀·H / (Δ(1+α²)) + (γ₀·μ₀·M_s/2)·sin(2Φ) / (1+α²)
 
-    Walker breakdown field: H_W = α·K_⊥ / (μ₀·M_s)
+    Walker breakdown field: H_W = α·K_⊥ / (2·μ₀·M_s)
 
     Parameters: α (damping), Δ (DW width), K_⊥ (in-plane anisotropy)
 
@@ -109,7 +109,11 @@ class DW1DModel(EffectModel):
     def walker_field(self, alpha: float, K_perp: float, Ms: float) -> float:
         """Compute Walker breakdown field H_W.
 
-        H_W = α·K_⊥ / (μ₀·M_s)
+        H_W = α·K_⊥ / (2·μ₀·M_s)
+
+        Consistent with Schryer & Walker (1974) and Thiaville et al.
+        EPL 69, 990 (2005), Eq. (6), and with physics/formulas.py
+        walker_breakdown_field().  The factor of 2 was previously missing.
 
         Args:
             alpha: Gilbert damping constant.
@@ -119,7 +123,7 @@ class DW1DModel(EffectModel):
         Returns:
             H_W [A/m].
         """
-        return alpha * K_perp / (MU_0 * Ms)
+        return alpha * K_perp / (2.0 * MU_0 * Ms)
 
     def dw_velocity_below_walker(self, alpha: float, Delta: float, H: float) -> float:
         """Analytical DW velocity below Walker breakdown (H < H_W).

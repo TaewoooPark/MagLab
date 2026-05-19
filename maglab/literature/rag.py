@@ -43,7 +43,16 @@ def chunk_text(
         Maximum number of words per chunk.
     overlap:
         Number of overlapping words between chunks.
+
+    Raises
+    ------
+    ValueError
+        When ``chunk_size <= overlap``, which would cause an infinite loop.
     """
+    if chunk_size <= overlap:
+        raise ValueError(
+            f"chunk_size ({chunk_size}) must be greater than overlap ({overlap})"
+        )
     words = text.split()
     if not words:
         return []
@@ -235,6 +244,8 @@ class LiteratureRAG:
         self._chunks: list[Chunk] = []
         self._db: Any = None
         self._table: Any = None
+        # Re-populate in-memory state from any previously persisted LanceDB data.
+        self._load_from_db()
 
     def _open_db(self) -> Any:
         if self._db is None:
@@ -264,10 +275,21 @@ class LiteratureRAG:
     ) -> int:
         """Chunk, embed, and index a document.
 
+        Idempotent: if ``doc_id`` is already present in the index the call is a
+        no-op and returns 0.  This prevents duplicate chunks when the same
+        document is indexed across multiple sessions (``_load_from_db()`` reloads
+        persisted chunks at ``__init__``, so a naive second call would append
+        duplicates to both the in-memory state and LanceDB).
+
         Returns
         -------
-        Number of chunks added.
+        Number of chunks added (0 if the document was already indexed).
         """
+        existing_doc_ids = {c.doc_id for c in self._chunks}
+        if doc_id in existing_doc_ids:
+            log.debug("Document already indexed, skipping: %s", doc_id)
+            return 0
+
         raw_chunks = chunk_text(text, chunk_size=chunk_size, overlap=overlap)
         if not raw_chunks:
             return 0
@@ -445,6 +467,58 @@ class LiteratureRAG:
             )
         return results
 
+    def _load_from_db(self) -> None:
+        """Re-populate ``self._chunks`` from persisted LanceDB data on startup.
+
+        Called once from ``__init__``.  If LanceDB is unavailable or the table
+        does not yet exist the method is a no-op so the RAG degrades gracefully
+        to memory-only mode (same behaviour as before this fix).
+        """
+        try:
+            db = self._open_db()
+            # list_tables() is the current API; fall back to table_names() for
+            # older LanceDB versions that lack it.
+            try:
+                existing_tables = db.list_tables()
+            except AttributeError:
+                existing_tables = db.table_names()  # type: ignore[attr-defined]
+            if self._table_name not in existing_tables:
+                return  # No persisted data yet — clean start.
+            tbl = db.open_table(self._table_name)
+            rows = tbl.to_pandas()
+            if rows is None or len(rows) == 0:
+                return
+            for _, row in rows.iterrows():
+                embedding_raw = row.get("vector", [])
+                # pandas may return numpy arrays; coerce to plain list.
+                try:
+                    embedding: list[float] = list(embedding_raw) if embedding_raw is not None else []
+                except TypeError:
+                    embedding = []
+                chunk = Chunk(
+                    chunk_id=str(row.get("chunk_id", "")),
+                    doc_id=str(row.get("doc_id", "")),
+                    doi=str(row.get("doi", "")),
+                    title=str(row.get("title", "")),
+                    authors=str(row.get("authors", "")),
+                    year=int(row["year"]) if (
+                        (year_raw := row.get("year")) is not None
+                        and not (isinstance(year_raw, float) and year_raw != year_raw)  # NaN check
+                        and year_raw
+                    ) else None,
+                    venue=str(row.get("venue", "")),
+                    namespace=str(row.get("namespace", "literature")),
+                    text=str(row.get("text", "")),
+                    chunk_index=int(row.get("chunk_index", 0)),
+                    embedding=embedding,
+                )
+                self._chunks.append(chunk)
+            if self._chunks:
+                self._bm25.build(self._chunks)
+                log.debug("LanceDB: loaded %d chunks from persisted store", len(self._chunks))
+        except Exception as exc:  # noqa: BLE001
+            log.debug("LanceDB load failed (starting memory-only): %s", exc)
+
     def _persist_chunks(self, chunks: list[Chunk]) -> None:
         """Persist chunks to LanceDB (falls back to memory-only if unavailable)."""
         try:
@@ -465,7 +539,11 @@ class LiteratureRAG:
                 "vector": [c.embedding for c in chunks],
             }
             table = pa.table(data)
-            if self._table_name in db.table_names():
+            try:
+                existing_tables = db.list_tables()
+            except AttributeError:
+                existing_tables = db.table_names()  # type: ignore[attr-defined]
+            if self._table_name in existing_tables:
                 tbl = db.open_table(self._table_name)
                 tbl.add(table)
             else:

@@ -254,8 +254,16 @@ class CorpusRAG:
                 return []
             allowed_ids = set(cids)
 
-        # BM25 search
-        bm25_results = self._bm25.search(query, top_k=top_k * 2)
+        # BM25 search.
+        # When searching within a specific author's chunks (allowed_ids is set),
+        # the author's chunks may rank outside the global top_k * 2 in a large
+        # corpus, causing them to be silently dropped before the post-filter.
+        # To match the vector path (which pre-filters by allowed_ids via
+        # _cosine_similarities), we widen the BM25 candidate pool to the full
+        # corpus size when author-scoping is active so that all author chunks
+        # are reachable before filtering.
+        bm25_pool = len(self._bm25._pending) if allowed_ids is not None else top_k * 2
+        bm25_results = self._bm25.search(query, top_k=max(bm25_pool, top_k * 2))
         if allowed_ids is not None:
             bm25_results = [(cid, s) for cid, s in bm25_results if cid in allowed_ids]
 

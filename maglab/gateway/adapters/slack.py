@@ -87,9 +87,6 @@ class SlackAdapter(BaseAdapter):
 
         Reference: https://api.slack.com/authentication/verifying-requests-from-slack
         """
-        if not self._signing_secret:
-            # No secret configured — skip (useful in unit tests with mock adapter)
-            return True
         sig_basestring = f"v0:{timestamp}:{body}".encode()
         computed = hmac.new(
             self._signing_secret.encode(),
@@ -129,11 +126,34 @@ class SlackAdapter(BaseAdapter):
                     log.warning("[slack] Request timestamp too old: %s", timestamp)
                     return False
             except (ValueError, TypeError):
-                pass  # No timestamp provided — skip replay check in mock mode
+                # When a signing_secret is configured the timestamp is required
+                # for replay-attack protection.  An unparseable timestamp
+                # defeats the 5-minute window, so reject the request.
+                if self._signing_secret:
+                    log.warning(
+                        "[slack] Cannot parse timestamp %r — rejecting request "
+                        "(replay protection requires a numeric timestamp when "
+                        "signing_secret is configured)",
+                        timestamp,
+                    )
+                    return False
+                # No secret configured — replay protection is already absent
+                # (the HMAC warning below will cover it).
 
             # 2. Signature verification
-            if signature and not self._verify_slack_signature(body, timestamp, signature):
-                log.warning("[slack] Signature verification failed")
+            if not self._signing_secret:
+                # Emit a per-request warning so misconfigured deployments are
+                # always visible in operator logs (F3 fix — never silent).
+                log.warning(
+                    "[gateway] Slack HMAC signature verification SKIPPED — "
+                    "signing_secret is not configured.  All requests are accepted "
+                    "without cryptographic verification.  Set signing_secret in the "
+                    "gateway config to enable proper request authentication."
+                )
+            elif not signature or not self._verify_slack_signature(body, timestamp, signature):
+                # signing_secret IS configured here — a missing signature header
+                # is just as much a verification failure as an invalid one.
+                log.warning("[slack] Signature verification failed (missing or invalid)")
                 return False
 
             # 3. Allowlist checks
@@ -141,8 +161,10 @@ class SlackAdapter(BaseAdapter):
             if not self._user_allowed(uid_hash):
                 log.info("[slack] User %s not in allowlist", uid_hash[:8])
                 return False
-            if channel and not self._channel_allowed(channel):
-                log.info("[slack] Channel %s not in allowlist", channel)
+            if self._allowed_channels is not None and (
+                not channel or not self._channel_allowed(channel)
+            ):
+                log.info("[slack] Channel %r not in allowlist (or missing)", channel)
                 return False
 
         except Exception:  # noqa: BLE001

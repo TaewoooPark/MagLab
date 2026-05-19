@@ -198,7 +198,11 @@ def _print_comms_result(result: object, output_path: Path) -> None:
     wc = getattr(result, "word_count", len(text.split()))
     fills = getattr(result, "fill_markers", [])
 
-    output_path.write_text(text, encoding="utf-8")
+    try:
+        output_path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        console.print(f"[red]Draft write failed:[/] {exc}")
+        raise typer.Exit(1) from exc
 
     console.print(f"[green]Draft saved:[/] [bold]{output_path}[/]")
     console.print(f"  Word count: {wc} | [FILL] markers: {len(fills)}")
@@ -431,7 +435,7 @@ def comms_abstract(
                 {
                     "conference": conference,
                     "char_limit": char_limit,
-                    "results": results or "[FILL: describe key results]",
+                    "results_context": results or "[FILL: describe key results]",
                 }
             )
         except Exception as exc:
@@ -606,7 +610,7 @@ def gateway_setup(
         if mode != "600":
             console.print(
                 f"[yellow]Warning:[/] Config file {cfg} has permissions {mode} "
-                "(expected 600).  Fix with:  chmod 600 {cfg}"
+                f"(expected 600).  Fix with:  chmod 600 {cfg}"
             )
     else:
         # Write a template config
@@ -656,27 +660,103 @@ def gateway_start(
         console.print(f"[red]Missing dependency:[/] {exc}")
         raise typer.Exit(1) from exc
 
-    if is_running():
+    import os
+
+    # MUST read the env var BEFORE calling is_running().
+    #
+    # When background mode spawns us, the parent writes our PID into the PID
+    # file immediately after Popen() returns — well before the child's Python
+    # interpreter starts (50-200 ms later).  By the time we reach is_running(),
+    # the file already contains our own PID; os.kill(self_pid, 0) always
+    # succeeds, so is_running() would return True and we would exit prematurely
+    # without ever starting the event loop.
+    #
+    # The env var tells us the parent has already performed the atomic claim on
+    # our behalf.  When it is set we skip is_running() entirely and proceed
+    # directly to the event loop.  A direct user invocation (env var absent)
+    # still hits the is_running() guard to reject a genuinely-running daemon.
+    pid_already_claimed = os.environ.get("MAGLAB_GATEWAY_PID_CLAIMED") == "1"
+
+    if not pid_already_claimed and is_running():
         console.print("[yellow]Gateway is already running.[/] Use 'maglab gateway status'.")
         return
 
     if foreground:
+        # Check whether the background parent already performed the atomic PID
+        # claim on our behalf (signalled via MAGLAB_GATEWAY_PID_CLAIMED=1).
+        # When the env var is set the child was spawned by background mode; it
+        # must NOT attempt a second open("x") on the same file — that would
+        # hit FileExistsError because the parent already created it.  Instead
+        # the child adopts the file: write_pid() inside _run_gateway_foreground
+        # overwrites it with the child's real PID.
+        #
+        # When the env var is absent the user invoked `gateway start --foreground`
+        # directly.  In that case the child IS the first claimer and must perform
+        # the atomic exclusive-create to block a concurrent double-start.
+        pid_file = _pid_path()
+        if not pid_already_claimed:
+            # Direct foreground invocation — claim atomically.
+            try:
+                fd = pid_file.open("x")  # O_CREAT|O_EXCL — fails if file exists
+                fd.close()
+            except FileExistsError:
+                console.print(
+                    "[yellow]Gateway is already starting or running.[/] "
+                    "Use 'maglab gateway status'."
+                )
+                return
+        # pid_already_claimed=True: parent already holds the lock; we adopt it.
         console.print("[cyan]Starting gateway in foreground mode...[/]")
         _run_gateway_foreground()
     else:
-        # Fork a background subprocess
+        # Background mode — fork a daemon subprocess.
+        #
+        # Atomic PID-file claim strategy (preserves Round 5 double-start guard):
+        #   1. The PARENT atomically claims the PID file via open("x").
+        #      If two concurrent `gateway start` commands race, only the winner
+        #      proceeds; the loser gets FileExistsError and exits cleanly.
+        #   2. The PARENT spawns `gateway start --foreground` with the env var
+        #      MAGLAB_GATEWAY_PID_CLAIMED=1, telling the child that the lock is
+        #      already held and it should not re-claim.
+        #   3. The PARENT writes proc.pid into the PID file immediately so that
+        #      `gateway stop` / `gateway status` can find the real daemon PID.
+        #   4. The CHILD's write_pid() call inside _run_gateway_foreground()
+        #      then overwrites the file with os.getpid() — the child's own PID —
+        #      which is the same value proc.pid refers to.
         import subprocess
 
+        pid_file = _pid_path()
+        try:
+            fd = pid_file.open("x")  # atomic create — fails if file already exists
+            fd.close()
+        except FileExistsError:
+            console.print(
+                "[yellow]Gateway is already starting or running.[/] "
+                "Use 'maglab gateway status'."
+            )
+            return
+
+        # Propagate the claim signal to the child so it skips the redundant
+        # atomic claim inside the --foreground branch above.
+        child_env = {**os.environ, "MAGLAB_GATEWAY_PID_CLAIMED": "1"}
+
         maglab_exe = sys.executable
-        proc = subprocess.Popen(
-            [maglab_exe, "-m", "maglab", "gateway", "start", "--foreground"],
-            start_new_session=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        try:
+            proc = subprocess.Popen(
+                [maglab_exe, "-m", "maglab", "gateway", "start", "--foreground"],
+                start_new_session=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=child_env,
+            )
+        except Exception:
+            # Clean up the sentinel PID file if spawn failed.
+            pid_file.unlink(missing_ok=True)
+            raise
+
         # Write the daemon subprocess PID (not the parent CLI's os.getpid()).
         # gateway stop sends SIGTERM to this PID via stop_daemon().
-        _pid_path().write_text(str(proc.pid))
+        pid_file.write_text(str(proc.pid))
         console.print(
             f"[green]Gateway started[/] (PID={proc.pid}).  "
             "Use 'maglab gateway status' to check."
@@ -751,7 +831,7 @@ def gateway_install(
 
     try:
         service_path = install_service(maglab_executable=executable)
-    except RuntimeError as exc:
+    except (RuntimeError, PermissionError) as exc:
         console.print(f"[red]Service installation failed:[/] {exc}")
         raise typer.Exit(1) from exc
 
@@ -986,10 +1066,14 @@ def hypotheses_command(
 
     HUMAN REVIEW REQUIRED — hypotheses are AI suggestions, not conclusions.
     """
-    from maglab.core.reasoning import (
-        D1HypothesisEngine,
-        HypothesisResult,
-    )
+    try:
+        from maglab.core.reasoning import (
+            D1HypothesisEngine,
+            HypothesisResult,
+        )
+    except ImportError as exc:
+        console.print(f"[red]Missing dependency:[/] {exc}")
+        raise typer.Exit(1) from exc
 
     n = max(1, min(n, 20))
 
@@ -1042,8 +1126,12 @@ def hypotheses_command(
         import json
 
         out_path = Path(json_out)
-        out_path.write_text(json.dumps(result.to_dict(), indent=2), encoding="utf-8")
-        console.print(f"[green]JSON result written:[/] {out_path}")
+        try:
+            out_path.write_text(json.dumps(result.to_dict(), indent=2), encoding="utf-8")
+            console.print(f"[green]JSON result written:[/] {out_path}")
+        except OSError as exc:
+            console.print(f"[red]JSON write failed:[/] {exc}")
+            raise typer.Exit(1) from exc
 
 
 # ===========================================================================

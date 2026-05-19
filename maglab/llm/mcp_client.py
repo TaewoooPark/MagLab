@@ -300,8 +300,11 @@ class MCPClientRegistry:
         self._explicit_path: Path | None = registry_path
         self._path: Path | None = None
         self._configs: dict[str, ServerConfig] = {}
-        # Lazy sessions: server_name -> open ClientSession (or None if not yet connected)
+        # Lazy sessions: server_name -> open ClientSession (kept alive by _cm_stacks)
         self._sessions: dict[str, Any] = {}
+        # Per-server AsyncExitStack that keeps the transport + session context managers open.
+        # Each stack is aclose()'d when the server is disabled or close_all() is called.
+        self._cm_stacks: dict[str, contextlib.AsyncExitStack] = {}
         # Cached tool index: namespaced_name -> ToolInfo
         self._tools: dict[str, ToolInfo] = {}
         self._loaded = False
@@ -443,11 +446,44 @@ class MCPClientRegistry:
         self._configs[name].enabled = False
         # Close any open session for the now-disabled server.
         self._sessions.pop(name, None)
+        # Release the transport + session context managers kept alive for this server.
+        stack = self._cm_stacks.pop(name, None)
+        if stack is not None:
+            import asyncio
+
+            # best-effort close; schedule on the running loop if one exists
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(stack.aclose())
+                else:
+                    loop.run_until_complete(stack.aclose())
+            except RuntimeError:
+                pass  # no event loop — stack will be GC'd
         # Evict tools belonging to this server from the cache.
         self._tools = {
             k: v for k, v in self._tools.items() if v.server_name != name
         }
         self._save()
+
+    async def close_all(self) -> None:
+        """Close all open server connections and release their resources.
+
+        This method must be awaited to ensure that every transport and session
+        context manager is properly shut down.  Call it when the registry is
+        no longer needed (e.g. at application exit or in test teardown).
+
+        After this call ``_sessions`` and ``_cm_stacks`` are empty; subsequent
+        ``call_tool`` / ``_ensure_connected`` calls will reconnect lazily.
+        """
+        stacks = list(self._cm_stacks.values())
+        self._cm_stacks.clear()
+        self._sessions.clear()
+        for stack in stacks:
+            try:
+                await stack.aclose()
+            except Exception as exc:
+                logger.warning("Error closing MCP connection stack: %s", exc)
 
     # ------------------------------------------------------------------
     # Tool enumeration
@@ -575,34 +611,46 @@ class MCPClientRegistry:
                 "Install it with: pip install maglab[mcp]"
             )
 
-        if cfg.transport == "stdio":
-            env = {**os.environ, **cfg.env} if cfg.env else None
-            server_params = StdioServerParameters(
-                command=cfg.command,
-                args=cfg.args,
-                env={k: str(v) for k, v in (env or {}).items()},
-            )
-            async with (
-                stdio_client(server_params) as (read_stream, write_stream),
-                ClientSession(read_stream, write_stream) as session,
-            ):
-                await session.initialize()
-                self._sessions[server_name] = session
-                await self._index_tools(server_name, session, cfg)
-        else:
-            if not _MCP_SSE_AVAILABLE or sse_client is None:
-                raise ImportError(
-                    "HTTP transport requires the 'mcp' package with SSE support. "
-                    "Install it with: pip install maglab[mcp]"
+        # Use a persistent AsyncExitStack so that the transport and session context
+        # managers stay open for the lifetime of the stored session.  Calling
+        # `async with transport_cm as ...; async with session_cm as ...` and then
+        # exiting those blocks immediately closes the transport streams, leaving
+        # `self._sessions[server_name]` pointing to a dead/closed session.
+        stack = contextlib.AsyncExitStack()
+        try:
+            if cfg.transport == "stdio":
+                env = {**os.environ, **cfg.env} if cfg.env else None
+                server_params = StdioServerParameters(
+                    command=cfg.command,
+                    args=cfg.args,
+                    env={k: str(v) for k, v in (env or {}).items()},
+                )
+                read_stream, write_stream = await stack.enter_async_context(
+                    stdio_client(server_params)
+                )
+            else:
+                if not _MCP_SSE_AVAILABLE or sse_client is None:
+                    raise ImportError(
+                        "HTTP transport requires the 'mcp' package with SSE support. "
+                        "Install it with: pip install maglab[mcp]"
+                    )
+                read_stream, write_stream = await stack.enter_async_context(
+                    sse_client(cfg.url)
                 )
 
-            async with (
-                sse_client(cfg.url) as (read_stream, write_stream),
-                ClientSession(read_stream, write_stream) as session,
-            ):
-                await session.initialize()
-                self._sessions[server_name] = session
-                await self._index_tools(server_name, session, cfg)
+            session = await stack.enter_async_context(
+                ClientSession(read_stream, write_stream)
+            )
+            await session.initialize()
+            await self._index_tools(server_name, session, cfg)
+        except Exception:
+            await stack.aclose()
+            raise
+
+        # Store the live session and its exit stack together.  The stack keeps
+        # both the transport and the ClientSession context managers open.
+        self._sessions[server_name] = session
+        self._cm_stacks[server_name] = stack
 
     async def _index_tools(
         self,

@@ -1,14 +1,26 @@
 """GMR/TMR EffectModel.
 
-GMR: G(θ) = G_0·(1 + (TMR/2)·cosθ)
-TMR Julliere: TMR = 2P₁P₂ / (1 − P₁P₂)
+Spin-valve / MTJ angle-dependent conductance (Slonczewski 1989):
+
+    G(θ) = G_0 · (1 + P₁P₂ · cosθ)
+
+where G_0 = (G_P + G_AP)/2 is the average conductance and P₁, P₂ are the
+spin polarizations of the two ferromagnetic layers.  At θ = 0 (parallel) and
+θ = π (antiparallel) this gives:
+
+    G_P  = G_0 · (1 + P₁P₂)
+    G_AP = G_0 · (1 − P₁P₂)
+
+The Julliere TMR ratio follows from these extremes:
+
+    TMR = (G_P − G_AP) / G_AP = 2P₁P₂ / (1 − P₁P₂)
 
 Sources:
+    Slonczewski, J. C., Phys. Rev. B 39, 6995 (1989), Eq. (4).
+    DOI: 10.1103/PhysRevB.39.6995
+
     Julliere, M., Phys. Lett. A 54, 225 (1975).
     DOI: 10.1016/0375-9601(75)90174-7
-
-    Slonczewski, J. C., Phys. Rev. B 39, 6995 (1989).
-    DOI: 10.1103/PhysRevB.39.6995
 """
 
 from __future__ import annotations
@@ -29,17 +41,22 @@ from maglab.analysis.fit import run_fit
 class GMRTMREffect(EffectModel):
     """GMR/TMR EffectModel.
 
-    Spin-valve/MTJ angle-dependent conductance:
-    G(θ) = G_0 · (1 + (TMR/2) · cosθ)
-    Julliere: TMR = 2P₁P₂ / (1 − P₁P₂)
+    Spin-valve / MTJ angle-dependent conductance (Slonczewski 1989):
 
-    P₁, P₂: spin polarization of the two magnetic layers [0, 1).
+        G(θ) = G_0 · (1 + P₁P₂ · cosθ)
+
+    where G_0 = (G_P + G_AP)/2 is the average conductance and P₁, P₂ are the
+    spin polarizations of the two ferromagnetic layers [0, 1).
+
+    At θ = 0 (parallel): G_P = G_0·(1 + P₁P₂).
+    At θ = π (antiparallel): G_AP = G_0·(1 − P₁P₂).
+    Julliere TMR ratio: TMR = (G_P − G_AP)/G_AP = 2P₁P₂/(1 − P₁P₂).
 
     Sources:
+        Slonczewski, J. C., Phys. Rev. B 39, 6995 (1989), Eq. (4).
+        DOI: 10.1103/PhysRevB.39.6995
         Julliere, M., Phys. Lett. A 54, 225 (1975).
         DOI: 10.1016/0375-9601(75)90174-7
-        Slonczewski, J. C., Phys. Rev. B 39, 6995 (1989).
-        DOI: 10.1103/PhysRevB.39.6995
     """
 
     @property
@@ -112,7 +129,11 @@ class GMRTMREffect(EffectModel):
         params: dict[str, float],
         geometry: dict[str, Any] | None = None,
     ) -> np.ndarray:
-        """Compute G(θ) = G_0·(1 + (TMR/2)·cosθ).
+        """Compute G(θ) = G_0·(1 + P₁P₂·cosθ).
+
+        The conductance oscillation amplitude is P₁P₂ (Slonczewski, PRB 39,
+        6995, 1989), NOT TMR/2.  Using TMR/2 = P₁P₂/(1 − P₁P₂) inflates the
+        amplitude by 1/(1 − P₁P₂) and makes G_AP non-positive for P₁P₂ ≥ 0.5.
 
         Args:
             params: {"G_0": float, "P1": float, "P2": float}.
@@ -125,8 +146,7 @@ class GMRTMREffect(EffectModel):
         P1 = params["P1"]
         P2 = params["P2"]
         theta = geometry["theta"] if geometry and "theta" in geometry else np.array([0.0])
-        tmr = self.tmr_from_polarizations(P1, P2)
-        return G_0 * (1.0 + (tmr / 2.0) * np.cos(theta))
+        return G_0 * (1.0 + P1 * P2 * np.cos(theta))
 
     def fit(
         self,
@@ -155,8 +175,8 @@ class GMRTMREffect(EffectModel):
         init = {"G_0": G_mean, "P1": p_init, "P2": p_init}
 
         def model_fn(x: np.ndarray, G_0: float, P1: float, P2: float) -> np.ndarray:
-            tmr = self.tmr_from_polarizations(P1, P2)
-            return G_0 * (1.0 + (tmr / 2.0) * np.cos(x))
+            # Slonczewski (1989): amplitude is P1·P2, not TMR/2.
+            return G_0 * (1.0 + P1 * P2 * np.cos(x))
 
         return run_fit(
             model_fn=model_fn,

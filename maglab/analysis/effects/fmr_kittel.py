@@ -125,11 +125,16 @@ class FMRKittel(EffectModel):
             # so Kittel: (f/γ')² = μ₀²·H[A/m]·(H[A/m]+M_eff[A/m])
             # Convert H_res [T] → H_Am [A/m] via H_Am = H_res / μ₀
             H_Am = H_res / MU_0  # A/m
-            f = gamma_p * MU_0 * np.sqrt(H_Am * (H_Am + M_eff))
+            # Use np.abs to match fit() — keeps forward() usable for fitted params
+            # where M_eff < -H_Am (PMA-like regime or optimizer excursion).
+            f = gamma_p * MU_0 * np.sqrt(np.abs(H_Am * (H_Am + M_eff)))
         else:
-            # Out-of-plane: f = γ' · μ₀ · (H[A/m] − M_eff)
+            # Out-of-plane: f = γ' · μ₀ · |H[A/m] − M_eff|
+            # abs() keeps f non-negative when H_res < M_eff·μ₀, consistent
+            # with formulas.py:403 and physical convention that FMR frequency
+            # is positive definite.
             H_Am = H_res / MU_0
-            f = gamma_p * MU_0 * (H_Am - M_eff)
+            f = gamma_p * MU_0 * np.abs(H_Am - M_eff)
 
         return f
 
@@ -173,7 +178,7 @@ class FMRKittel(EffectModel):
             if _mode == "in_plane":
                 return gamma_ghz_t * MU_0 * np.sqrt(np.abs(H_Am * (H_Am + M_eff)))
             else:
-                return gamma_ghz_t * MU_0 * (H_Am - M_eff)
+                return gamma_ghz_t * MU_0 * np.abs(H_Am - M_eff)
 
         return run_fit(
             model_fn=model_fn,

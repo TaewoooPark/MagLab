@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 from typing import Any
 
 
@@ -70,9 +71,10 @@ class MTJPillarPrimitive:
     def render(self, params: dict[str, Any], backend: str = "svg", style: str = "nature") -> str:
         """Generate the MTJ pillar SVG."""
         width = float(params.get("width", 60.0))
-        free_color = str(params.get("free_color", "#4472C4"))
-        fixed_color = str(params.get("fixed_color", "#C00020"))
-        barrier_color = str(params.get("barrier_color", "#E8E8E8"))
+        # Escape color values for safe insertion into SVG attribute values.
+        free_color = html.escape(str(params.get("free_color", "#4472C4")), quote=True)
+        fixed_color = html.escape(str(params.get("fixed_color", "#C00020")), quote=True)
+        barrier_color = html.escape(str(params.get("barrier_color", "#E8E8E8")), quote=True)
         free_dir = str(params.get("free_direction", "right"))
         fixed_dir = str(params.get("fixed_direction", "right"))
 
@@ -84,7 +86,25 @@ class MTJPillarPrimitive:
         cx = width / 2
 
         def arrow_svg(direction: str, ax: float, ay: float, color: str, label: str) -> str:
-            """Directional arrow SVG."""
+            """Directional arrow SVG.
+
+            Renders a magnetization arrow for the given direction.  The marker
+            ``#arrMTJ`` uses ``orient="auto"``, so the arrowhead automatically
+            rotates to face the direction of the line vector.
+
+            Parameters
+            ----------
+            direction:
+                One of ``"right"``, ``"left"``, ``"up"``, or ``"down"``.
+                Any other value is silently ignored (returns ``""``).
+            ax, ay:
+                Centre coordinates of the layer rectangle.
+            color:
+                SVG color string (already escaped).
+            label:
+                Optional text label appended after the arrowhead (used only
+                for the ``"right"`` branch that shows the layer label).
+            """
             if direction == "right":
                 return (
                     f'<line x1="{ax - 12:.1f}" y1="{ay:.1f}" '
@@ -98,6 +118,26 @@ class MTJPillarPrimitive:
                 return (
                     f'<line x1="{ax + 12:.1f}" y1="{ay:.1f}" '
                     f'x2="{ax - 8:.1f}" y2="{ay:.1f}" '
+                    f'stroke="{color}" stroke-width="2" '
+                    f'marker-end="url(#arrMTJ)"/>'
+                )
+            if direction == "up":
+                # Arrow points upward: line goes from below the centre to above.
+                # The marker orient="auto" rotates the arrowhead to face the tip
+                # (the x2,y2 end), which is the smaller y value (SVG y increases
+                # downward), i.e. the visual top of the layer.
+                return (
+                    f'<line x1="{ax:.1f}" y1="{ay + 12:.1f}" '
+                    f'x2="{ax:.1f}" y2="{ay - 8:.1f}" '
+                    f'stroke="{color}" stroke-width="2" '
+                    f'marker-end="url(#arrMTJ)"/>'
+                )
+            if direction == "down":
+                # Arrow points downward: line goes from above the centre to below.
+                # The tip (x2,y2) is at the larger y value (visual bottom).
+                return (
+                    f'<line x1="{ax:.1f}" y1="{ay - 12:.1f}" '
+                    f'x2="{ax:.1f}" y2="{ay + 8:.1f}" '
                     f'stroke="{color}" stroke-width="2" '
                     f'marker-end="url(#arrMTJ)"/>'
                 )

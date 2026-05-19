@@ -216,74 +216,84 @@ def run_repl(config: Config) -> None:
     except Exception:
         orchestrator = None
 
-    _session_panel(config, backend)
-
-    # --- 3. Spin-lattice rule separator ---
+    # Guarantee that Orchestrator SQLite connections are released on exit
+    # (Finding 4 / R1-F6 completion).  close() is a no-op when orchestrator
+    # is None, so the try/finally is always safe.
     try:
-        from maglab.ui.render import spin_rule
+        _session_panel(config, backend)
 
-        spin_rule(console=con)
-    except Exception:
-        con.print("─" * 40)
-
-    # --- 4. Prompt hint ---
-    con.print()
-    con.print("  [cyan]⇡[/] How can I help?   ( /help · /theme · /skill )")
-    con.print()
-
-    # --- 5. Input loop ---
-    is_tty = sys.stdin.isatty()
-
-    if is_tty:
+        # --- 3. Spin-lattice rule separator ---
         try:
-            from maglab.ui.prompt import build_session, prompt_input
+            from maglab.ui.render import spin_rule
 
-            session = build_session()
+            spin_rule(console=con)
         except Exception:
+            con.print("─" * 40)
+
+        # --- 4. Prompt hint ---
+        con.print()
+        con.print("  [cyan]⇡[/] How can I help?   ( /help · /theme · /skill )")
+        con.print()
+
+        # --- 5. Input loop ---
+        is_tty = sys.stdin.isatty()
+
+        if is_tty:
+            try:
+                from maglab.ui.prompt import build_session, prompt_input
+
+                session = build_session()
+            except Exception:
+                session = None
+        else:
             session = None
-    else:
-        session = None
 
-    while True:
-        try:
-            if is_tty and session is not None:
-                try:
-                    from maglab.ui.prompt import prompt_input
+        while True:
+            try:
+                if is_tty and session is not None:
+                    try:
+                        from maglab.ui.prompt import prompt_input
 
-                    user_input = prompt_input(session=session, placeholder="Enter a query…")
-                except ImportError:
-                    user_input = input("⇡ ")
-            else:
-                user_input = input()
+                        user_input = prompt_input(session=session, placeholder="Enter a query…")
+                    except ImportError:
+                        user_input = input("⇡ ")
+                else:
+                    user_input = input()
 
-        except KeyboardInterrupt:
-            con.print()
-            con.print("[dim]Interrupted (Ctrl+C). Press Ctrl+D or type /quit to exit.[/]")
-            continue
-        except EOFError:
-            con.print()
-            con.print("[dim]Goodbye. (MagLab)[/]")
-            break
-
-        user_input = user_input.strip()
-        if not user_input:
-            continue
-
-        # Slash command
-        if user_input.startswith("/"):
-            should_continue = _handle_slash(user_input, config)
-            if not should_continue:
+            except KeyboardInterrupt:
+                con.print()
+                con.print("[dim]Interrupted (Ctrl+C). Press Ctrl+D or type /quit to exit.[/]")
+                continue
+            except EOFError:
+                con.print()
                 con.print("[dim]Goodbye. (MagLab)[/]")
                 break
-            continue
 
-        # General query → orchestrator
-        response = _get_response(user_input, orchestrator)
+            user_input = user_input.strip()
+            if not user_input:
+                continue
 
-        try:
-            from maglab.ui.render import streaming_response
+            # Slash command
+            if user_input.startswith("/"):
+                should_continue = _handle_slash(user_input, config)
+                if not should_continue:
+                    con.print("[dim]Goodbye. (MagLab)[/]")
+                    break
+                continue
 
-            with streaming_response("MagLab", console=con) as ctx:
-                ctx.append(response)
-        except Exception:
-            con.print(response)
+            # General query → orchestrator
+            response = _get_response(user_input, orchestrator)
+
+            try:
+                from maglab.ui.render import streaming_response
+
+                with streaming_response("MagLab", console=con) as ctx:
+                    ctx.append(response)
+            except Exception:
+                con.print(response)
+
+    finally:
+        # Close Orchestrator connections regardless of how the REPL exits
+        _close = getattr(orchestrator, "close", None)
+        if callable(_close):
+            _close()

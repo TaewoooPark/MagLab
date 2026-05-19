@@ -6,6 +6,7 @@ Includes two pairs of voltage contacts: longitudinal and Hall (transverse).
 
 from __future__ import annotations
 
+import html
 from typing import Any
 
 
@@ -97,22 +98,25 @@ class HallBarPrimitive:
         # Voltage contact positions: at 25%, 50%, 75%
         parts: list[str] = []
 
+        # XML-safe color value for use in SVG attribute values.
+        color_attr = html.escape(color, quote=True)
+
         # Main channel
         parts.append(
             f'<rect x="0" y="{sw:.1f}" width="{sl:.1f}" height="{sw:.1f}" '
-            f'fill="{color}" stroke="#000" stroke-width="1"/>'
+            f'fill="{color_attr}" stroke="#000" stroke-width="1"/>'
         )
 
         # Current contacts (source/drain)
         parts.append(
             f'<rect x="-{scl:.1f}" y="{sw:.1f}" '
             f'width="{scl:.1f}" height="{sw:.1f}" '
-            f'fill="{color}" stroke="#000" stroke-width="1"/>'
+            f'fill="{color_attr}" stroke="#000" stroke-width="1"/>'
         )
         parts.append(
             f'<rect x="{sl:.1f}" y="{sw:.1f}" '
             f'width="{scl:.1f}" height="{sw:.1f}" '
-            f'fill="{color}" stroke="#000" stroke-width="1"/>'
+            f'fill="{color_attr}" stroke="#000" stroke-width="1"/>'
         )
 
         # Voltage contacts (Hall: top 2, longitudinal: bottom 2)
@@ -125,14 +129,14 @@ class HallBarPrimitive:
             parts.append(
                 f'<rect x="{x_pos - scw / 2:.1f}" y="0" '
                 f'width="{scw:.1f}" height="{sw:.1f}" '
-                f'fill="{color}" stroke="#000" stroke-width="1"/>'
+                f'fill="{color_attr}" stroke="#000" stroke-width="1"/>'
             )
 
         for x_pos in [x_long1, x_long2]:
             parts.append(
                 f'<rect x="{x_pos - scw / 2:.1f}" y="{sw * 2:.1f}" '
                 f'width="{scw:.1f}" height="{sw:.1f}" '
-                f'fill="{color}" stroke="#000" stroke-width="1"/>'
+                f'fill="{color_attr}" stroke="#000" stroke-width="1"/>'
             )
 
         # Arrows
@@ -141,7 +145,7 @@ class HallBarPrimitive:
             # Current arrow →
             parts.append(
                 f'<line x1="{-scl:.1f}" y1="{arrow_y:.1f}" '
-                f'x2="{-4:.1f}" y1="{arrow_y:.1f}" '
+                f'x2="{-4:.1f}" y2="{arrow_y:.1f}" '
                 f'stroke="#C00" stroke-width="2" '
                 f'marker-end="url(#arr)"/>'
             )
@@ -156,7 +160,7 @@ class HallBarPrimitive:
             parts.append(
                 f'<text x="{sl / 2:.1f}" y="{sw * 1.5:.1f}" '
                 f'font-size="9" text-anchor="middle" '
-                f'dominant-baseline="middle" fill="#FFF">{label}</text>'
+                f'dominant-baseline="middle" fill="#FFF">{html.escape(label)}</text>'
             )
 
         # Dimension text

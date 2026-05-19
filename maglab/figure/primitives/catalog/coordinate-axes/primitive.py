@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 from typing import Any
 
 
@@ -38,9 +39,10 @@ class CoordinateAxesPrimitive:
         ly = str(params.get("label_y", "y"))
         lz = str(params.get("label_z", "z"))
         show_z = bool(params.get("show_z", True))
-        cx_col = str(params.get("color_x", "#CC0000"))
-        cy_col = str(params.get("color_y", "#007700"))
-        cz_col = str(params.get("color_z", "#0055CC"))
+        # Escape color values for safe insertion into SVG attribute values.
+        cx_col = html.escape(str(params.get("color_x", "#CC0000")), quote=True)
+        cy_col = html.escape(str(params.get("color_y", "#007700")), quote=True)
+        cz_col = html.escape(str(params.get("color_z", "#0055CC")), quote=True)
 
         ox, oy = 20.0, 20.0 + L
         size = L + 40
@@ -65,7 +67,7 @@ class CoordinateAxesPrimitive:
         )
         parts.append(
             f'<text x="{ox + L + 3:.1f}" y="{oy + 4:.1f}" '
-            f'font-size="11" fill="{cx_col}" font-style="italic">{lx}</text>'
+            f'font-size="11" fill="{cx_col}" font-style="italic">{html.escape(lx)}</text>'
         )
 
         # y axis ↑
@@ -75,7 +77,7 @@ class CoordinateAxesPrimitive:
         )
         parts.append(
             f'<text x="{ox - 4:.1f}" y="{oy - L - 4:.1f}" '
-            f'font-size="11" fill="{cy_col}" font-style="italic" text-anchor="middle">{ly}</text>'
+            f'font-size="11" fill="{cy_col}" font-style="italic" text-anchor="middle">{html.escape(ly)}</text>'
         )
 
         # z axis (3D projection: upper-right direction)
@@ -90,7 +92,7 @@ class CoordinateAxesPrimitive:
             )
             parts.append(
                 f'<text x="{zx2 + 3:.1f}" y="{zy2 - 3:.1f}" '
-                f'font-size="11" fill="{cz_col}" font-style="italic">{lz}</text>'
+                f'font-size="11" fill="{cz_col}" font-style="italic">{html.escape(lz)}</text>'
             )
 
         return (

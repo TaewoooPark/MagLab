@@ -333,8 +333,10 @@ class ManualSearcher:
                         error=f"Response is not a PDF: {url}",
                     )
 
-            # Save
-            filename = f"{manufacturer}_{model}_manual.pdf".replace(" ", "_")
+            # Save — sanitise components to prevent path traversal
+            safe_mfr = re.sub(r"[^\w\-]", "_", manufacturer.strip())
+            safe_mdl = re.sub(r"[^\w\-]", "_", model.strip())
+            filename = f"{safe_mfr}_{safe_mdl}_manual.pdf"
             dest = cache_dir / filename
             dest.write_bytes(content)
 

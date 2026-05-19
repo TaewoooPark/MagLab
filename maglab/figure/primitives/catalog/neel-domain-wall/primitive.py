@@ -40,7 +40,8 @@ class NeelDomainWallPrimitive:
     def render(self, params: dict[str, Any], backend: str = "svg", style: str = "nature") -> str:
         """Generate the Néel wall SVG."""
         n = int(params.get("n_spins", 9))
-        wall_width = float(params.get("wall_width", 120.0))
+        # R11-F1: clamp wall_width to a positive minimum so division never raises
+        wall_width = max(1.0, float(params.get("wall_width", 120.0)))
         chirality = int(params.get("chirality", 1))
 
         total_w = wall_width + 60

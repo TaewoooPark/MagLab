@@ -226,18 +226,28 @@ class ReportBuilder:
             known_ids: set[str] = {e.dp.id for e in self._entries}
             combined_text = self._narrative
 
-            # Run Honesty Gate on the narrative text
+            # Run Honesty Gate on the narrative text.
+            # Merge the builder's own registered DataPoint IDs into vault_ids so
+            # that narratives referencing those UUIDs (the intended provenance-
+            # tagging pattern) are not spuriously flagged as OUT_OF_VAULT_VALUE.
+            # When vault_ids is None the vault check is skipped entirely (existing
+            # semantics preserved).
+            effective_vault_ids = (vault_ids | known_ids) if vault_ids is not None else None
             if combined_text.strip():
-                try:
-                    run_gate(
-                        combined_text,
-                        known_dp_ids=known_ids,
-                        vault_ids=vault_ids,
-                        verified_citations=verified_citations,
-                        raise_on_violation=raise_on_violation,
-                    )
-                except HonestyViolation as exc:
-                    violations.extend(exc.violations)
+                gate_result = run_gate(
+                    combined_text,
+                    known_dp_ids=known_ids,
+                    vault_ids=effective_vault_ids,
+                    verified_citations=verified_citations,
+                    raise_on_violation=False,  # always collect first
+                )
+                violations.extend(gate_result.violations)
+
+        # Honour raise_on_violation AFTER collecting all violations so the
+        # caller who passes raise_on_violation=True receives a hard stop with
+        # the full violations list rather than a silently continued Report.
+        if violations and raise_on_violation:
+            raise HonestyViolation(violations)
 
         return Report(
             title=self._title,

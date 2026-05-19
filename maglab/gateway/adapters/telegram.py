@@ -83,8 +83,10 @@ class TelegramAdapter(BaseAdapter):
                 log.info("[telegram] User %s not in allowlist", uid_hash[:8])
                 return False
 
-            if chat_id and not self._channel_allowed(chat_id):
-                log.info("[telegram] Chat %s not in allowlist", chat_id)
+            if self._allowed_channels is not None and (
+                not chat_id or not self._channel_allowed(chat_id)
+            ):
+                log.info("[telegram] Chat %r not in allowlist (or missing)", chat_id)
                 return False
 
         except Exception:  # noqa: BLE001

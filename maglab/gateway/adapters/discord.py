@@ -89,8 +89,10 @@ class DiscordAdapter(BaseAdapter):
                 log.info("[discord] User %s not in allowlist", uid_hash[:8])
                 return False
 
-            if channel_id and not self._channel_allowed(channel_id):
-                log.info("[discord] Channel %s not in allowlist", channel_id)
+            if self._allowed_channels is not None and (
+                not channel_id or not self._channel_allowed(channel_id)
+            ):
+                log.info("[discord] Channel %r not in allowlist (or missing)", channel_id)
                 return False
 
         except Exception:  # noqa: BLE001

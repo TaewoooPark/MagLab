@@ -139,9 +139,18 @@ class CorpusDB:
         return sum(1 for r in records if self.add(r))
 
     def get_by_doi(self, doi: str) -> LiteratureRecord | None:
-        """Retrieve a record by DOI."""
-        doi_norm = doi.lower().replace("https://doi.org/", "").replace("http://doi.org/", "")
-        row = self._conn.execute("SELECT * FROM records WHERE doi = ?", (doi_norm,)).fetchone()
+        """Retrieve a record by DOI.
+
+        Handles both prefixed (``https://doi.org/10.x``) and bare
+        (``10.x``) DOI forms stored in the database by normalising the
+        query *and* stripping the prefix inside the SQL expression so that
+        records inserted with a URL prefix are also found (fix for F-10).
+        """
+        doi_norm = doi.lower().replace("https://doi.org/", "").replace("http://doi.org/", "").replace("doi:", "")
+        row = self._conn.execute(
+            "SELECT * FROM records WHERE LOWER(REPLACE(REPLACE(REPLACE(doi, 'https://doi.org/', ''), 'http://doi.org/', ''), 'doi:', '')) = ?",
+            (doi_norm,),
+        ).fetchone()
         return self._row_to_record(row) if row else None
 
     def search(
@@ -201,10 +210,21 @@ class CorpusDB:
         self._conn.commit()
 
     def update_retraction_status(self, doi: str, status: str) -> None:
-        """Update the retraction status."""
-        doi_norm = doi.lower()
+        """Update the retraction status.
+
+        Applies the same three-prefix normalization as ``get_by_doi()`` so that
+        prefixed DOIs (``https://doi.org/10.x``, ``http://doi.org/10.x``,
+        ``doi:10.x``) correctly match bare rows stored as ``10.x``.
+        """
+        doi_norm = (
+            doi.lower()
+            .replace("https://doi.org/", "")
+            .replace("http://doi.org/", "")
+            .replace("doi:", "")
+        )
         self._conn.execute(
-            "UPDATE records SET retraction_status = ? WHERE doi = ?",
+            "UPDATE records SET retraction_status = ? "
+            "WHERE LOWER(REPLACE(REPLACE(REPLACE(doi, 'https://doi.org/', ''), 'http://doi.org/', ''), 'doi:', '')) = ?",
             (status, doi_norm),
         )
         self._conn.commit()

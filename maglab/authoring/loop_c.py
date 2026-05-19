@@ -34,6 +34,7 @@ from maglab.authoring.citation_auditor import (
 )
 from maglab.authoring.data_vault import AuthoringBlockedError, DataVault
 from maglab.authoring.section_drafter import (
+    _AI_DISCLOSURE,
     DRAFTING_ORDER,
     HUMAN_REVIEW_MARKER,
     CompileResult,
@@ -86,6 +87,11 @@ class LoopCResult:
         Accumulated compilation log text.
     human_review_required:
         Always ``True`` — hard-coded research integrity requirement.
+    output_dir:
+        Directory where artifact files (.tex, HUMAN_REVIEW_REQUIRED.txt) were
+        written.  When the caller passes ``output_dir=None`` to
+        ``run_loop_c``, a temporary directory is created and its path is
+        returned here so the caller can locate the files.
     """
 
     success: bool
@@ -95,6 +101,7 @@ class LoopCResult:
     compile_result: CompileResult | None = None
     compile_log: str = ""
     human_review_required: bool = True
+    output_dir: Path | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -240,10 +247,34 @@ def run_loop_c(
                             f"Critic feedback for {section_name}:\n{feedback}\n\n"
                             f"Revise the following draft:\n{draft_result.tex}"
                         )
-                        revised_tex = llm_fn(
-                            "Revise the section per critic feedback.", revision_prompt
+                        # Use the full invariant system prompt so the LLM retains the
+                        # {{dp:KEY}}-only / no-bare-numbers invariant during revision.
+                        revision_system = drafter._build_system_prompt(
+                            section_type, [], ""
                         )
-                        draft_result.tex = HUMAN_REVIEW_MARKER + revised_tex
+                        revised_tex = llm_fn(revision_system, revision_prompt)
+                        # Append _AI_DISCLOSURE to match the initial-draft path in
+                        # section_drafter.py (§16.5 protocol — every AI-drafted output
+                        # must carry the per-section disclosure, including revisions).
+                        revised_tex_with_header = HUMAN_REVIEW_MARKER + revised_tex + _AI_DISCLOSURE
+                        # Re-run vault injection on the revised text so that any
+                        # {{dp:KEY}} placeholders the LLM reproduced are resolved
+                        # and bare-number leakage is caught by the vault gate.
+                        try:
+                            draft_result.tex = vault.inject_into_draft(
+                                revised_tex_with_header, section=section_name
+                            )
+                        except AuthoringBlockedError as exc:
+                            err_key = f"RevisionVaultBlocked:{section_name}"
+                            reason = engine.step("", score=0.0, error_key=err_key)
+                            log.warning(
+                                "[Loop C] Vault blocked revised draft for %s: %s",
+                                section_name,
+                                exc,
+                            )
+                            if reason is not None:
+                                break
+                            continue
 
                 # Step 3: Pre-section gate
                 try:
@@ -336,6 +367,7 @@ def run_loop_c(
         section_drafts=section_drafts,
         compile_result=last_compile,
         compile_log=compile_log,
+        output_dir=effective_dir,
     )
 
 

@@ -5,6 +5,7 @@ Parametric cross-section of magnetic heterostructures such as Ta/CoFeB/MgO.
 
 from __future__ import annotations
 
+import html
 from typing import Any
 
 _DEFAULT_LAYERS: list[dict[str, Any]] = [
@@ -110,10 +111,11 @@ class MultilayerStackPrimitive:
             h = thick_nm * ts
             y -= h
 
-            # Layer rectangle
+            # Layer rectangle — escape color for safe insertion into an attribute value.
+            color_attr = html.escape(color, quote=True)
             parts.append(
                 f'<rect x="0" y="{y:.1f}" width="{width:.1f}" height="{h:.1f}" '
-                f'fill="{color}" stroke="#333" stroke-width="0.5"/>'
+                f'fill="{color_attr}" stroke="#333" stroke-width="0.5"/>'
             )
 
             # Labels
@@ -128,7 +130,7 @@ class MultilayerStackPrimitive:
                 parts.append(
                     f'<text x="{label_x:.1f}" y="{y + h / 2:.1f}" '
                     f'font-size="{font_size:.1f}" dominant-baseline="middle" '
-                    f'fill="#222">{label_text}</text>'
+                    f'fill="#222">{html.escape(label_text)}</text>'
                 )
 
         # Substrate label

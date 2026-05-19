@@ -31,7 +31,10 @@ P0/P4 resources:
 ``create_server()`` — use to create a server instance directly in tests.
 
 Design principles:
-  - All tools have readOnlyHint=True (no side effects).
+  - Read-only tools carry readOnlyHint=True; file-writing tools carry
+    readOnlyHint=False (figure_render, figure_export, sim_run,
+    instr_search_manual, instr_ingest_manual, instr_generate_skill,
+    instr_scaffold).
   - Only deterministic functions are called — no LLM calls.
   - Full type hints throughout.
 """
@@ -80,11 +83,18 @@ def create_server() -> FastMCP:
 
 _READ_ONLY_ANNOTATIONS = ToolAnnotations(readOnlyHint=True)
 
+# Annotation for tools that write files to disk (figure_render, figure_export,
+# sim_run, instr_ingest_manual, instr_generate_skill, instr_scaffold,
+# instr_search_manual).  These tools create new files but do NOT destroy
+# existing data, so destructiveHint=False.
+_WRITE_ANNOTATIONS = ToolAnnotations(readOnlyHint=False, destructiveHint=False)
+
 
 def _register_tools(mcp: FastMCP) -> None:
     """Register P0 and P1 tools with the MCP server."""
 
     read_only = _READ_ONLY_ANNOTATIONS
+    write_op = _WRITE_ANNOTATIONS
 
     # ------------------------------------------------------------------
     # 1. physics_compute
@@ -368,7 +378,7 @@ def _register_tools(mcp: FastMCP) -> None:
             "Returns ok=False and error if external solver is not installed. "
             "On success, returns job_id and summary."
         ),
-        annotations=read_only,
+        annotations=write_op,
     )
     def sim_run(spec_dict: dict[str, Any]) -> dict[str, Any]:
         """Micromagnetic simulation run tool.
@@ -392,11 +402,14 @@ def _register_tools(mcp: FastMCP) -> None:
         dps: list[Any] = []
         caught: list[str] = []
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            dps = run_sim_overlay(spec_dict)
-            for warning in w:
-                caught.append(str(warning.message))
+        try:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                dps = run_sim_overlay(spec_dict)
+                for warning in w:
+                    caught.append(str(warning.message))
+        except Exception as exc:
+            return {"ok": False, "job_id": "", "summary": "", "error": str(exc)}
 
         if not dps and caught:
             return {
@@ -496,7 +509,7 @@ def _register_tools(mcp: FastMCP) -> None:
             "datapoints: DataPoint ID → DataPoint dict (optional). "
             "data-plot panels missing DataPoint bindings are blocked with IntegrityError."
         ),
-        annotations=read_only,
+        annotations=write_op,
     )
     def figure_render(
         spec_dict: dict[str, Any],
@@ -533,13 +546,19 @@ def _register_tools(mcp: FastMCP) -> None:
 
         try:
             fig = FigureComposer().compose(spec, ledger)
-            saved = FigureExporter().export(fig, output_path, fmt=fmt)  # type: ignore[arg-type]
-            import matplotlib.pyplot as plt
+        except Exception as exc:
+            return {"ok": False, "path": "", "error": str(exc)}
 
-            plt.close(fig)
+        try:
+            saved = FigureExporter().export(fig, output_path, fmt=fmt)  # type: ignore[arg-type]
             return {"ok": True, "path": str(saved), "error": None}
         except Exception as exc:
             return {"ok": False, "path": "", "error": str(exc)}
+        finally:
+            import matplotlib.pyplot as plt
+
+            with contextlib.suppress(Exception):
+                plt.close(fig)
 
     # ------------------------------------------------------------------
     # 11. figure_export
@@ -554,7 +573,7 @@ def _register_tools(mcp: FastMCP) -> None:
             "formats: list of formats (e.g. ['pdf','svg']). "
             "Only panels renderable without DataPoint bindings are output."
         ),
-        annotations=read_only,
+        annotations=write_op,
     )
     def figure_export(
         spec_dict: dict[str, Any],
@@ -593,14 +612,15 @@ def _register_tools(mcp: FastMCP) -> None:
 
         try:
             fig = FigureComposer().compose(spec, ledger)
+        except Exception as exc:
+            return {"ok": False, "paths": {}, "error": str(exc)}
+
+        try:
             results = FigureExporter().export_all(
                 fig,
                 stem,
                 formats=fmts,  # type: ignore[arg-type]
             )
-            import matplotlib.pyplot as plt
-
-            plt.close(fig)
             return {
                 "ok": True,
                 "paths": {k: str(v) for k, v in results.items()},
@@ -608,6 +628,11 @@ def _register_tools(mcp: FastMCP) -> None:
             }
         except Exception as exc:
             return {"ok": False, "paths": {}, "error": str(exc)}
+        finally:
+            import matplotlib.pyplot as plt
+
+            with contextlib.suppress(Exception):
+                plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
@@ -619,6 +644,7 @@ def _register_instrument_tools(mcp: FastMCP) -> None:
     """Register P4 instrument-domain tools with the MCP server (T-P4-28)."""
 
     read_only = _READ_ONLY_ANNOTATIONS
+    write_op = _WRITE_ANNOTATIONS
 
     # ------------------------------------------------------------------
     # 12. instr_search_manual
@@ -632,7 +658,7 @@ def _register_instrument_tools(mcp: FastMCP) -> None:
             "manufacturer: optional manufacturer name. "
             "Returns ok=True and pdf_path on success, ok=False and error on failure."
         ),
-        annotations=read_only,
+        annotations=write_op,  # downloads PDF + sha256.txt to local cache — not read-only
     )
     def instr_search_manual(
         model: str,
@@ -676,7 +702,7 @@ def _register_instrument_tools(mcp: FastMCP) -> None:
             "manufacturer: optional manufacturer name. "
             "Returns ok=True with chunk_count on success."
         ),
-        annotations=read_only,
+        annotations=write_op,
     )
     def instr_ingest_manual(
         model: str,
@@ -733,7 +759,7 @@ def _register_instrument_tools(mcp: FastMCP) -> None:
             "safety_model: safety profile key (default 'generic'). "
             "Returns ok=True with skill_dir and generated file list on success."
         ),
-        annotations=read_only,
+        annotations=write_op,
     )
     def instr_generate_skill(
         model: str,
@@ -783,7 +809,7 @@ def _register_instrument_tools(mcp: FastMCP) -> None:
             "output_path: optional path to save the generated file. "
             "Returns ok=True with the generated code on success."
         ),
-        annotations=read_only,
+        annotations=write_op,
     )
     def instr_scaffold(
         model: str,

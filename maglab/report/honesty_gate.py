@@ -153,11 +153,16 @@ _DP_ID_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Promise patterns: "I executed", "I remembered", "I saved", etc.
+# Promise patterns: first-person only — "I executed", "I have saved", "we ran",
+# "I have already completed", etc.  Requires an explicit first-person subject
+# (I or we, optionally followed by "have" and/or "already") so passive and
+# third-person constructions ("results were recorded", "the fit was completed")
+# do NOT match.
 _PROMISE_RE = re.compile(
     r"(?:"
-    r"(?:I\s+have\s+)?(?:executed|remembered|saved|recorded|completed|performed|processed|verified)"
-    r"|(?:already\s+)?(?:ran|done|finished)"
+    r"(?:I|we)\s+(?:have\s+)?(?:already\s+)?"
+    r"(?:executed|remembered|saved|recorded|completed|performed|processed|verified"
+    r"|ran|done|finished)"
     r")",
     re.IGNORECASE,
 )
@@ -378,17 +383,30 @@ def check_promises(
             if tool_name and status in {"success", "ok", "completed", "done"}:
                 executed_tools.add(tool_name.lower())
 
+    # Read-only / query-tier tools whose presence must NOT suppress a
+    # promise-check violation.  An agent claiming "I executed the simulation"
+    # must still be flagged when the only logged tool is "memory.read".
+    read_only_tools: frozenset[str] = frozenset(
+        {"memory.read", "pool.query", "read", "list", "search", "query"}
+    )
+    # Write-tier tools: any successfully executed tool that is NOT read-only
+    write_tools = {t for t in executed_tools if t not in read_only_tools}
+
     for m in promise_matches:
         # Extract context around the promise for diagnosis
         ctx = agent_text[max(0, m.start() - 100) : m.end() + 100]
-        # No execution records in the log → potential mismatch
-        if not executed_tools:
+        # Flag when no write-tier tool was actually executed.
+        # This catches both "no tools at all" and "only read-only tools ran"
+        # while suppressing false positives when a genuine write-tier action
+        # (e.g. sim_run, save, record) was logged for this session.
+        if not write_tools:
             violations.append(
                 Violation(
                     kind=ViolationKind.PROMISE_MISMATCH,
                     message=(
-                        f"Agent claimed «{m.group(0)}» but no execution "
-                        f"record found in the tool log."
+                        f"Agent claimed «{m.group(0)}» but no write-tier execution "
+                        f"record found in the tool log "
+                        f"(executed: {sorted(executed_tools) or 'none'})."
                     ),
                     excerpt=ctx[:80].strip(),
                     position=m.start(),
@@ -472,8 +490,11 @@ def run_gate(
     """
     violations: list[Violation] = []
 
-    # 1. Untagged numbers
-    violations.extend(check_untagged_numbers(text, known_dp_ids))
+    # 1. Untagged numbers — skipped when is_figure=True because step 6
+    # (check_figure_data_tags) already calls check_untagged_numbers on the
+    # same text, which would otherwise produce identical duplicate violations.
+    if not is_figure:
+        violations.extend(check_untagged_numbers(text, known_dp_ids))
 
     # 2. Citation verification
     if verified_citations is not None:
@@ -490,7 +511,10 @@ def run_gate(
     if vault_ids is not None:
         violations.extend(check_vault_references(text, vault_ids))
 
-    # 6. Figure untagged data
+    # 6. Figure untagged data — supersedes step 1 when is_figure=True.
+    # check_figure_data_tags internally calls check_untagged_numbers, so it
+    # covers all untagged-number violations for figure text.  When no figure
+    # context keyword is present in the text it returns [] (no false positives).
     if is_figure:
         violations.extend(check_figure_data_tags(text, known_dp_ids))
 

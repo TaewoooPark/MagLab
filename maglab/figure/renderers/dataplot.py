@@ -96,6 +96,21 @@ def _extract_xy(
         y_raw = dps[1].value
         x = np.asarray(x_raw if isinstance(x_raw, list) else [x_raw], dtype=float)
         y = np.asarray(y_raw if isinstance(y_raw, list) else [y_raw], dtype=float)
+        # R14-F1 fix: detect shape mismatch before passing to matplotlib.
+        # When one DataPoint holds an N-element array and the other a scalar,
+        # the code above yields x.shape=(N,) vs y.shape=(1,) (or vice-versa).
+        # Similarly, two list-valued DataPoints of different lengths produce
+        # x.shape=(N,) and y.shape=(M,) with N≠M.  In either case matplotlib
+        # raises a cryptic ValueError("x and y must have same first dimension").
+        # Raise a clear ValueError here instead so the caller receives a
+        # diagnostic message that identifies the data-binding issue.
+        if x.shape != y.shape:
+            raise ValueError(
+                f"DataPoint shape mismatch in 2-DataPoint panel: "
+                f"x has shape {x.shape} (DataPoint '{dps[0].id}') but "
+                f"y has shape {y.shape} (DataPoint '{dps[1].id}'). "
+                "Both DataPoints must produce arrays of equal length."
+            )
         return x, y
 
     if len(dps) == 1:
@@ -113,6 +128,16 @@ def _extract_xy(
     ys: list[float] = []
     for i, dp in enumerate(dps):
         if isinstance(dp.value, list):
+            # R15-F1 fix: guard against an empty list before indexing.
+            # dp.value[0] on an empty list raises IndexError with no diagnostic
+            # context (no DataPoint ID or file info). Raise a clear ValueError
+            # here instead so the caller can identify the offending binding.
+            if len(dp.value) == 0:
+                raise ValueError(
+                    f"DataPoint '{dp.id}' has an empty list value in a multi-DataPoint "
+                    "panel. Cannot extract the first element for plotting. "
+                    "Ensure the DataPoint value is a non-empty list or a scalar."
+                )
             warnings.warn(
                 f"DataPoint {dp.id} is an array; using only the first element.",
                 UserWarning,
@@ -348,5 +373,11 @@ class DataPlotRenderer:
         """
         with plt.rc_context(self._rcparams):
             fig, ax = plt.subplots(figsize=figsize)
-            self.render_panel(panel, ax, ledger)
+            try:
+                self.render_panel(panel, ax, ledger)
+            except Exception:
+                # HIGH-2 fix: close the figure on render error to prevent
+                # matplotlib figure-manager leaks in long-running sessions.
+                plt.close(fig)
+                raise
         return fig, ax

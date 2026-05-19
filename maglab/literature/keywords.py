@@ -98,14 +98,22 @@ def extract_text_from_pdf(pdf_path: Path) -> str:
 
 
 def extract_texts_from_folder(
-    folder: Path, extensions: tuple[str, ...] = (".pdf", ".txt")
+    folder: Path | str, extensions: tuple[str, ...] = (".pdf", ".txt")
 ) -> list[tuple[Path, str]]:
     """Extract text from supported files in a folder.
 
     Returns
     -------
     [(file_path, text), ...] — entries with empty text are excluded.
+
+    Notes
+    -----
+    Returns ``[]`` when *folder* does not exist or is not a directory,
+    consistent with the empty-folder case.
     """
+    folder = Path(folder)
+    if not folder.is_dir():
+        return []
     results: list[tuple[Path, str]] = []
     for f in sorted(folder.iterdir()):
         if not f.is_file():
@@ -332,17 +340,29 @@ def merge_keyword_scores(
     keybert_norm = _normalize_scores(keybert)
     yake_norm = _normalize_scores(yake)
 
-    all_keywords: set[str] = set()
-    all_keywords.update(tfidf_norm)
-    all_keywords.update(keybert_norm)
-    all_keywords.update(yake_norm)
+    # Build a unified map keyed by *normalised* keyword so that source strings
+    # that differ only in case ("Spin Hall Effect" vs "spin hall effect") are
+    # merged into a single entry instead of producing two identical
+    # WeightedKeyword objects.
+    # For each normalised keyword, accumulate the *maximum* score seen across
+    # all source variants (conservative — avoids double-counting).
+    norm_to_scores: dict[str, dict[str, float]] = {}
+
+    def _accumulate(src_dict: dict[str, float], label: str) -> None:
+        for kw, sc in src_dict.items():
+            norm = _normalize_keyword(kw)
+            entry = norm_to_scores.setdefault(norm, {"t": 0.0, "k": 0.0, "y": 0.0})
+            entry[label] = max(entry[label], sc)
+
+    _accumulate(tfidf_norm, "t")
+    _accumulate(keybert_norm, "k")
+    _accumulate(yake_norm, "y")
 
     results: list[WeightedKeyword] = []
-    for kw in all_keywords:
-        norm = _normalize_keyword(kw)
-        t_sc = tfidf_norm.get(kw, 0.0)
-        k_sc = keybert_norm.get(kw, 0.0)
-        y_sc = yake_norm.get(kw, 0.0)
+    for norm, sc_map in norm_to_scores.items():
+        t_sc = sc_map["t"]
+        k_sc = sc_map["k"]
+        y_sc = sc_map["y"]
         total = WEIGHT_TFIDF * t_sc + WEIGHT_KEYBERT * k_sc + WEIGHT_YAKE * y_sc
         methods: list[str] = []
         if t_sc > 0:

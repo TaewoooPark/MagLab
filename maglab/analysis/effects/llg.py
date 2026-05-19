@@ -115,7 +115,9 @@ class LLGModel(EffectModel):
         dm/dt = -γ_eff (m×H_eff) - α·γ_eff (m×m×H_eff)
         """
         gamma_eff = gamma_0 / (1.0 + alpha**2)
-        mxH = np.cross(m, H_eff)
+        # H_eff is in A/m; multiply by MU_0 to convert to T before the cross product.
+        # LLG in SI: dm/dt = -γ·μ₀·(m×H_eff) + ...
+        mxH = np.cross(m, MU_0 * H_eff)
         precession = -gamma_eff * mxH
         damping = -alpha * gamma_eff * np.cross(m, mxH)
 
@@ -173,15 +175,16 @@ class LLGModel(EffectModel):
                 return self._llg_rhs(t, m, H_const, alpha, gamma_0, tau_DL, tau_FL, m_p)
 
         # max_step: 1/10 of precession period (ensures minimum integration step)
+        duration = t_span[1] - t_span[0]
         H_mag = float(np.linalg.norm(H_const))
         if H_mag > 0:
             omega_max = gamma_0 * float(MU_0) * H_mag
             max_step = min(
-                (t_span[1] - t_span[0]) / 5.0,
+                duration / 5.0 if duration > 0 else 1e-12,
                 2.0 * np.pi / omega_max / 10.0,
             )
         else:
-            max_step = (t_span[1] - t_span[0]) / 100.0
+            max_step = duration / 100.0 if duration > 0 else 1e-12
 
         # Determine internal steps from number of t_eval points
         t_arr = np.asarray(t_eval)
@@ -193,8 +196,13 @@ class LLGModel(EffectModel):
         dt = t_internal[1] - t_internal[0]
 
         m_curr = m_0.copy().astype(float)
-        out_idx = 0
         result = np.zeros((n_out, 3), dtype=float)
+
+        # Store initial condition exactly when t_eval[0] == t_span[0]
+        out_idx = 0
+        if n_out > 0 and t_arr[0] <= t_span[0] + 1e-15:
+            result[0] = m_curr
+            out_idx = 1
 
         for i, t_i in enumerate(t_internal[:-1]):
             # RK4
@@ -228,7 +236,7 @@ class LLGModel(EffectModel):
         """Fit α from m(t) data (τ_DL, τ_FL fixed at 0).
 
         Simplified fitting to extract damping constant from FMR precession.
-        Uses the approximation m_z(t) = 1 - A·exp(-αω₀t/2)·(1-cos(ω₀t)).
+        Uses the approximation m_z(t) = 1 - A·exp(-α·ω₀·t)·cos(ω₀·t).
 
         Args:
             data: {"t": ndarray, "mz": ndarray}.
@@ -241,20 +249,33 @@ class LLGModel(EffectModel):
         mz = data["mz"]
         omega_0 = float((geometry or {}).get("omega_0", 2.0 * np.pi * 10e9))
 
-        def model_fn(x: np.ndarray, alpha: float, tau_DL: float, tau_FL: float) -> np.ndarray:
-            # Simplified: mz ≈ 1 - (1-mz_0)·exp(-α·ω₀·x)·cos²(ω₀·x/2)
-            mz_0 = float(mz[0]) if len(mz) > 0 else 0.8
-            return 1.0 - (1.0 - mz_0) * np.exp(-alpha * omega_0 * x)
+        # Only α is identifiable from the oscillatory ring-down m_z(t).
+        # τ_DL and τ_FL do not appear in the model expression and are held
+        # fixed at 0 (not fitted) to avoid a singular covariance matrix.
+        alpha_spec = [p for p in self.parameters if p.name == "alpha"]
 
-        init = {"alpha": 0.01, "tau_DL": 0.0, "tau_FL": 0.0}
-        return run_fit(
+        def model_fn(x: np.ndarray, alpha: float) -> np.ndarray:
+            # Oscillatory ring-down: mz(t) ≈ 1 - A·exp(-α·ω₀·t)·cos(ω₀·t)
+            # Correct in the underdamped limit (α ≪ 1) which is the physical regime.
+            mz_0 = float(mz[0]) if len(mz) > 0 else 0.8
+            return 1.0 - (1.0 - mz_0) * np.exp(-alpha * omega_0 * x) * np.cos(omega_0 * x)
+
+        init = {"alpha": 0.01}
+        fit_result = run_fit(
             model_fn=model_fn,
             x_data=t,
             y_data=mz,
-            param_specs=self.parameters,
+            param_specs=alpha_spec,
             init_values=init,
             effect_name=self.name,
         )
+        # Report tau_DL and tau_FL as fixed/not-fitted so FitResult is complete
+        # but clearly marks them as not constrained by this measurement.
+        fit_result.params.setdefault("tau_DL", 0.0)
+        fit_result.params.setdefault("tau_FL", 0.0)
+        fit_result.uncertainties.setdefault("tau_DL", 0.0)
+        fit_result.uncertainties.setdefault("tau_FL", 0.0)
+        return fit_result
 
     def precession_frequency(
         self,

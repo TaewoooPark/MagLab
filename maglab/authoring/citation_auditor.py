@@ -240,7 +240,11 @@ def audit_existence(
 
     Returns
     -------
-    ``ExistenceReport`` — only returned when ``raise_on_missing=False``.
+    ExistenceReport
+        Always returned when no exception is raised (i.e. all keys are present,
+        or keys are missing but ``raise_on_missing=False``).  Callers using
+        ``raise_on_missing=True`` should still capture the return value to
+        inspect ``missing_keys`` inside a ``try/except`` block.
 
     Raises
     ------

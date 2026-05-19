@@ -120,7 +120,11 @@ class CircuitBreakerState:
     no_progress_count: int = 0
     error_counts: dict[str, int] = field(default_factory=dict)
     last_output_hash: str = ""
-    last_score: float = 0.0
+    # Sentinel value: None means no score has been recorded yet.
+    # Using float = 0.0 caused an off-by-one: the first call with score=0.0
+    # would compute delta=0.0 < threshold and immediately increment no_progress_count,
+    # even though no prior iteration had occurred to compare against.
+    last_score: float | None = None
     no_progress_threshold: float = 0.01
     no_progress_limit: int = 3
     error_limit: int = 5
@@ -146,14 +150,18 @@ class CircuitBreakerState:
             return StopReason.OUTPUT_SIMILARITY
         self.last_output_hash = output_hash
 
-        # No-progress check
-        delta = abs(score - self.last_score)
-        if delta < self.no_progress_threshold:
-            self.no_progress_count += 1
-            if self.no_progress_count >= self.no_progress_limit:
-                return StopReason.NO_PROGRESS
-        else:
-            self.no_progress_count = 0
+        # No-progress check.
+        # Skip on the very first recorded iteration (last_score is None) so
+        # that a first-iteration score of 0.0 is not spuriously counted as
+        # "no progress compared to the initialisation default".
+        if self.last_score is not None:
+            delta = abs(score - self.last_score)
+            if delta < self.no_progress_threshold:
+                self.no_progress_count += 1
+                if self.no_progress_count >= self.no_progress_limit:
+                    return StopReason.NO_PROGRESS
+            else:
+                self.no_progress_count = 0
         self.last_score = score
 
         return None
@@ -549,6 +557,7 @@ class RalphEngine:
         agent_fn: Any,
         *args: Any,
         git_commit: bool = False,
+        score_fn: Callable[[str], float] | None = None,
         **kwargs: Any,
     ) -> list[str]:
         """External loop scaffold for detached mode.
@@ -565,6 +574,15 @@ class RalphEngine:
             iteration (§6.2 — detached fresh-context handoff via files + git).
             A no-op with a logged warning when the working directory is not a
             git repository or there is nothing to commit.
+        score_fn:
+            Optional scoring function: ``(output: str) -> float`` (0–1).
+            When provided, its return value is passed to ``step()`` as the
+            progress score and the NO_PROGRESS circuit breaker is active.
+            When absent (default), the NO_PROGRESS circuit breaker is
+            suppressed — a detached loop's genuine "stuck" condition is
+            repeated identical output, which the OUTPUT_SIMILARITY breaker
+            already detects.  The DONE_SIGNAL, REPEATED_ERROR, BUDGET, and
+            MAX_ITERATIONS breakers remain fully active in both cases.
 
         Returns
         -------
@@ -590,7 +608,18 @@ class RalphEngine:
                 continue
 
             outputs.append(output)
-            reason = self.step(output, score=0.5)
+            if score_fn is not None:
+                # Caller-supplied scorer: NO_PROGRESS breaker is active.
+                score = score_fn(output)
+                reason = self.step(output, score=score)
+            else:
+                # No scorer supplied: suppress the NO_PROGRESS breaker so that
+                # the loop can run to max_iterations.  Reset no_progress_count
+                # before recording so that consecutive same-score calls never
+                # accumulate, while OUTPUT_SIMILARITY, REPEATED_ERROR, BUDGET,
+                # and MAX_ITERATIONS breakers remain active.
+                self._circuit.reset_no_progress()
+                reason = self.step(output, score=0.5)
             if git_commit:
                 self._git_commit_iteration()
             if reason:
@@ -1200,7 +1229,23 @@ def _build_critic_prompt(checklist: list[str] | None = None) -> str:
 
 def _parse_critic_response(response: str) -> FigureCriticResult:
     """Parse the vision model response into a FigureCriticResult."""
-    passed = "PASSED" in response.upper()
+    # Detect PASSED only as a standalone word on the final non-empty line so
+    # that mid-response occurrences ("not passed", "items not passed: …",
+    # "Axis labels passed, colorblind failed") do NOT trigger a false pass.
+    # The final line must contain the word PASSED (word boundary) but must
+    # NOT contain "NOT PASSED" or "FAILED".
+    import re as _re
+
+    _lines = [ln.strip() for ln in response.splitlines() if ln.strip()]
+    if _lines:
+        _last = _lines[-1].upper()
+        passed = bool(
+            _re.search(r"\bPASSED\b", _last)
+            and not _re.search(r"\bNOT\s+PASSED\b", _last)
+            and "FAILED" not in _last
+        )
+    else:
+        passed = False
     issues: list[str] = []
     suggestions: list[str] = []
 

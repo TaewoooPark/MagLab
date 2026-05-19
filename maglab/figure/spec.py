@@ -16,7 +16,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class PanelType(StrEnum):
@@ -109,6 +109,16 @@ class AxisSpec(BaseModel):
     label: str = ""
     scale: Literal["linear", "log"] = "linear"
     lim: list[float] | None = None
+
+    @field_validator("lim")
+    @classmethod
+    def lim_must_have_two_elements(cls, v: list[float] | None) -> list[float] | None:
+        """Validate that lim is None or has exactly 2 elements [min, max]."""
+        if v is not None and len(v) != 2:
+            raise ValueError(
+                f"lim must have exactly 2 elements [min, max], got {len(v)}"
+            )
+        return v
 
 
 class PanelSpec(BaseModel):

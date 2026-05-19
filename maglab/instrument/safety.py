@@ -121,6 +121,7 @@ class ViolationType(StrEnum):
     FIELD_OVER = "field_over_limit"
     TEMPERATURE_OVER = "temperature_over_limit"
     ORDER_VIOLATION = "order_violation"  # Command order violation
+    OUTPUT_ACTIVE_PARAM_CHANGE = "output_active_param_change"  # Param change while output is live
     UNKNOWN_COMMAND = "unknown_command"  # Unknown command (warning)
 
 
@@ -187,21 +188,32 @@ class SafetyChecker:
     Conservatively detects dangerous patterns; actual execution is Tier 3 (human).
     """
 
-    # Voltage-related SCPI prefixes
+    # Voltage-related SCPI prefixes.
+    # NOTE: bare "VOLT" is intentionally excluded here because it matches
+    # sub-node commands like VOLT:RANG (range selector, not a voltage value).
+    # MEDIUM-3 fix: use explicit value-setting prefixes only.
     _VOLT_PREFIXES = (
         ":SOUR:VOLT",
-        "VOLT",
         "SOUR:VOLT",
-        ":VOLT",
+        ":VOLT:LEV",
+        "VOLT:LEV",
         ":OUTPUT:VOLT",
         "OUTPUT:VOLT",
+        # SR830 sine-output command (MEDIUM-1 fix)
+        "SLVL",
+        ":SLVL",
     )
-    # Current-related SCPI prefixes
+    # Current-related SCPI prefixes.
+    # NOTE: bare "CURR" and ":CURR" are intentionally excluded because they
+    # match sub-node commands like CURR:COMP (compliance limit) and CURR:RANG
+    # (range selector) which are not output-current setpoints.  Only the
+    # explicit value-setting sub-nodes are listed here (mirroring the
+    # VOLT:RANG exclusion for _VOLT_PREFIXES above).
     _CURR_PREFIXES = (
         ":SOUR:CURR",
-        "CURR",
         "SOUR:CURR",
-        ":CURR",
+        ":CURR:LEV",
+        "CURR:LEV",
         ":OUTPUT:CURR",
         "OUTPUT:CURR",
     )
@@ -223,6 +235,11 @@ class SafetyChecker:
     # Output activation pattern
     _OUTPUT_ON_RE = re.compile(
         r"(?:OUTP(?:UT)?\s+ON|\:OUTP(?:UT)?\s+ON|OUTP\s+1|\:OUTP\s+1)",
+        re.IGNORECASE,
+    )
+    # Output deactivation pattern
+    _OUTPUT_OFF_RE = re.compile(
+        r"(?:OUTP(?:UT)?\s+OFF|\:OUTP(?:UT)?\s+OFF|OUTP\s+0|\:OUTP\s+0)",
         re.IGNORECASE,
     )
     # Initialization command pattern
@@ -253,162 +270,206 @@ class SafetyChecker:
         violations: list[SafetyViolation] = []
         warnings: list[SafetyViolation] = []
         initialized = False
+        output_active = False  # Rule #3: track whether output is currently enabled
 
         for lineno, cmd in enumerate(commands, start=1):
             cmd_stripped = cmd.strip()
             if not cmd_stripped or cmd_stripped.startswith(("#", "//")):
                 continue
 
-            # Detect initialization
-            if self._INIT_RE.search(cmd_stripped):
-                initialized = True
-                continue
+            # HIGH-1 fix: split compound SCPI commands on semicolons and check
+            # each sub-command individually.  A line like "*RST; SOUR:VOLT 1000"
+            # must have BOTH sub-commands evaluated — not short-circuited by
+            # the init-detection continue.
+            sub_commands = [s.strip() for s in cmd_stripped.split(";")]
 
-            # Check output activation order
-            if (
-                self._OUTPUT_ON_RE.search(cmd_stripped)
-                and self._profile.requires_init
-                and not initialized
-            ):
-                violations.append(
-                    SafetyViolation(
-                        violation_type=ViolationType.ORDER_VIOLATION,
-                        line_number=lineno,
-                        command=cmd_stripped,
-                        message=(
-                            f"Initialization (*RST/*CLS) is required before activating output "
-                            f"(Appendix D command-order rule). Command: {cmd_stripped!r}"
-                        ),
-                        is_error=True,
-                    )
+            for sub_cmd in sub_commands:
+                if not sub_cmd:
+                    continue
+
+                # Detect initialization — also clears output_active (reset/re-init)
+                if self._INIT_RE.search(sub_cmd):
+                    initialized = True
+                    output_active = False
+                    # Do not skip the rest of sub_commands — other sub-commands
+                    # on the same physical line still need limit checks.
+                    continue
+
+                # Detect output deactivation (OUTP OFF / OUTP 0)
+                if self._OUTPUT_OFF_RE.search(sub_cmd):
+                    output_active = False
+                    continue
+
+                # Check output activation order
+                if self._OUTPUT_ON_RE.search(sub_cmd):
+                    if self._profile.requires_init and not initialized:
+                        violations.append(
+                            SafetyViolation(
+                                violation_type=ViolationType.ORDER_VIOLATION,
+                                line_number=lineno,
+                                command=sub_cmd,
+                                message=(
+                                    f"Initialization (*RST/*CLS) is required before activating output "
+                                    f"(Appendix D command-order rule). Command: {sub_cmd!r}"
+                                ),
+                                is_error=True,
+                            )
+                        )
+                    # Mark output as active regardless of order-error — track state faithfully
+                    output_active = True
+                    continue
+
+                # Rule #3: reject CONFIG-phase parameter changes while output is active.
+                # A voltage or current setter issued after OUTP ON risks current surges on
+                # sensitive samples (Appendix D rule #3).
+                _is_volt_cmd = any(
+                    sub_cmd.upper().startswith(p.upper()) for p in self._VOLT_PREFIXES
                 )
-
-            # Voltage limit check
-            if any(cmd_stripped.upper().startswith(p.upper()) for p in self._VOLT_PREFIXES):
-                val = _extract_number(cmd_stripped)
-                if val is not None:
-                    if (
-                        self._profile.max_voltage_v is not None
-                        and val > self._profile.max_voltage_v
-                    ):
-                        violations.append(
-                            SafetyViolation(
-                                violation_type=ViolationType.VOLTAGE_OVER,
-                                line_number=lineno,
-                                command=cmd_stripped,
-                                message=(
-                                    f"Voltage {val:.3g} V exceeds the maximum limit "
-                                    f"of {self._profile.max_voltage_v:.3g} V."
-                                ),
-                            )
-                        )
-                    if (
-                        self._profile.min_voltage_v is not None
-                        and val < self._profile.min_voltage_v
-                    ):
-                        violations.append(
-                            SafetyViolation(
-                                violation_type=ViolationType.VOLTAGE_UNDER,
-                                line_number=lineno,
-                                command=cmd_stripped,
-                                message=(
-                                    f"Voltage {val:.3g} V is below the minimum limit "
-                                    f"of {self._profile.min_voltage_v:.3g} V."
-                                ),
-                            )
-                        )
-
-            # Current limit check
-            if any(cmd_stripped.upper().startswith(p.upper()) for p in self._CURR_PREFIXES):
-                val = _extract_number(cmd_stripped)
-                if val is not None:
-                    if (
-                        self._profile.max_current_a is not None
-                        and val > self._profile.max_current_a
-                    ):
-                        violations.append(
-                            SafetyViolation(
-                                violation_type=ViolationType.CURRENT_OVER,
-                                line_number=lineno,
-                                command=cmd_stripped,
-                                message=(
-                                    f"Current {val:.3g} A exceeds the maximum limit "
-                                    f"of {self._profile.max_current_a:.3g} A."
-                                ),
-                            )
-                        )
-                    if (
-                        self._profile.min_current_a is not None
-                        and val < self._profile.min_current_a
-                    ):
-                        violations.append(
-                            SafetyViolation(
-                                violation_type=ViolationType.CURRENT_UNDER,
-                                line_number=lineno,
-                                command=cmd_stripped,
-                                message=(
-                                    f"Current {val:.3g} A is below the minimum limit "
-                                    f"of {self._profile.min_current_a:.3g} A."
-                                ),
-                            )
-                        )
-
-            # Magnetic field limit check
-            if any(cmd_stripped.upper().startswith(p.upper()) for p in self._FIELD_PREFIXES):
-                val = _extract_number(cmd_stripped)
-                if (
-                    val is not None
-                    and self._profile.max_field_t is not None
-                    and abs(val) > self._profile.max_field_t
-                ):
+                _is_curr_cmd = any(
+                    sub_cmd.upper().startswith(p.upper()) for p in self._CURR_PREFIXES
+                )
+                if output_active and (_is_volt_cmd or _is_curr_cmd):
                     violations.append(
                         SafetyViolation(
-                            violation_type=ViolationType.FIELD_OVER,
+                            violation_type=ViolationType.OUTPUT_ACTIVE_PARAM_CHANGE,
                             line_number=lineno,
-                            command=cmd_stripped,
+                            command=sub_cmd,
                             message=(
-                                f"Magnetic field |{val:.3g}| T exceeds the maximum limit "
-                                f"of {self._profile.max_field_t:.3g} T."
+                                f"Parameter change while output is active is not allowed "
+                                f"(Appendix D rule #3). Deactivate output before reconfiguring. "
+                                f"Command: {sub_cmd!r}"
                             ),
+                            is_error=True,
                         )
                     )
 
-            # Temperature limit check
-            if any(cmd_stripped.upper().startswith(p.upper()) for p in self._TEMP_PREFIXES):
-                val = _extract_number(cmd_stripped)
-                if (
-                    val is not None
-                    and self._profile.max_temperature_k is not None
-                    and val > self._profile.max_temperature_k
-                ):
-                    violations.append(
-                        SafetyViolation(
-                            violation_type=ViolationType.TEMPERATURE_OVER,
-                            line_number=lineno,
-                            command=cmd_stripped,
-                            message=(
-                                f"Temperature {val:.3g} K exceeds the maximum limit "
-                                f"of {self._profile.max_temperature_k:.3g} K."
-                            ),
-                        )
-                    )
+                # Voltage limit check
+                if any(sub_cmd.upper().startswith(p.upper()) for p in self._VOLT_PREFIXES):
+                    val = _extract_number(sub_cmd)
+                    if val is not None:
+                        if (
+                            self._profile.max_voltage_v is not None
+                            and val > self._profile.max_voltage_v
+                        ):
+                            violations.append(
+                                SafetyViolation(
+                                    violation_type=ViolationType.VOLTAGE_OVER,
+                                    line_number=lineno,
+                                    command=sub_cmd,
+                                    message=(
+                                        f"Voltage {val:.3g} V exceeds the maximum limit "
+                                        f"of {self._profile.max_voltage_v:.3g} V."
+                                    ),
+                                )
+                            )
+                        if (
+                            self._profile.min_voltage_v is not None
+                            and val < self._profile.min_voltage_v
+                        ):
+                            violations.append(
+                                SafetyViolation(
+                                    violation_type=ViolationType.VOLTAGE_UNDER,
+                                    line_number=lineno,
+                                    command=sub_cmd,
+                                    message=(
+                                        f"Voltage {val:.3g} V is below the minimum limit "
+                                        f"of {self._profile.min_voltage_v:.3g} V."
+                                    ),
+                                )
+                            )
 
-            # Unknown command warning (when known_command_prefixes is set)
-            if self._profile.known_command_prefixes:
-                cmd_upper = cmd_stripped.upper()
-                known = any(
-                    cmd_upper.startswith(p.upper()) for p in self._profile.known_command_prefixes
-                )
-                if not known:
-                    warnings.append(
-                        SafetyViolation(
-                            violation_type=ViolationType.UNKNOWN_COMMAND,
-                            line_number=lineno,
-                            command=cmd_stripped,
-                            message=f"Unrecognized SCPI command (profile: {self._profile.model}): {cmd_stripped!r}",
-                            is_error=False,
+                # Current limit check
+                if any(sub_cmd.upper().startswith(p.upper()) for p in self._CURR_PREFIXES):
+                    val = _extract_number(sub_cmd)
+                    if val is not None:
+                        if (
+                            self._profile.max_current_a is not None
+                            and val > self._profile.max_current_a
+                        ):
+                            violations.append(
+                                SafetyViolation(
+                                    violation_type=ViolationType.CURRENT_OVER,
+                                    line_number=lineno,
+                                    command=sub_cmd,
+                                    message=(
+                                        f"Current {val:.3g} A exceeds the maximum limit "
+                                        f"of {self._profile.max_current_a:.3g} A."
+                                    ),
+                                )
+                            )
+                        if (
+                            self._profile.min_current_a is not None
+                            and val < self._profile.min_current_a
+                        ):
+                            violations.append(
+                                SafetyViolation(
+                                    violation_type=ViolationType.CURRENT_UNDER,
+                                    line_number=lineno,
+                                    command=sub_cmd,
+                                    message=(
+                                        f"Current {val:.3g} A is below the minimum limit "
+                                        f"of {self._profile.min_current_a:.3g} A."
+                                    ),
+                                )
+                            )
+
+                # Magnetic field limit check
+                if any(sub_cmd.upper().startswith(p.upper()) for p in self._FIELD_PREFIXES):
+                    val = _extract_number(sub_cmd)
+                    if (
+                        val is not None
+                        and self._profile.max_field_t is not None
+                        and abs(val) > self._profile.max_field_t
+                    ):
+                        violations.append(
+                            SafetyViolation(
+                                violation_type=ViolationType.FIELD_OVER,
+                                line_number=lineno,
+                                command=sub_cmd,
+                                message=(
+                                    f"Magnetic field |{val:.3g}| T exceeds the maximum limit "
+                                    f"of {self._profile.max_field_t:.3g} T."
+                                ),
+                            )
                         )
+
+                # Temperature limit check
+                if any(sub_cmd.upper().startswith(p.upper()) for p in self._TEMP_PREFIXES):
+                    val = _extract_number(sub_cmd)
+                    if (
+                        val is not None
+                        and self._profile.max_temperature_k is not None
+                        and val > self._profile.max_temperature_k
+                    ):
+                        violations.append(
+                            SafetyViolation(
+                                violation_type=ViolationType.TEMPERATURE_OVER,
+                                line_number=lineno,
+                                command=sub_cmd,
+                                message=(
+                                    f"Temperature {val:.3g} K exceeds the maximum limit "
+                                    f"of {self._profile.max_temperature_k:.3g} K."
+                                ),
+                            )
+                        )
+
+                # Unknown command warning (when known_command_prefixes is set)
+                if self._profile.known_command_prefixes:
+                    sub_upper = sub_cmd.upper()
+                    known = any(
+                        sub_upper.startswith(p.upper())
+                        for p in self._profile.known_command_prefixes
                     )
+                    if not known:
+                        warnings.append(
+                            SafetyViolation(
+                                violation_type=ViolationType.UNKNOWN_COMMAND,
+                                line_number=lineno,
+                                command=sub_cmd,
+                                message=f"Unrecognized SCPI command (profile: {self._profile.model}): {sub_cmd!r}",
+                                is_error=False,
+                            )
+                        )
 
         ok = not any(v.is_error for v in violations)
         return SafetyCheckResult(
@@ -425,7 +486,10 @@ class SafetyChecker:
     ) -> SafetyCheckResult:
         """Extract SCPI commands from a Python script text and validate them.
 
-        Extracts string literals from .write(…) and .query(…) calls.
+        Extracts string literals from ``.write(…)`` calls only.  Arguments
+        passed to ``.query(…)`` (typically read-only measurement queries such
+        as ``READ?`` or ``*IDN?``) are intentionally not extracted because they
+        carry no settable parameters and cannot trigger limit violations.
 
         Args:
             script_text: Python script text.
@@ -434,28 +498,39 @@ class SafetyChecker:
         Returns:
             Safety check result.
         """
-        # Extract commands from write("CMD") or write('CMD') patterns
+        # Extract commands from write("CMD") or write('CMD') patterns.
+        # LOW-3 fix: use findall/finditer so that multiple .write() calls on
+        # the same physical source line are all captured.
         write_re = re.compile(r'\.write\s*\(\s*["\']([^"\']+)["\']\s*\)')
 
         # Estimate line numbers (approximate — limitation of static analysis)
         lines = script_text.splitlines()
         lineno_map: dict[str, int] = {}
         for i, line in enumerate(lines, start=1):
-            m = write_re.search(line)
-            if m:
+            for m in write_re.finditer(line):
                 cmd = m.group(1)
                 lineno_map.setdefault(cmd, i)
+                # R4-F4 fix: also map individual sub-commands from compound
+                # semicolon-separated strings back to the parent script line.
+                # check_scpi_sequence() splits on ';' and records v.command as
+                # the sub-command, so the correction loop below would otherwise
+                # miss the lookup (the full compound string is in lineno_map but
+                # the sub-command is not).  setdefault preserves the first
+                # (earliest) occurrence when the same sub-command appears in
+                # multiple compound strings.
+                for sub in [s.strip() for s in cmd.split(";") if s.strip()]:
+                    lineno_map.setdefault(sub, i)
 
-        # Order by appearance in the script
+        # Collect ALL occurrences in program order — do NOT deduplicate.
+        # Deduplication would silently drop a repeated command that appears
+        # first in a safe (pre-OUTP-ON) context and then again in an unsafe
+        # (post-OUTP-ON) context, causing OUTPUT_ACTIVE_PARAM_CHANGE to go
+        # undetected.  Every occurrence must be safety-checked at its position.
         ordered: list[tuple[int, str]] = []
-        seen: set[str] = set()
         for i, line in enumerate(lines, start=1):
-            m = write_re.search(line)
-            if m:
+            for m in write_re.finditer(line):
                 cmd = m.group(1)
-                if cmd not in seen:
-                    seen.add(cmd)
-                    ordered.append((i, cmd))
+                ordered.append((i, cmd))
 
         # Convert to list for order-based checking
         cmd_list = [cmd for _, cmd in ordered]

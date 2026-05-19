@@ -13,6 +13,7 @@ Sources:
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import numpy as np
@@ -46,8 +47,11 @@ class STFMREffect(EffectModel):
     H_res: resonance field [A/m or T]
     ΔH: half-linewidth [A/m or T]
 
-    Spin Hall angle:
-    ξ_DL = (S/A) · (eμ₀M_s t_FM t_NM / ħ)
+    Spin Hall angle (Liu et al. PRL 106, 036601, 2011):
+    ξ_DL = (S/A) · √(1 + M_eff/H_res) · (e·μ₀·M_s·t_FM·t_NM / ħ)
+
+    The geometry correction factor √(1 + M_eff/H_res) accounts for the
+    elliptical precession orbit and was previously missing from the formula.
 
     Sources:
         Liu, L. Q. et al., Phys. Rev. Lett. 106, 036601 (2011).
@@ -200,8 +204,11 @@ class STFMREffect(EffectModel):
             t_NM = float(geo["t_NM"])
             S_fit = fit_result.params["S"]
             A_fit = fit_result.params["A"]
+            H_res_fit = fit_result.params["H_res"]
+            # M_eff: user-supplied or estimated from Ms (out-of-plane demagnetisation)
+            M_eff = float(geo.get("M_eff", Ms))
             try:
-                xi_DL = self.spin_hall_angle(S_fit, A_fit, Ms, t_FM, t_NM)
+                xi_DL = self.spin_hall_angle(S_fit, A_fit, Ms, t_FM, t_NM, M_eff, H_res_fit)
                 fit_result.params["xi_DL"] = xi_DL
             except (ValueError, ZeroDivisionError):
                 fit_result.params["xi_DL"] = float("nan")
@@ -215,13 +222,21 @@ class STFMREffect(EffectModel):
         Ms: float,
         t_FM: float,
         t_NM: float,
+        M_eff: float,
+        H_res: float,
         mu_0: float = 1.25663706212e-6,
         hbar: float = 1.054571817e-34,
         e: float = 1.602176634e-19,
     ) -> float:
         """Compute damping-like spin Hall angle ξ_DL from S/A ratio.
 
-        ξ_DL = (S/A) · (eμ₀M_s t_FM t_NM / ħ)
+        Liu et al. PRL 106, 036601 (2011):
+            ξ_DL = (S/A) · √(1 + M_eff/H_res) · (e·μ₀·M_s·t_FM·t_NM / ħ)
+
+        The geometry factor √(1 + M_eff/H_res) corrects for elliptical
+        precession orbit and was previously missing from the formula.
+        Note: t_NM (NM layer thickness) is required for dimensional consistency
+        — both t_FM and t_NM must appear to make the ratio dimensionless.
 
         Args:
             S: Symmetric component amplitude [V].
@@ -229,10 +244,24 @@ class STFMREffect(EffectModel):
             Ms: Saturation magnetization [A/m].
             t_FM: FM layer thickness [m].
             t_NM: NM layer thickness [m].
+            M_eff: Effective magnetization (≈ Ms for in-plane geometry) [A/m].
+            H_res: FMR resonance field [A/m].
 
         Returns:
             Damping-like spin Hall angle ξ_DL [dimensionless].
         """
         if abs(A) < 1e-30:
             raise ValueError("A ≈ 0: cannot compute spin Hall angle.")
-        return (S / A) * (e * mu_0 * Ms * t_FM * t_NM / hbar)
+        if H_res > 0:
+            geom_arg = 1.0 + M_eff / H_res
+            if geom_arg < 0.0:
+                raise ValueError(
+                    f"spin_hall_angle: 1 + M_eff/H_res = {geom_arg:.3f} < 0. "
+                    "The Liu et al. (2011) geometry factor √(1 + M_eff/H_res) applies to "
+                    "in-plane magnetized samples (M_eff > 0). For PMA samples (M_eff < 0, "
+                    "|M_eff| > H_res), use the out-of-plane geometry formula instead."
+                )
+            geom_factor = math.sqrt(geom_arg)
+        else:
+            geom_factor = 1.0
+        return (S / A) * geom_factor * (e * mu_0 * Ms * t_FM * t_NM / hbar)

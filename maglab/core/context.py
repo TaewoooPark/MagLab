@@ -138,7 +138,7 @@ class WorkingContext:
             full_summary = summary + "\n\n<!-- compaction preserved keys -->\n" + "\n".join(suffix_lines)
 
         new_ctx = WorkingContext()
-        new_ctx.messages = [{"role": "system", "content": full_summary}]
+        new_ctx.messages = [{"role": "user", "content": f"[Conversation summary]\n{full_summary}"}]
         new_ctx.provenance_ids = list(self.provenance_ids)
         new_ctx.job_ids = list(self.job_ids)
         new_ctx.param_names = list(self.param_names)

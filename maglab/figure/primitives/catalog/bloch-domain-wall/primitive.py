@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import math
 from typing import Any
 
@@ -84,7 +85,8 @@ class BlochDomainWallPrimitive:
     def _render_svg(self, params: dict[str, Any]) -> str:
         """SVG renderer."""
         n = int(params.get("n_spins", 9))
-        wall_width = float(params.get("wall_width", 120.0))
+        # R11-F2: clamp wall_width to a positive minimum so division never raises
+        wall_width = max(1.0, float(params.get("wall_width", 120.0)))
         chirality = int(params.get("chirality", 1))
         color_up = str(params.get("color_up", "#0055CC"))
         color_down = str(params.get("color_down", "#CC0000"))
@@ -97,15 +99,19 @@ class BlochDomainWallPrimitive:
 
         parts: list[str] = []
 
+        # XML-safe color values for use in SVG attribute values.
+        color_up_attr = html.escape(color_up, quote=True)
+        color_down_attr = html.escape(color_down, quote=True)
+
         # Domain background
         if show_domains:
             parts.append(
                 f'<rect x="0" y="0" width="{total_w / 2:.1f}" height="{total_h:.1f}" '
-                f'fill="{color_up}" opacity="0.15"/>'
+                f'fill="{color_up_attr}" opacity="0.15"/>'
             )
             parts.append(
                 f'<rect x="{total_w / 2:.1f}" y="0" width="{total_w / 2:.1f}" '
-                f'height="{total_h:.1f}" fill="{color_down}" opacity="0.15"/>'
+                f'height="{total_h:.1f}" fill="{color_down_attr}" opacity="0.15"/>'
             )
 
         # Wall center marker
@@ -147,7 +153,7 @@ class BlochDomainWallPrimitive:
                 f'<line x1="{x1:.1f}" y1="{y1:.1f}" '
                 f'x2="{x2:.1f}" y2="{y2:.1f}" '
                 f'stroke="{arr_color}" stroke-width="1.5" '
-                f'marker-end="url(#arrBloch)"/>'
+                f'marker-end="url(#arrBloch)" color="{arr_color}"/>'
             )
 
         defs = (
@@ -159,11 +165,11 @@ class BlochDomainWallPrimitive:
 
         # Labels
         parts.append(
-            f'<text x="10" y="{total_h + 12:.1f}" font-size="9" fill="{color_up}">↑</text>'
+            f'<text x="10" y="{total_h + 12:.1f}" font-size="9" fill="{color_up_attr}">↑</text>'
         )
         parts.append(
             f'<text x="{total_w - 15:.1f}" y="{total_h + 12:.1f}" '
-            f'font-size="9" fill="{color_down}">↓</text>'
+            f'font-size="9" fill="{color_down_attr}">↓</text>'
         )
         parts.append(
             f'<text x="{cx:.1f}" y="{total_h + 12:.1f}" '

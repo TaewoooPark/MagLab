@@ -68,13 +68,22 @@ _IFACE_BAUD: dict[str, int] = {
 
 
 def _model_to_class_name(model: str) -> str:
-    """Convert a model name to a Python class name.
+    """Convert a model name to a valid Python class name.
 
     E.g. "Keithley 2400" → "Keithley2400" | "SR-830" → "SR830"
+         "2400"          → "Instr2400"     | "2182A"  → "Instr2182A"
+
+    When the joined result starts with a digit (e.g. model name "2400"),
+    a leading "Instr" prefix is prepended to produce a valid identifier.
+    Without this guard the Jinja2 template would emit ``class 2400:``
+    which is a SyntaxError.
     """
     cleaned = re.sub(r"[^A-Za-z0-9 ]", "", model)
     parts = cleaned.split()
-    return "".join(p.capitalize() if not p[0].isdigit() else p for p in parts if p)
+    result = "".join(p.capitalize() if not p[0].isdigit() else p for p in parts if p)
+    if result and result[0].isdigit():
+        result = "Instr" + result
+    return result
 
 
 def _build_resource_string(iface: str, options: dict[str, Any]) -> str:

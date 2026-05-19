@@ -48,6 +48,10 @@ class Message(BaseModel):
     role: Role
     content: str | list[ContentBlock]
     name: str | None = None
+    # tool_call_id links a TOOL-role message back to the originating tool call.
+    # Required by OpenAI/Anthropic APIs for multi-tool-call responses; None for
+    # non-tool messages.
+    tool_call_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to a dictionary for direct use with provider APIs."""
@@ -58,6 +62,8 @@ class Message(BaseModel):
             d["content"] = [b.model_dump(exclude_none=True) for b in self.content]
         if self.name:
             d["name"] = self.name
+        if self.tool_call_id is not None:
+            d["tool_call_id"] = self.tool_call_id
         return d
 
 
