@@ -62,6 +62,11 @@ def test_setup_registry_has_slash_for_each_research_feature() -> None:
         assert FEATURES[key].slash == f"/setup-{key}"
 
 
+def test_simulation_core_readiness_does_not_require_ssh_client() -> None:
+    assert "paramiko" not in FEATURES["simulation"].imports
+    assert any("Paramiko" in note for note in FEATURES["simulation"].notes)
+
+
 def test_render_setup_all_recommends_research_extra() -> None:
     stream = io.StringIO()
     console = Console(file=stream, force_terminal=False, width=120)

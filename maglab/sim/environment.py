@@ -291,7 +291,12 @@ def diagnose_sim_environment(
         ),
         _module_check("oommfc", action='Install with: pipx inject maglab "maglab[sim]"'),
         _module_check("magnumnp", action='Install with: pipx inject maglab "maglab[sim]"'),
-        _module_check("paramiko", action='Install with: pipx inject maglab "maglab[sim]"'),
+    ]
+    remote_python_checks = [
+        _module_check(
+            "paramiko",
+            action='Optional for Python-native SSH workflows: pipx inject maglab "maglab[sim]"',
+        ),
     ]
     binary_checks = [
         _binary_check("mumax3", action="Install MuMax3 or use mock/CPU backends."),
@@ -415,6 +420,7 @@ def diagnose_sim_environment(
         "ssh_target": ssh_target,
         "backend_paths": [asdict(path) for path in backend_paths],
         "python": [asdict(c) for c in python_checks],
+        "remote_python": [asdict(c) for c in remote_python_checks],
         "binaries": [asdict(c) for c in binary_checks],
         "ssh": [asdict(c) for c in ssh_checks],
         "recommendations": recommendations,

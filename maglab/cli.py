@@ -1685,6 +1685,8 @@ def sim_doctor(
         console.print(f"  SSH target: {report['ssh_target']}")
 
     _print_sim_check_table("Python simulation packages", report["python"])
+    if explain or report.get("backend_requested") in {"ssh-gpu", "ssh-hpc"} or host:
+        _print_sim_check_table("Remote execution Python packages", report.get("remote_python", []))
     _print_sim_check_table("External solver and remote-execution tools", report["binaries"])
     if report["ssh"]:
         _print_sim_check_table("SSH target", report["ssh"])

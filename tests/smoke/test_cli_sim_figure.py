@@ -90,6 +90,9 @@ def test_sim_doctor_json_smoke() -> None:
     assert report["backend_requested"] == "auto"
     assert report["recommended_backend"] in {"local-gpu", "cpu", "mock"}
     assert "python" in report
+    assert "remote_python" in report
+    assert "paramiko" not in {item["name"] for item in report["python"]}
+    assert "paramiko" in {item["name"] for item in report["remote_python"]}
     assert "binaries" in report
 
 
@@ -100,6 +103,7 @@ def test_sim_doctor_explain_shows_execution_paths() -> None:
 
     assert result.exit_code == 0, result.output
     assert "Simulation execution paths" in result.output
+    assert "Remote execution Python packages" in result.output
     assert "No-GPU dry run" in result.output
     assert "Local CPU fallback" in result.output
 

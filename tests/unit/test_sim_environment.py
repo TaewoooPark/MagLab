@@ -28,6 +28,8 @@ def test_diagnose_prefers_local_gpu_when_mumax_and_nvidia_are_available(monkeypa
     assert report["recommended_backend"] == "local-gpu"
     assert report["local_gpu_ready"] is True
     assert report["cpu_engines"] == ["magnumnp"]
+    assert "paramiko" not in {item["name"] for item in report["python"]}
+    assert "paramiko" in {item["name"] for item in report["remote_python"]}
     paths = {item["key"]: item for item in report["backend_paths"]}
     assert paths["local-gpu"]["status"] == "ready"
     assert paths["cpu"]["status"] == "ready"
@@ -46,6 +48,8 @@ def test_diagnose_uses_mock_when_no_solver_is_detected(monkeypatch) -> None:
 
     assert report["recommended_backend"] == "mock"
     assert report["local_gpu_ready"] is False
+    assert "paramiko" not in {item["name"] for item in report["python"]}
+    assert "paramiko" in {item["name"] for item in report["remote_python"]}
     paths = {item["key"]: item for item in report["backend_paths"]}
     assert paths["mock"]["status"] == "ready"
     assert paths["cpu"]["status"] == "needs-setup"

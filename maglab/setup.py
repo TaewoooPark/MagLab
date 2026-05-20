@@ -93,7 +93,7 @@ FEATURES: dict[str, FeatureSetup] = {
         title="Multiscale simulation",
         extra="sim",
         slash="/setup-simulation",
-        imports=("discretisedfield", "micromagneticmodel", "oommfc", "magnumnp", "paramiko"),
+        imports=("discretisedfield", "micromagneticmodel", "oommfc", "magnumnp"),
         binaries=("mumax3", "oommf", "nvidia-smi", "ssh", "rsync", "sbatch"),
         setup_commands=(
             "maglab sim doctor",
@@ -104,6 +104,7 @@ FEATURES: dict[str, FeatureSetup] = {
         ),
         notes=(
             "Python simulation libraries install through the research extra.",
+            "Paramiko is bundled for SSH workflows but does not block mock or local CPU readiness.",
             "External solvers such as MuMax3/OOMMF still need system installation when not using mock mode.",
             "Use sim doctor before real GPU or cluster time; SSH is only probed when --probe-ssh is explicit.",
         ),
