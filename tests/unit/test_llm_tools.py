@@ -73,6 +73,10 @@ def test_workspace_context_prunes_ignored_heavy_directories(
     (tmp_path / "MAGLAB.md").write_text("# Project\n", encoding="utf-8")
     (tmp_path / "node_modules").mkdir()
     (tmp_path / "node_modules" / "hidden.js").write_text("should not appear\n", encoding="utf-8")
+    (tmp_path / ".maglab" / "runtime").mkdir(parents=True)
+    (tmp_path / ".maglab" / "runtime" / "budget.db").write_text("runtime\n", encoding="utf-8")
+    (tmp_path / ".playwright-mcp").mkdir()
+    (tmp_path / ".playwright-mcp" / "page.yml").write_text("runtime\n", encoding="utf-8")
     (tmp_path / "notes.md").write_text("visible\n", encoding="utf-8")
 
     result = call_tool("workspace_context", {"max_entries": 20})
@@ -81,6 +85,8 @@ def test_workspace_context_prunes_ignored_heavy_directories(
     assert "notes.md" in result["entries"]
     assert "node_modules/" not in result["entries"]
     assert all("hidden.js" not in entry for entry in result["entries"])
+    assert all(".maglab/runtime" not in entry for entry in result["entries"])
+    assert all(".playwright-mcp" not in entry for entry in result["entries"])
 
 
 def test_workspace_search_returns_line_matches(

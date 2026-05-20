@@ -40,6 +40,45 @@ _CLI_NON_INTERACTIVE_FLAGS: dict[str, list[str]] = {
 }
 
 
+def _int_value(value: object) -> int:
+    """Best-effort integer conversion for CLI usage counters."""
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+    return 0
+
+
+def _extract_text_from_cli_item(item: dict[str, Any]) -> str:
+    """Extract text from a delegated CLI message item."""
+    text = item.get("text")
+    if isinstance(text, str):
+        return text
+
+    content = item.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, dict):
+                block_text = block.get("text") or block.get("content")
+                if isinstance(block_text, str):
+                    parts.append(block_text)
+            elif isinstance(block, str):
+                parts.append(block)
+        return "\n".join(parts)
+
+    return ""
+
+
 class DelegatedCLIBackend(LLMBackend):
     """Delegated backend based on official CLI subprocesses.
 
@@ -163,7 +202,14 @@ class DelegatedCLIBackend(LLMBackend):
 
         Attempts JSON parsing first; falls back to raw text on failure.
         """
+        if self.cli == "codex":
+            parsed = self._parse_codex_jsonl_stdout(stdout, model_str)
+            if parsed is not None:
+                return parsed
+
         content: str | None = None
+        usage = UsageStats()
+        metadata: dict[str, Any] = {}
 
         try:
             data = json.loads(stdout.strip())
@@ -200,8 +246,89 @@ class DelegatedCLIBackend(LLMBackend):
             content=content,
             tool_calls=[],
             stop_reason="end_turn",
-            usage=UsageStats(),
+            usage=usage,
             raw=stdout,
+            metadata=metadata,
+            model=model_str,
+        )
+
+    def _parse_codex_jsonl_stdout(self, stdout: str, model_str: str) -> LLMResponse | None:
+        """Parse Codex ``exec --json`` JSONL transport events.
+
+        Codex emits one JSON object per line. Only completed agent-message
+        payloads are user-facing content; thread IDs and token usage remain
+        transport metadata so HonestyGate never treats them as scientific
+        claims.
+        """
+        lines = [line.strip() for line in stdout.splitlines() if line.strip()]
+        if not lines:
+            return LLMResponse(content=None, raw=stdout, model=model_str)
+
+        events: list[dict[str, Any]] = []
+        for line in lines:
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                return None
+            if not isinstance(event, dict):
+                return None
+            events.append(event)
+
+        if not any(isinstance(event.get("type"), str) for event in events):
+            return None
+
+        messages: list[str] = []
+        usage = UsageStats()
+        thread_id = ""
+        errors: list[str] = []
+
+        for event in events:
+            event_type = event.get("type")
+            if event_type == "thread.started" and isinstance(event.get("thread_id"), str):
+                thread_id = event["thread_id"]
+                continue
+
+            if event_type == "turn.completed":
+                raw_usage = event.get("usage")
+                if isinstance(raw_usage, dict):
+                    prompt_tokens = _int_value(raw_usage.get("input_tokens"))
+                    completion_tokens = _int_value(raw_usage.get("output_tokens"))
+                    usage.prompt_tokens = prompt_tokens
+                    usage.completion_tokens = completion_tokens
+                    usage.total_tokens = prompt_tokens + completion_tokens
+                continue
+
+            if event_type == "error":
+                message = event.get("message") or event.get("error") or "unknown Codex error"
+                errors.append(str(message))
+                continue
+
+            if event_type != "item.completed":
+                continue
+            item = event.get("item")
+            if not isinstance(item, dict):
+                continue
+            if item.get("type") != "agent_message":
+                continue
+            text = _extract_text_from_cli_item(item)
+            if text:
+                messages.append(text)
+
+        if errors and not messages:
+            raise RuntimeError(f"CLI 'codex' reported error: {errors[0]}")
+
+        content = "\n".join(message.strip() for message in messages if message.strip())
+        return LLMResponse(
+            content=content or None,
+            tool_calls=[],
+            stop_reason="end_turn",
+            usage=usage,
+            raw=stdout,
+            metadata={
+                "parse_mode": "codex_jsonl",
+                "thread_id": thread_id,
+                "event_count": len(events),
+            },
             model=model_str,
         )
 

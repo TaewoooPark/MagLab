@@ -11,6 +11,8 @@
 maglab
 maglab -p "Plan a reproducible SOT analysis workflow for Pt/CoFeB/MgO"
 maglab doctor
+maglab doctor --smoke
+maglab workspace brief
 ```
 
 REPL은 자연어 표면입니다. deterministic tool, notebook, literature workflow,
@@ -19,6 +21,9 @@ analysis, authoring으로 작업을 라우팅하는 데 사용합니다.
 설치 직후에는 `maglab doctor`를 먼저 실행하세요. 현재 workspace, `MAGLAB.md`,
 configured backend, optional research extra, 외부 solver, simulation readiness를
 비밀값 출력 없이 한 번에 점검합니다.
+기본 doctor는 빠른 등록 상태 확인만 수행합니다. 실제 LLM sentinel prompt까지
+보내 delegated CLI/API 출력이 순수 model content로 parse되는지 검증하려면
+`maglab doctor --smoke`를 사용하세요.
 
 ## Credential과 configuration
 
@@ -44,6 +49,10 @@ maglab theme set mono
 Codex는 먼저 공식 Codex CLI에서 인증합니다. 그 다음 `maglab auth codex`를
 실행하거나 REPL 안에서 `/connect codex`를 사용하세요. MagLab은
 `config.toml`에 backend 선택만 저장하고 Codex OAuth token은 공식 CLI에 남깁니다.
+
+REPL에서는 `/help quick`이 첫 사용 경로를 보여주고, `/help all`이 전체 tree를
+보여줍니다. `/help workspace`, `/help llm`, `/help sim`, `/help figure`처럼
+영역별 help도 볼 수 있습니다.
 
 직접 API provider는 provider 명령을 실행한 뒤 터미널 숨김 입력으로 key를
 넣습니다. REPL에서는 `/connect anthropic`, `/connect grok`,

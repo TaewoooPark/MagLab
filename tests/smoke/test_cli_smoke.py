@@ -34,7 +34,7 @@ def test_help() -> None:
 def test_setup_command_recommends_research_extra() -> None:
     result = runner.invoke(app, ["setup", "all"])
     assert result.exit_code == 0, result.output
-    assert 'pipx install --editable ".[research]"' in result.output
+    assert 'pipx install --python python3.12 --editable ".[research]"' in result.output
     assert 'uv pip install -e ".[research]"' in result.output
     assert "/setup <feature>" in result.output
 
@@ -43,7 +43,7 @@ def test_setup_command_recommends_research_extra() -> None:
 def test_install_command_recommends_global_workspace_usage() -> None:
     result = runner.invoke(app, ["install"])
     assert result.exit_code == 0, result.output
-    assert 'pipx install --editable ".[research]"' in result.output
+    assert 'pipx install --python python3.12 --editable ".[research]"' in result.output
     assert "open any research folder and run" in result.output
 
 
@@ -53,6 +53,44 @@ def test_workspace_status_shows_current_folder_paths() -> None:
     assert result.exit_code == 0, result.output
     assert "workspace root" in result.output
     assert "global config" in result.output
+
+
+@pytest.mark.smoke
+def test_workspace_status_json_is_machine_readable() -> None:
+    result = runner.invoke(app, ["workspace", "status", "--json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert "workspace_root" in payload
+    assert "global_config" in payload
+
+
+@pytest.mark.smoke
+def test_workspace_tree_json_reports_visible_entries() -> None:
+    with runner.isolated_filesystem():
+        Path("MAGLAB.md").write_text("# Project\n", encoding="utf-8")
+        Path("data").mkdir()
+        Path("data/sample.csv").write_text("x,y\n0,0\n", encoding="utf-8")
+
+        result = runner.invoke(app, ["workspace", "tree", "--json", "--max", "10"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["maglab_md"]
+    assert "data/" in payload["entries"]
+
+
+@pytest.mark.smoke
+def test_workspace_brief_prioritizes_key_paths() -> None:
+    with runner.isolated_filesystem():
+        Path("README.md").write_text("# Demo\n", encoding="utf-8")
+        Path("plan").mkdir()
+
+        result = runner.invoke(app, ["workspace", "brief"])
+
+    assert result.exit_code == 0, result.output
+    assert "High-signal paths" in result.output
+    assert "README.md" in result.output
+    assert "plan/" in result.output
 
 
 @pytest.mark.smoke

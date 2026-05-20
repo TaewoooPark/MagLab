@@ -68,10 +68,18 @@ guide you through any remaining provider, solver, instrument, or gateway setup.
 ```sh
 git clone https://github.com/TaewoooPark/MagLab.git
 cd MagLab
-pipx install --editable ".[research]"
+pipx install --python python3.12 --editable ".[research]"
 maglab doctor
 maglab setup all
 maglab manual --lang en
+```
+
+If `pipx` or Python 3.12 is missing on macOS, use this known-good path:
+
+```sh
+uv tool install pipx --python python3.12
+pipx ensurepath
+pipx install --python python3.12 --editable ".[research]"
 ```
 
 After that, open any research folder and run `maglab`. MagLab keeps global
@@ -82,6 +90,7 @@ artifacts relative to the folder where you launched it.
 cd ~/research/my_spintronics_project
 maglab workspace init
 maglab workspace status
+maglab workspace brief
 maglab
 ```
 
@@ -90,6 +99,7 @@ Run deterministic tools without an LLM key:
 ```sh
 maglab physics compute exchange_length A=13e-12 Ms=860e3
 maglab physics units 1000 Oe T
+maglab mat search Py --json
 maglab mat show Permalloy
 maglab analyze model stfmr
 maglab figure primitives list
@@ -105,10 +115,15 @@ maglab auth codex
 maglab auth anthropic
 maglab auth qwen
 maglab auth status
+maglab auth test
+maglab doctor --smoke
 maglab
 ```
 
-Inside the REPL, use `/help` to see the full slash-command tree. Use
+Inside the REPL, use `/help quick` for the first-run path and `/help all` for
+the full slash-command tree. Use `/workspace brief`, `/doctor`, `/sim doctor
+--explain`, and `/connect status` to inspect the current folder and setup state.
+Use
 `/connect codex`, `/connect <provider>`, `/connect api <provider>`, or
 `/connect ollama` to switch backends. API-key commands always use hidden
 terminal input; `maglab auth set <provider>` remains available for explicit key

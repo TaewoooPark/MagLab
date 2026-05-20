@@ -17,6 +17,7 @@
 
 ```sh
 maglab mat list
+maglab mat search Py
 maglab mat show Permalloy
 maglab mat build "Ta(5)/CoFeB(1)/MgO(2)"
 
@@ -28,7 +29,8 @@ maglab physics oracle alpha=0.01 Ms=860000 T=300
 
 ## 추천 workflow
 
-1. `maglab mat show <material>` 또는 `maglab mat build <stack>`으로 시작합니다.
+1. `maglab mat search <query>`, `maglab mat show <material>`, 또는
+   `maglab mat build <stack>`으로 시작합니다.
 2. 모든 입력 quantity를 SI 단위로 정리합니다.
 3. simulation, fitting, reporting 전에 `maglab physics oracle`을 실행합니다.
 4. 반환된 값을 `sim`, `fit`, `device`, `figure`의 입력으로 사용합니다.
@@ -58,6 +60,12 @@ maglab physics compute exchange_length A=13e-12 Ms=860e3
 
 ```sh
 maglab mat build "Pt(4)/CoFeB(1.2)/MgO(2)" --save
+```
+
+**실험실 별칭 검색**
+
+```sh
+maglab mat search Py --json
 ```
 
 ## 다음 단계

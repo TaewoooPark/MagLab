@@ -67,10 +67,18 @@ gateway 설정은 터미널 안에서 확인하도록 안내합니다.
 ```sh
 git clone https://github.com/TaewoooPark/MagLab.git
 cd MagLab
-pipx install --editable ".[research]"
+pipx install --python python3.12 --editable ".[research]"
 maglab doctor
 maglab setup all
 maglab manual --lang ko
+```
+
+macOS에서 `pipx`나 Python 3.12가 없다면 아래 경로가 안정적입니다.
+
+```sh
+uv tool install pipx --python python3.12
+pipx ensurepath
+pipx install --python python3.12 --editable ".[research]"
 ```
 
 이후에는 어떤 연구 폴더에서든 `maglab`을 실행하면 됩니다. MagLab은
@@ -81,6 +89,7 @@ config/data/cache는 전역 사용자 앱 경로에 보관하고, 프로젝트 �
 cd ~/research/my_spintronics_project
 maglab workspace init
 maglab workspace status
+maglab workspace brief
 maglab
 ```
 
@@ -89,6 +98,7 @@ LLM key 없이 deterministic tool부터 사용할 수 있습니다.
 ```sh
 maglab physics compute exchange_length A=13e-12 Ms=860e3
 maglab physics units 1000 Oe T
+maglab mat search Py --json
 maglab mat show Permalloy
 maglab analyze model stfmr
 maglab figure primitives list
@@ -104,10 +114,15 @@ maglab auth codex
 maglab auth anthropic
 maglab auth qwen
 maglab auth status
+maglab auth test
+maglab doctor --smoke
 maglab
 ```
 
-REPL 안에서는 `/help`로 전체 slash-command tree를 볼 수 있습니다.
+REPL 안에서는 `/help quick`으로 첫 사용 경로를 보고, `/help all`로 전체
+slash-command tree를 볼 수 있습니다. `/workspace brief`, `/doctor`, `/sim
+doctor --explain`, `/connect status`로 현재 폴더와 설정 상태를 빠르게
+점검합니다.
 `/connect codex`, `/connect <provider>`, `/connect api <provider>`,
 `/connect ollama`로 backend를 바꿀 수 있습니다. API-key 명령은 터미널 숨김
 입력을 사용하며, `maglab auth set <provider>`는 명시적 key 저장과 scripting

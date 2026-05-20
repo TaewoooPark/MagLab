@@ -36,12 +36,17 @@ _IGNORED_NAMES = {
     ".ruff_cache",
     ".next",
     ".turbo",
+    ".playwright-mcp",
     "node_modules",
     "site-packages",
     "dist",
     "build",
     "coverage",
     "target",
+}
+
+_IGNORED_REL_PREFIXES = {
+    ".maglab/runtime",
 }
 
 _PROJECT_CONTEXT_NAMES = (
@@ -179,8 +184,14 @@ def _workspace_entries_with_status(
                 rel = path.relative_to(base)
             except ValueError:
                 continue
+            rel_posix = rel.as_posix()
+            if any(
+                rel_posix == prefix or rel_posix.startswith(f"{prefix}/")
+                for prefix in _IGNORED_REL_PREFIXES
+            ):
+                continue
             marker = "/" if path.is_dir() else ""
-            entries.append(f"{rel.as_posix()}{marker}")
+            entries.append(f"{rel_posix}{marker}")
             if len(entries) >= max_entries:
                 truncated = True
                 return entries, truncated

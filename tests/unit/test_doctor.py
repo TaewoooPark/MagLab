@@ -60,3 +60,31 @@ def test_doctor_surfaces_sim_backend_path_statuses(
     assert paths["mock"]["status"] == "ready"
     ux = {item["key"]: item for item in report["ux_contract"]}
     assert "mock:ready" in ux["gpu-ssh-cpu"]["evidence"]
+    assert ux["gpu-ssh-cpu"]["status"] == "partial"
+
+
+def test_doctor_model_connection_is_partial_without_live_smoke(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "maglab.llm.factory.backend_status",
+        lambda config: type(
+            "Status",
+            (),
+            {
+                "ok": True,
+                "mode": "delegated_cli",
+                "label": "codex:CLI default · delegated CLI",
+                "detail": "codex 1.0",
+                "action": "",
+            },
+        )(),
+    )
+
+    report = run_doctor(feature="llm", include_sim=False)
+
+    ux = {item["key"]: item for item in report["ux_contract"]}
+    assert ux["models"]["status"] == "partial"
+    assert "smoke not run" in ux["models"]["evidence"]

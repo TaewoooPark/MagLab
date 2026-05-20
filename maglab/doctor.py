@@ -118,17 +118,18 @@ def _doctor_feature(key: str) -> FeatureDoctor:
     )
 
 
-def _backend_snapshot(config: Config) -> dict[str, Any]:
+def _backend_snapshot(config: Config, *, smoke: bool = False) -> dict[str, Any]:
     """Return non-secret backend status."""
-    from maglab.llm.factory import backend_status
+    from maglab.llm.factory import backend_status, test_llm_backend
 
-    status = backend_status(config)
+    status = test_llm_backend(config) if smoke else backend_status(config)
     return {
         "ok": status.ok,
         "mode": status.mode,
         "label": status.label,
         "detail": status.detail,
         "action": status.action,
+        "verification": "live-smoke" if smoke else "registration",
     }
 
 
@@ -151,6 +152,15 @@ def _ux_contract_report(
     langs = set(available_languages())
     ko_manuals = len(list_manuals("ko")) if "ko" in langs else 0
     en_manuals = len(list_manuals("en")) if "en" in langs else 0
+    backend_ok = bool(backend.get("ok"))
+    backend_smoked = backend.get("verification") == "live-smoke"
+    model_status = (
+        "ready" if backend_ok and backend_smoked else ("partial" if backend_ok else "blocked")
+    )
+    model_evidence = f"{backend['label']} — {backend['detail']}"
+    if backend_ok and not backend_smoked:
+        model_evidence += "; live one-shot smoke not run"
+    sim_status, sim_evidence = _simulation_contract_status(sim_report)
 
     return [
         UXDoctor(
@@ -177,20 +187,15 @@ def _ux_contract_report(
         UXDoctor(
             key="models",
             title="Model connection",
-            status="ready" if backend.get("ok") else "partial",
-            evidence=f"{backend['label']} — {backend['detail']}",
-            command="/connect codex · /connect openai · /connect anthropic · maglab auth status",
+            status=model_status,
+            evidence=model_evidence,
+            command="maglab doctor --smoke · /connect codex · /connect openai · maglab auth status",
         ),
         UXDoctor(
             key="gpu-ssh-cpu",
             title="GPU, SSH, and no-GPU paths",
-            status="ready" if sim_report else "partial",
-            evidence=(
-                f"recommended={sim_report.get('recommended_backend')} "
-                f"paths={', '.join(p.get('key', '') + ':' + p.get('status', '') for p in sim_report.get('backend_paths', [])[:4])}"
-                if sim_report
-                else "simulation doctor not requested"
-            ),
+            status=sim_status,
+            evidence=sim_evidence,
             command="maglab sim doctor --backend auto|local-gpu|ssh-gpu|ssh-hpc",
         ),
         UXDoctor(
@@ -235,6 +240,35 @@ def _ux_contract_report(
     ]
 
 
+def _simulation_contract_status(sim_report: dict[str, Any] | None) -> tuple[str, str]:
+    """Return UX-contract status/evidence for simulation path readiness."""
+    if not sim_report:
+        return "unknown", "simulation doctor not requested"
+
+    paths = {
+        str(path.get("key", "")): str(path.get("status", "unknown"))
+        for path in sim_report.get("backend_paths", [])
+        if isinstance(path, dict)
+    }
+    mock_status = paths.get("mock", "unknown")
+    cpu_status = paths.get("cpu", "unknown")
+    gpu_status = paths.get("local-gpu", "unknown")
+    ssh_gpu_status = paths.get("ssh-gpu", "unknown")
+    ssh_hpc_status = paths.get("ssh-hpc", "unknown")
+    evidence = (
+        f"recommended={sim_report.get('recommended_backend')} "
+        f"mock:{mock_status}, cpu:{cpu_status}, gpu:{gpu_status}, "
+        f"ssh-gpu:{ssh_gpu_status}, ssh-hpc:{ssh_hpc_status}"
+    )
+
+    real_statuses = {cpu_status, gpu_status, ssh_gpu_status, ssh_hpc_status}
+    if real_statuses and real_statuses <= {"ready", "ssh-ready"}:
+        return "ready", evidence
+    if mock_status == "ready" or real_statuses & {"ready", "ssh-ready"}:
+        return "partial", evidence
+    return "blocked", evidence
+
+
 def run_doctor(
     *,
     feature: str = "all",
@@ -243,6 +277,7 @@ def run_doctor(
     host: str | None = None,
     user: str | None = None,
     probe_ssh: bool = False,
+    smoke: bool = False,
     max_workspace_entries: int = 40,
 ) -> dict[str, Any]:
     """Build a read-only MagLab environment doctor report.
@@ -258,6 +293,9 @@ def run_doctor(
     host, user, probe_ssh:
         Optional SSH target. Remote SSH is not probed unless ``probe_ssh`` is
         true, matching ``maglab sim doctor``.
+    smoke:
+        Run explicit live checks such as the configured LLM sentinel prompt.
+        Defaults to false to avoid unexpected model quota use.
     max_workspace_entries:
         Maximum visible project entries to include.
     """
@@ -285,7 +323,7 @@ def run_doctor(
             "Run `maglab workspace init` to create project-specific MAGLAB.md context."
         )
 
-    backend = _backend_snapshot(cfg)
+    backend = _backend_snapshot(cfg, smoke=smoke)
     if not backend["ok"]:
         recommendations.append(
             "Connect an LLM backend with `maglab auth codex`, `maglab auth openai`, "

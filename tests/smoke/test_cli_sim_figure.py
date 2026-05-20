@@ -51,6 +51,9 @@ def test_figure_help_exit_0() -> None:
         ["sim", "validate", "--help"],
         ["sim", "plot", "--help"],
         ["sim", "job", "--help"],
+        ["sim", "dft", "--help"],
+        ["sim", "atomistic", "--help"],
+        ["sim", "pipeline", "--help"],
         ["figure", "spec", "--help"],
         ["figure", "render", "--help"],
         ["figure", "compose", "--help"],
@@ -88,6 +91,52 @@ def test_sim_doctor_json_smoke() -> None:
     assert report["recommended_backend"] in {"local-gpu", "cpu", "mock"}
     assert "python" in report
     assert "binaries" in report
+
+
+@pytest.mark.smoke
+def test_sim_doctor_explain_shows_execution_paths() -> None:
+    """sim doctor --explain shows the user-facing path decision table."""
+    result = runner.invoke(app, ["sim", "doctor", "--explain"])
+
+    assert result.exit_code == 0, result.output
+    assert "Simulation execution paths" in result.output
+    assert "No-GPU dry run" in result.output
+    assert "Local CPU fallback" in result.output
+
+
+@pytest.mark.smoke
+def test_sim_pipeline_mock_writes_manifest_json() -> None:
+    """No-GPU pipeline path produces a real manifest artifact."""
+    with runner.isolated_filesystem():
+        result = runner.invoke(
+            app,
+            [
+                "sim",
+                "pipeline",
+                "--backend",
+                "mock",
+                "--work-dir",
+                "pipeline_out",
+                "--json",
+            ],
+        )
+        manifest = Path("pipeline_out/pipeline_result.json")
+        exists = manifest.is_file()
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["manifest_path"].endswith("pipeline_result.json")
+    assert payload["provenance"]
+    assert exists
+
+
+@pytest.mark.smoke
+def test_sim_pipeline_help_uses_doctor_backend_names() -> None:
+    result = runner.invoke(app, ["sim", "pipeline", "--help"])
+    assert result.exit_code == 0, result.output
+    assert "local-gpu" in result.output
+    assert "ssh-gpu" in result.output
+    assert "ssh-hpc" in result.output
 
 
 @pytest.mark.smoke

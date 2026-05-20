@@ -10,6 +10,7 @@ Running with no arguments → ``maglab.repl.run_repl(config)`` (interactive REPL
 
 from __future__ import annotations
 
+import json
 import sys
 from typing import Any
 
@@ -631,6 +632,43 @@ def mat_show(
         console.print(f"[dim]{mat.notes}[/]")
 
 
+@mat_app.command("search")
+def mat_search(
+    query: str = typer.Argument(..., help="Material search text, e.g. Py, Fe, garnet."),
+    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
+) -> None:
+    """Search bundled magnetic materials by ID, name, or formula."""
+    from maglab.physics.materials import search
+
+    results = search(query)
+    if json_output:
+        payload = {"query": query, "materials": [mat.summary() for mat in results]}
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return
+
+    if not results:
+        console.print(f"[dim]No materials matched {query!r}.[/]")
+        return
+
+    table = Table(title=f"Material search: {query}", show_lines=False)
+    table.add_column("ID", style="cyan")
+    table.add_column("Name")
+    table.add_column("Formula")
+    table.add_column("Structure")
+    table.add_column("Ms (A/m)")
+    table.add_column("Source")
+    for mat in results:
+        table.add_row(
+            mat.id,
+            mat.name,
+            mat.formula,
+            mat.structure,
+            str(mat.Ms_Am) if mat.Ms_Am is not None else "—",
+            mat.source_doi or mat.source_ref or "—",
+        )
+    console.print(table)
+
+
 @mat_app.command("build")
 def mat_build(
     stack: str = typer.Argument(..., help='Layer stack string, e.g. "Ta(5)/CoFeB(1)/MgO(2)".'),
@@ -1167,6 +1205,11 @@ def doctor_cmd(
         "--probe-ssh/--no-probe-ssh",
         help="Actually run a lightweight SSH probe. Default is non-destructive/no remote call.",
     ),
+    smoke: bool = typer.Option(
+        False,
+        "--smoke/--no-smoke",
+        help="Run live smoke checks, including the configured LLM sentinel prompt.",
+    ),
     json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
 ) -> None:
     """Check first-run readiness for workspace, backend, feature extras, and simulation."""
@@ -1183,6 +1226,7 @@ def doctor_cmd(
         host=host,
         user=user,
         probe_ssh=probe_ssh,
+        smoke=smoke,
     )
     if json_output:
         typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
@@ -1247,6 +1291,10 @@ def doctor_cmd(
             rendered_status = "[green]ready[/]"
         elif status == "partial":
             rendered_status = "[yellow]partial[/]"
+        elif status == "unknown":
+            rendered_status = "[dim]unknown[/]"
+        elif status == "blocked":
+            rendered_status = "[red]blocked[/]"
         else:
             rendered_status = "[red]missing[/]"
         ux_table.add_row(
@@ -1348,11 +1396,25 @@ def workspace_callback(ctx: typer.Context) -> None:
 
 
 @workspace_app.command("status")
-def workspace_status() -> None:
+def workspace_status(
+    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
+) -> None:
     """Show the active workspace and global MagLab paths."""
     from maglab.workspace import workspace_info
 
     info = workspace_info()
+    if json_output:
+        payload = {
+            "workspace_root": str(info.root),
+            "project_state": str(info.local_state_dir),
+            "maglab_md": str(info.maglab_md) if info.maglab_md else None,
+            "global_config": str(info.config_dir),
+            "global_data": str(info.data_dir),
+            "global_cache": str(info.cache_dir),
+        }
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return
+
     table = Table(title="MagLab workspace")
     table.add_column("Scope", style="cyan")
     table.add_column("Path")
@@ -1363,6 +1425,33 @@ def workspace_status() -> None:
     table.add_row("global data", str(info.data_dir))
     table.add_row("global cache", str(info.cache_dir))
     console.print(table)
+
+
+@workspace_app.command("brief")
+def workspace_brief(
+    max_entries: int = typer.Option(20, "--max", "-n", help="Maximum visible entries."),
+) -> None:
+    """Show a one-screen summary of the active workspace."""
+    from maglab.workspace import workspace_context
+
+    context = workspace_context(max_entries=max_entries)
+    console.print(f"[bold]Workspace:[/] {context.root}")
+    console.print(
+        "[bold]MAGLAB.md:[/] "
+        + (str(context.maglab_md) if context.maglab_md else "not initialized")
+    )
+    if context.key_paths:
+        console.print("[bold]High-signal paths[/]")
+        for path in context.key_paths[:12]:
+            console.print(f"  {path}")
+    if context.entries:
+        label = "Visible entries"
+        if context.truncated:
+            label += " (truncated)"
+        console.print(f"[bold]{label}[/]")
+        for entry in context.entries[:max_entries]:
+            console.print(f"  {entry}")
+    console.print("[dim]Next: /doctor · /workspace tree --summary · /workspace init[/]")
 
 
 @workspace_app.command("init")
@@ -1380,13 +1469,33 @@ def workspace_init() -> None:
 @workspace_app.command("tree")
 def workspace_tree(
     max_entries: int = typer.Option(80, "--max", "-n", help="Maximum entries to display."),
+    summary: bool = typer.Option(
+        False,
+        "--summary",
+        help="Show high-signal workspace summary before the tree.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
 ) -> None:
     """Show the files MagLab can see from the current folder."""
-    from maglab.workspace import iter_workspace_entries, workspace_root
+    from maglab.workspace import workspace_context, workspace_root
 
     root = workspace_root()
+    context = workspace_context(root, max_entries=max_entries)
+    if json_output:
+        print(json.dumps(context.to_dict(), indent=2, ensure_ascii=False))
+        return
+
     console.print(f"[bold]Workspace:[/] {root}")
-    entries = iter_workspace_entries(root, max_entries=max_entries)
+    if summary:
+        console.print(
+            "[bold]MAGLAB.md:[/] "
+            + (str(context.maglab_md) if context.maglab_md else "not initialized")
+        )
+        if context.key_paths:
+            console.print("[bold]High-signal paths[/]")
+            for path in context.key_paths[:12]:
+                console.print(f"  {path}")
+    entries = context.entries
     if not entries:
         console.print("[dim]No visible files.[/]")
         return
@@ -1466,10 +1575,17 @@ def sim_doctor(
         "--probe-ssh/--no-probe-ssh",
         help="Actually test non-interactive SSH connectivity.",
     ),
+    explain: bool = typer.Option(
+        False,
+        "--explain/--no-explain",
+        help="Show path-by-path readiness, reasons, and next commands.",
+    ),
     json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
 ) -> None:
     """Diagnose simulation readiness for CPU, local GPU, SSH GPU, and SSH HPC paths."""
     import json
+
+    from rich.markup import escape
 
     from maglab.sim.environment import diagnose_sim_environment
 
@@ -1502,9 +1618,22 @@ def sim_doctor(
     if report["ssh"]:
         _print_sim_check_table("SSH target", report["ssh"])
 
-    console.print("[bold]Next commands[/]")
-    from rich.markup import escape
+    if explain:
+        path_table = Table(title="Simulation execution paths")
+        path_table.add_column("Path", style="cyan")
+        path_table.add_column("Status")
+        path_table.add_column("Reason")
+        path_table.add_column("Next")
+        for path in report.get("backend_paths", []):
+            path_table.add_row(
+                str(path.get("label", path.get("key", ""))),
+                str(path.get("status", "")),
+                escape(str(path.get("detail", ""))),
+                escape(str(path.get("next_command", ""))),
+            )
+        console.print(path_table)
 
+    console.print("[bold]Next commands[/]")
     for item in report["recommendations"]:
         console.print(f"  • {escape(item)}")
 
@@ -1829,9 +1958,13 @@ def sim_pipeline(
     dft_engine: str = typer.Option("qe", "--dft-engine", help="DFT engine."),
     atomistic_engine: str = typer.Option("vampire", "--atomistic-engine", help="Atomistic engine."),
     backend: str = typer.Option(
-        "mock", "--backend", "-b", help="Execution backend (mock·hpc·gpu)."
+        "mock",
+        "--backend",
+        "-b",
+        help="Execution backend (mock·cpu·local-gpu·ssh-gpu·ssh-hpc).",
     ),
     work_dir: str = typer.Option("./pipeline_run", "--work-dir", "-w", help="Working directory."),
+    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
 ) -> None:
     """[P3] Run the DFT → atomistic → micromagnetic → device multiscale pipeline.
 
@@ -1843,11 +1976,25 @@ def sim_pipeline(
     from maglab.sim.pipeline import run_pipeline
 
     scale_list = [s.strip() for s in scales.split(",") if s.strip()]
+    backend_key = _normalize_pipeline_backend(backend)
+    valid_backends = {"mock", "cpu", "local-gpu", "ssh-gpu", "ssh-hpc"}
+    if backend_key not in valid_backends:
+        console.print(
+            f"[red]Unknown backend:[/] {backend!r}. Supported: {', '.join(sorted(valid_backends))}"
+        )
+        raise typer.Exit(1)
 
-    console.print(
-        f"[cyan]Multiscale pipeline:[/] structure={structure} | "
-        f"scales={' → '.join(scale_list)} | backend={backend}"
-    )
+    if not json_output:
+        console.print(
+            f"[cyan]Multiscale pipeline:[/] structure={structure} | "
+            f"scales={' → '.join(scale_list)} | backend={backend_key}"
+        )
+    if backend_key != "mock" and not json_output:
+        console.print(
+            "[yellow]Note:[/] live full-pipeline solver submission is backend-dependent. "
+            "Run `maglab sim doctor` first; this command will use files in the work directory "
+            "and record any missing solver outputs in the manifest."
+        )
 
     with console.status("[dim]Running pipeline…[/]"):
         try:
@@ -1857,14 +2004,27 @@ def sim_pipeline(
                 target_temp_K=target_temp_k,
                 dft_engine=dft_engine,
                 atomistic_engine=atomistic_engine,
-                backend=backend,
+                backend=backend_key,
                 work_dir=Path(work_dir),
             )
         except Exception as exc:
             console.print(f"[red]Pipeline failed:[/] {exc}")
             raise typer.Exit(1) from exc
 
+    manifest_path = Path(work_dir) / "pipeline_result.json"
+    manifest_path.write_text(
+        json.dumps(result.to_dict(), indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    if json_output:
+        payload = result.to_dict()
+        payload["manifest_path"] = str(manifest_path)
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return
+
     console.print(f"[green]✓[/] {result.summary()}")
+    console.print(f"  [bold]manifest[/] = {manifest_path}")
 
     # Print key results
     if result.atomistic_result and result.atomistic_result.T_C_K:
@@ -1885,6 +2045,17 @@ def sim_pipeline(
             console.print(f"  [yellow]Warning:[/] {warn}")
 
     console.print(f"  [dim]{len(result.provenance_chain)} provenance DataPoint(s) recorded[/]")
+
+
+def _normalize_pipeline_backend(backend: str) -> str:
+    """Normalize legacy backend aliases to the simulation doctor names."""
+    token = backend.strip().lower().replace("_", "-")
+    return {
+        "gpu": "local-gpu",
+        "local": "cpu",
+        "hpc": "ssh-hpc",
+        "ssh": "ssh-hpc",
+    }.get(token, token)
 
 
 # ===========================================================================

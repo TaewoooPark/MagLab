@@ -63,6 +63,7 @@ class MaterialData(BaseModel):
     source_doi: str = ""
     source_ref: str = ""
     notes: str = ""
+    aliases: list[str] = Field(default_factory=list)
 
     # Extended fields (to be filled by material_builder.py from external databases)
     extra: dict[str, Any] = Field(default_factory=dict)
@@ -108,6 +109,7 @@ class MaterialData(BaseModel):
                 round(l_ex * 1e9, 2) if (l_ex := self.exchange_length_m()) is not None else None
             ),
             "source_doi": self.source_doi,
+            "aliases": list(self.aliases),
         }
 
 
@@ -175,7 +177,7 @@ def lookup(material_id: str) -> MaterialData | None:
 def search(
     query: str,
     *,
-    fields: tuple[str, ...] = ("id", "name", "formula"),
+    fields: tuple[str, ...] = ("id", "name", "formula", "aliases"),
 ) -> list[MaterialData]:
     """Search for materials by substring match.
 
@@ -191,7 +193,11 @@ def search(
     for mat in _load_all():
         for f in fields:
             val = getattr(mat, f, "")
-            if val and q in str(val).lower():
+            if isinstance(val, list):
+                matched = any(q in str(item).lower() for item in val)
+            else:
+                matched = bool(val and q in str(val).lower())
+            if matched:
                 results.append(mat)
                 break
     return results

@@ -26,7 +26,7 @@ def test_slash_completion_tree_registers_research_surface() -> None:
     assert "/workspace" in SLASH_COMMANDS
     assert "/reset" in SLASH_COMMANDS
 
-    assert {"status", "init", "tree"} <= set(SLASH_COMMANDS["/workspace"])
+    assert {"status", "init", "tree", "brief"} <= set(SLASH_COMMANDS["/workspace"])
     assert {"config", "defaults"} <= set(SLASH_COMMANDS["/reset"])
     assert {"list", "create", "install"} <= set(SLASH_COMMANDS["/skill"])
     assert {"inventory"} <= set(SLASH_COMMANDS["/report"])
@@ -47,3 +47,17 @@ def test_slash_completion_tree_registers_research_surface() -> None:
 def test_model_choice_prompt_is_noop_outside_tty() -> None:
     assert prompt_model_choice("openai") is None
     assert prompt_delegated_model_choice("codex") is None
+
+
+def test_quick_help_renders_first_run_commands() -> None:
+    from rich.console import Console
+
+    from maglab.commands.tree import render_quick_help
+
+    console = Console(record=True, width=120)
+    render_quick_help(console)
+    text = console.export_text()
+
+    assert "/doctor" in text
+    assert "/workspace brief" in text
+    assert "/help all" in text

@@ -92,5 +92,14 @@ def test_llm_backend(config: Config) -> BackendStatus:
             "Check CLI login/API key/Ollama server, then run `maglab auth test` again.",
         )
     content = (getattr(response, "content", None) or "").strip()
+    normalized = content.strip("\"'").strip()
+    if normalized == "MAGLAB_OK":
+        return BackendStatus(True, mode, label, content)
     detail = content or "Backend returned an empty response"
-    return BackendStatus(bool(content), mode, label, detail)
+    return BackendStatus(
+        False,
+        mode,
+        label,
+        f"Backend smoke did not return the parsed sentinel exactly: {detail}",
+        "Check CLI login/API key/Ollama server and delegated CLI output parsing, then rerun `maglab auth test`.",
+    )

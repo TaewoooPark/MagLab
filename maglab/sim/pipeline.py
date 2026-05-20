@@ -77,6 +77,47 @@ class PipelineResult:
             f"provenance: {len(self.provenance_chain)}"
         )
 
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable pipeline manifest."""
+        return {
+            "pipeline_id": self.pipeline_id,
+            "scales_run": list(self.scales_run),
+            "summary": self.summary(),
+            "dft": {
+                "engine": self.dft_result.engine,
+                "converged": self.dft_result.converged,
+                "J_ij_meV": self.dft_result.J_ij_meV,
+                "m_muB": self.dft_result.m_muB,
+                "MAE_meV_atom": self.dft_result.MAE_meV_atom,
+            }
+            if self.dft_result
+            else None,
+            "atomistic": {
+                "engine": self.atomistic_result.engine,
+                "source_file": self.atomistic_result.source_file,
+                "converged": self.atomistic_result.converged,
+                "T_C_K": self.atomistic_result.T_C_K,
+            }
+            if self.atomistic_result
+            else None,
+            "micro_params": dict(self.micro_params),
+            "device_params": dict(self.device_params),
+            "handoffs": {
+                "dft_to_atomistic": self.handoff_dft_to_atm.params
+                if self.handoff_dft_to_atm
+                else None,
+                "atomistic_to_micro": self.handoff_atm_to_micro.params
+                if self.handoff_atm_to_micro
+                else None,
+                "micro_to_device": self.handoff_micro_to_dev.params
+                if self.handoff_micro_to_dev
+                else None,
+            },
+            "provenance": [dp.to_dict() for dp in self.provenance_chain],
+            "errors": list(self.errors),
+            "warnings": list(self.warnings),
+        }
+
 
 def run_pipeline(
     structure: dict[str, Any] | None = None,

@@ -45,6 +45,7 @@ _SUBAPP_HELP_ARGS: list[list[str]] = [
     ["mat", "--help"],
     ["mat", "list", "--help"],
     ["mat", "show", "--help"],
+    ["mat", "search", "--help"],
     ["mat", "build", "--help"],
     ["theme", "--help"],
     ["theme", "list", "--help"],
@@ -86,6 +87,9 @@ _SUBAPP_HELP_ARGS: list[list[str]] = [
     ["sim", "validate", "--help"],
     ["sim", "plot", "--help"],
     ["sim", "job", "--help"],
+    ["sim", "dft", "--help"],
+    ["sim", "atomistic", "--help"],
+    ["sim", "pipeline", "--help"],
     # P1 — figure
     ["figure", "--help"],
     ["figure", "spec", "--help"],
@@ -224,6 +228,14 @@ def test_mat_show_permalloy() -> None:
     """Looking up the Permalloy material succeeds."""
     result = runner.invoke(app, ["mat", "show", "Permalloy"])
     assert result.exit_code == 0
+
+
+@pytest.mark.smoke
+def test_mat_search_finds_permalloy_alias() -> None:
+    """mat search is part of Appendix A and finds bundled materials."""
+    result = runner.invoke(app, ["mat", "search", "Py", "--json"])
+    assert result.exit_code == 0, result.output
+    assert "Permalloy" in result.output
 
 
 @pytest.mark.smoke

@@ -31,12 +31,20 @@ FEATURE_KEYS: tuple[str, ...] = (
 
 
 _BASE_SLASH_COMMANDS: CommandTree = {
-    "/help": None,
+    "/help": {
+        "quick": None,
+        "all": None,
+        "workspace": None,
+        "llm": None,
+        "sim": None,
+        "figure": None,
+        "literature": None,
+    },
     "/clear": None,
     "/quit": None,
     "/exit": None,
     "/reset": {"config": None, "defaults": None},
-    "/workspace": {"status": None, "init": None, "tree": None},
+    "/workspace": {"status": None, "init": None, "tree": None, "brief": None},
     "/install": None,
     "/manual": {"en": None, "ko": None},
     "/doctor": None,
@@ -79,7 +87,7 @@ _BASE_SLASH_COMMANDS: CommandTree = {
         "ollama": None,
     },
     "/physics": {"compute": None, "units": None, "oracle": None},
-    "/mat": {"list": None, "show": None, "build": None},
+    "/mat": {"list": None, "show": None, "search": None, "build": None},
     "/theme": {
         "list": None,
         "set": None,
@@ -182,7 +190,7 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
         "Session",
         "interactive shell controls",
         (
-            HelpEntry("/help", "show this tree"),
+            HelpEntry("/help quick|all|<area>", "show quick, full, or area-specific help"),
             HelpEntry("/clear", "clear the terminal"),
             HelpEntry("/reset config", "restore the previous config backup"),
             HelpEntry("/reset defaults", "write a clean default config"),
@@ -197,6 +205,7 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
             HelpEntry("/manual --lang en|ko", "list installed user manuals"),
             HelpEntry("/doctor", "check workspace, backend, package extras, and sim readiness"),
             HelpEntry("/workspace status", "show current folder, config, data, cache paths"),
+            HelpEntry("/workspace brief", "summarize the active folder in one screen"),
             HelpEntry("/workspace init", "create a local MAGLAB.md workspace marker"),
             HelpEntry("/workspace tree", "show the files MagLab sees in this folder"),
             HelpEntry("/setup <feature>", "show package and external-tool setup guidance"),
@@ -229,7 +238,7 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
         "deterministic science tools",
         (
             HelpEntry("/physics compute|units|oracle", "formula, unit, and sanity checks"),
-            HelpEntry("/mat list|show|build", "materials database and stack builder"),
+            HelpEntry("/mat list|show|search|build", "materials database and stack builder"),
             HelpEntry(
                 "/sim doctor|micro|validate|plot|job|dft|atomistic|pipeline",
                 "simulation workflows and backend readiness",
@@ -276,6 +285,26 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
     ),
 )
 
+QUICK_HELP: tuple[HelpEntry, ...] = (
+    HelpEntry("/doctor", "check local readiness; add --smoke for live LLM verification"),
+    HelpEntry("/workspace brief", "summarize the current folder"),
+    HelpEntry("/connect status", "inspect the selected model/backend"),
+    HelpEntry("/sim doctor", "choose mock, CPU, local GPU, SSH GPU, or SSH HPC path"),
+    HelpEntry("/manual ko orchestration", "open the Korean orchestration manual"),
+    HelpEntry("normal prompt", 'ask naturally, e.g. "Read README and suggest first run steps"'),
+)
+
+AREA_ALIASES: dict[str, tuple[str, ...]] = {
+    "workspace": ("Install and workspace",),
+    "llm": ("LLM backend",),
+    "sim": ("Research primitives",),
+    "simulation": ("Research primitives",),
+    "figure": ("Figures, instruments, automation",),
+    "figures": ("Figures, instruments, automation",),
+    "literature": ("Literature and writing",),
+    "writing": ("Literature and writing",),
+}
+
 
 def base_slash_commands() -> CommandTree:
     """Return a mutable copy of the slash completion tree."""
@@ -295,6 +324,34 @@ def render_slash_help(console: Console | None = None) -> None:
     con.print(
         "[dim]Anything not starting with / is sent to the MagLab orchestrator as a normal prompt.[/]"
     )
+
+
+def render_quick_help(console: Console | None = None) -> None:
+    """Render a one-screen first-run command guide."""
+    con = console or Console()
+    root = Tree("[bold]MagLab quick help[/]")
+    for entry in QUICK_HELP:
+        _add_help_entry(root, entry)
+    con.print(root)
+    con.print()
+    con.print("[dim]Use /help all for the full command tree or /help <area> for a section.[/]")
+
+
+def render_area_help(area: str, console: Console | None = None) -> bool:
+    """Render one help area. Returns False when the area is unknown."""
+    con = console or Console()
+    wanted = AREA_ALIASES.get(area.lower())
+    if not wanted:
+        return False
+    root = Tree(f"[bold]MagLab help: {area.lower()}[/]")
+    for section in HELP_SECTIONS:
+        if section.label not in wanted:
+            continue
+        section_node = root.add(f"[cyan]{section.label}[/] - {section.description}")
+        for entry in section.children:
+            _add_help_entry(section_node, entry)
+    con.print(root)
+    return True
 
 
 def _add_help_entry(parent: Tree, entry: HelpEntry) -> None:

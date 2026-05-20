@@ -78,6 +78,7 @@ materials:
 
   - id: Permalloy
     name: "Permalloy (Ni₈₀Fe₂₀)"
+    aliases: ["Py", "NiFe", "Ni80Fe20"]
     formula: "Ni80Fe20"
     structure: "fcc-alloy"
     Ms_Am: 8.0e5         # 800 emu/cm³; literature range 795–860 emu/cm³

@@ -18,6 +18,7 @@ VAMPIRE, VASP, Quantum ESPRESSO, or HPC/GPU execution tools.
 
 ```sh
 maglab sim doctor
+maglab sim doctor --explain
 maglab sim doctor --backend ssh-gpu --host gpu.cluster.edu --user alice
 maglab sim doctor --backend ssh-hpc --host login.cluster.edu --user alice --probe-ssh
 
@@ -43,6 +44,10 @@ JSON includes `backend_paths`, where each path has `status`, `next_command`,
 can tell you what to run next without opening SSH sessions or guessing remote
 module state.
 
+Use `maglab sim doctor --explain` when you want the path-by-path decision table
+in the terminal. It separates no-GPU mock mode, local CPU fallback, local GPU,
+SSH GPU, and SSH HPC instead of collapsing them into one ambiguous status.
+
 Use these paths depending on where the compute will run:
 
 - No GPU or no solver installed: start with `maglab sim pipeline --backend mock`
@@ -61,8 +66,11 @@ Use these paths depending on where the compute will run:
 
 ```sh
 maglab sim doctor --backend auto
-maglab sim pipeline --structure bcc_fe --scales dft,atomistic,micro,device --backend mock
+maglab sim pipeline --structure bcc_fe --scales dft,atomistic,micro,device --backend mock --json
 ```
+
+The mock pipeline writes `pipeline_result.json` in the work directory. Treat it
+as a schema/provenance artifact, not as a physical solver result.
 
 **Local CPU fallback**
 

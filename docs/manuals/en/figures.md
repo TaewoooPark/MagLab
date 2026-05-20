@@ -16,6 +16,8 @@ uv pip install -e ".[figure]"
 ```sh
 maglab figure primitives list
 maglab figure primitives show hall-bar
+maglab figure primitives ingest schematics/sot-loop.svg \
+  --name sot-loop --description "Spin-orbit torque loop schematic." --tag SOT
 
 maglab figure spec --journal nature --kind hysteresis --output figspec.json
 maglab figure render figspec.json --datapoints datapoints.json --output figure.pdf
@@ -59,7 +61,18 @@ ad hoc artwork into the manuscript. The deterministic ingestion core writes:
 - `.maglab/figure/primitives/catalog/<name>/quality.json`
 - `.maglab/figure/primitives/catalog/<name>/REVIEW.md`
 
-Python usage until the CLI wrapper is wired:
+CLI usage:
+
+```sh
+maglab figure primitives ingest schematics/sot-loop.svg \
+  --name sot-loop \
+  --category concept/process \
+  --description "Spin-orbit torque loop schematic." \
+  --tag SOT \
+  --tag torque
+```
+
+Python usage for custom automation:
 
 ```python
 from maglab.figure.primitives import ingest_primitive

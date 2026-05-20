@@ -17,9 +17,9 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-RECOMMENDED_INSTALL = 'pipx install --editable ".[research]"'
-UV_TOOL_INSTALL = 'uv tool install --editable ".[research]"'
-PIPX_INSTALL = 'pipx install --editable ".[research]"'
+RECOMMENDED_INSTALL = 'pipx install --python python3.12 --editable ".[research]"'
+UV_TOOL_INSTALL = 'uv tool install --python python3.12 --editable ".[research]"'
+PIPX_INSTALL = 'pipx install --python python3.12 --editable ".[research]"'
 DEV_INSTALL = 'uv pip install -e ".[research]"'
 PIP_INSTALL = 'python -m pip install -e ".[research]"'
 

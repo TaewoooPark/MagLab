@@ -18,6 +18,7 @@ physical plausibility checks before simulation or fitting.
 
 ```sh
 maglab mat list
+maglab mat search Py
 maglab mat show Permalloy
 maglab mat build "Ta(5)/CoFeB(1)/MgO(2)"
 
@@ -29,7 +30,8 @@ maglab physics oracle alpha=0.01 Ms=860000 T=300
 
 ## Recommended Workflow
 
-1. Start with `maglab mat show <material>` or `maglab mat build <stack>`.
+1. Start with `maglab mat search <query>`, `maglab mat show <material>`, or
+   `maglab mat build <stack>`.
 2. Convert all incoming quantities to SI units.
 3. Run `maglab physics oracle` before simulation, fitting, or reporting.
 4. Use the returned values as inputs to `sim`, `fit`, `device`, and `figure`.
@@ -59,6 +61,12 @@ maglab physics compute exchange_length A=13e-12 Ms=860e3
 
 ```sh
 maglab mat build "Pt(4)/CoFeB(1.2)/MgO(2)" --save
+```
+
+**Find a common lab alias**
+
+```sh
+maglab mat search Py --json
 ```
 
 ## Handoff

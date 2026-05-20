@@ -665,6 +665,52 @@ class TestDelegatedCLIBackend:
         assert "codex" in cmd[0]
         assert "exec" in cmd
 
+    def test_codex_jsonl_agent_message_parsed(self) -> None:
+        """Codex JSONL transport events are reduced to the agent message only."""
+        from maglab.llm.backends.delegated_cli import DelegatedCLIBackend
+
+        stdout = "\n".join(
+            [
+                '{"type":"thread.started","thread_id":"019e4418-156b-7203-bb5a-04a614196fbf"}',
+                '{"type":"turn.started"}',
+                '{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"MAGLAB_LLM_OK\\n/tmp/project"}}',
+                '{"type":"turn.completed","usage":{"input_tokens":50988,"cached_input_tokens":3456,"output_tokens":109,"reasoning_output_tokens":86}}',
+            ]
+        )
+        backend = DelegatedCLIBackend(cli="codex", model="")
+        messages = [Message(role=Role.USER, content="ping")]
+        mock_proc = self._make_mock_proc(stdout)
+
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/codex"),
+            patch("subprocess.run", return_value=mock_proc),
+        ):
+            result = backend.complete(messages)
+
+        assert result.content == "MAGLAB_LLM_OK\n/tmp/project"
+        assert "thread.started" not in result.content
+        assert "50988" not in result.content
+        assert result.usage.prompt_tokens == 50988
+        assert result.usage.completion_tokens == 109
+        assert result.metadata["parse_mode"] == "codex_jsonl"
+        assert result.metadata["thread_id"] == "019e4418-156b-7203-bb5a-04a614196fbf"
+
+    def test_codex_jsonl_error_event_surfaces_cleanly(self) -> None:
+        """A Codex error event is raised without returning raw JSONL as an answer."""
+        from maglab.llm.backends.delegated_cli import DelegatedCLIBackend
+
+        stdout = '{"type":"error","message":"not authenticated"}'
+        backend = DelegatedCLIBackend(cli="codex", model="")
+        messages = [Message(role=Role.USER, content="ping")]
+        mock_proc = self._make_mock_proc(stdout)
+
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/codex"),
+            patch("subprocess.run", return_value=mock_proc),
+            pytest.raises(RuntimeError, match="not authenticated"),
+        ):
+            backend.complete(messages)
+
     def test_codex_cli_omits_model_flag_when_default_model_blank(self) -> None:
         """Codex delegated mode can rely on the user's authenticated CLI default model."""
         from maglab.llm.backends.delegated_cli import DelegatedCLIBackend

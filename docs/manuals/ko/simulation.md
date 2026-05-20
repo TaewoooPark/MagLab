@@ -18,6 +18,7 @@ OOMMF, MuMax3, magnum.np, VAMPIRE, VASP, Quantum ESPRESSO, HPC/GPU 실행 도구
 
 ```sh
 maglab sim doctor
+maglab sim doctor --explain
 maglab sim doctor --backend ssh-gpu --host gpu.cluster.edu --user alice
 maglab sim doctor --backend ssh-hpc --host login.cluster.edu --user alice --probe-ssh
 
@@ -44,6 +45,10 @@ JSON에는 `backend_paths`가 들어 있고 각 path는 `status`, `next_command`
 하는지 보여주되, 사용자가 요청하지 않은 SSH 연결이나 remote module 추정은
 하지 않습니다.
 
+`maglab sim doctor --explain`을 쓰면 no-GPU mock, local CPU fallback, local
+GPU, SSH GPU, SSH HPC를 한 표로 분리해서 보여줍니다. 여러 실행 경로를 하나의
+모호한 ready 상태로 뭉개지 않습니다.
+
 실행 위치에 따라 다음처럼 사용합니다.
 
 - GPU나 solver가 없는 노트북: `maglab sim pipeline --backend mock`으로 먼저
@@ -62,8 +67,11 @@ JSON에는 `backend_paths`가 들어 있고 각 path는 `status`, `next_command`
 
 ```sh
 maglab sim doctor --backend auto
-maglab sim pipeline --structure bcc_fe --scales dft,atomistic,micro,device --backend mock
+maglab sim pipeline --structure bcc_fe --scales dft,atomistic,micro,device --backend mock --json
 ```
+
+mock pipeline은 work directory에 `pipeline_result.json`을 씁니다. 이 파일은
+schema/provenance artifact이며, 실제 물리 solver 결과라고 주장하지 않습니다.
 
 **Local CPU fallback**
 

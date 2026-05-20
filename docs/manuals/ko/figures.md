@@ -16,6 +16,8 @@ uv pip install -e ".[figure]"
 ```sh
 maglab figure primitives list
 maglab figure primitives show hall-bar
+maglab figure primitives ingest schematics/sot-loop.svg \
+  --name sot-loop --description "Spin-orbit torque loop schematic." --tag SOT
 
 maglab figure spec --journal nature --kind hysteresis --output figspec.json
 maglab figure render figspec.json --datapoints datapoints.json --output figure.pdf
@@ -58,7 +60,18 @@ ingest합니다. 결정론적 ingestion core는 다음 파일을 만듭니다.
 - `.maglab/figure/primitives/catalog/<name>/quality.json`
 - `.maglab/figure/primitives/catalog/<name>/REVIEW.md`
 
-CLI wrapper가 연결되기 전에는 Python API로 사용할 수 있습니다.
+CLI 사용:
+
+```sh
+maglab figure primitives ingest schematics/sot-loop.svg \
+  --name sot-loop \
+  --category concept/process \
+  --description "Spin-orbit torque loop schematic." \
+  --tag SOT \
+  --tag torque
+```
+
+자동화가 필요하면 Python API도 사용할 수 있습니다.
 
 ```python
 from maglab.figure.primitives import ingest_primitive

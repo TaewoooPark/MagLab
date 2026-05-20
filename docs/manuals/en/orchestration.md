@@ -11,6 +11,8 @@ than run a single command.
 maglab
 maglab -p "Plan a reproducible SOT analysis workflow for Pt/CoFeB/MgO"
 maglab doctor
+maglab doctor --smoke
+maglab workspace brief
 ```
 
 The REPL is the natural-language surface. It should route work into deterministic
@@ -19,6 +21,9 @@ tools, notebooks, literature workflows, analysis, and authoring.
 `maglab doctor` is the first command to run after installation. It checks the
 current workspace, `MAGLAB.md`, configured backend, optional research extras,
 external solvers, and simulation readiness without printing secrets.
+By default it performs fast registration checks; add `--smoke` when you want a
+live LLM sentinel prompt to verify that delegated CLI/API output is parsed as
+plain model content.
 
 ## Credentials and Configuration
 
@@ -45,6 +50,10 @@ For Codex, authenticate with the official Codex CLI first. Then run
 `maglab auth codex` or use `/connect codex` inside the REPL. MagLab stores only
 the backend selection in `config.toml`; Codex OAuth tokens stay with the
 official CLI.
+
+In the REPL, `/help quick` shows the first-run path, `/help all` shows the full
+tree, and `/help workspace`, `/help llm`, `/help sim`, or `/help figure` focus
+on one area.
 
 For direct API providers, run the provider command and enter the key through
 hidden terminal input. The REPL equivalents are `/connect anthropic`,

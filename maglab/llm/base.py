@@ -115,6 +115,9 @@ class LLMResponse(BaseModel):
     usage: UsageStats = Field(default_factory=UsageStats)
     # Raw provider response (for debugging and provenance)
     raw: Any | None = None
+    # Backend-specific non-secret transport metadata. This is intentionally
+    # separate from ``content`` so integrity gates audit only the model answer.
+    metadata: dict[str, Any] = Field(default_factory=dict)
     # Model identifier used
     model: str | None = None
 

@@ -112,9 +112,15 @@ def _handle_slash(line: str, config: Config) -> bool:
         return False
 
     if cmd == "/help":
-        from maglab.commands.tree import render_slash_help
+        from maglab.commands.tree import render_area_help, render_quick_help, render_slash_help
 
-        render_slash_help(con)
+        target = parts[1].lower() if len(parts) >= 2 else "quick"
+        if target == "all":
+            render_slash_help(con)
+        elif target == "quick":
+            render_quick_help(con)
+        elif not render_area_help(target, con):
+            con.print(f"[yellow]Unknown help area:[/] {target!r}. Use /help quick or /help all.")
         return True
 
     if cmd == "/clear":
