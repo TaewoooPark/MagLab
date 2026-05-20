@@ -195,6 +195,21 @@ def test_manual_command_lists_korean_manuals() -> None:
     result = runner.invoke(app, ["manual", "--lang", "ko"])
     assert result.exit_code == 0, result.output
     assert "MagLab manuals (ko)" in result.output
+
+
+@pytest.mark.smoke
+def test_manual_command_accepts_language_first_topic() -> None:
+    result = runner.invoke(app, ["manual", "ko", "orchestration"])
+    assert result.exit_code == 0, result.output
+    assert "lang: ko" in result.output
+    assert "orchestration" in result.output
+
+
+@pytest.mark.smoke
+def test_manual_command_accepts_language_first_listing() -> None:
+    result = runner.invoke(app, ["manual", "ko"])
+    assert result.exit_code == 0, result.output
+    assert "MagLab manuals (ko)" in result.output
     assert "figures" in result.output
 
 

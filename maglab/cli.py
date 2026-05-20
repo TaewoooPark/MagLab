@@ -1351,9 +1351,13 @@ def install_doctor_cmd(
 
 @app.command("manual")
 def manual_cmd(
-    topic: str | None = typer.Argument(
+    topic_or_lang: str | None = typer.Argument(
         None,
-        help="Manual topic. Omit to list installed manuals.",
+        help="Manual topic, or language code when using `maglab manual ko <topic>`.",
+    ),
+    topic_after_lang: str | None = typer.Argument(
+        None,
+        help="Manual topic when the first argument is a language code.",
     ),
     lang: str = typer.Option("en", "--lang", "-l", help="Manual language: en or ko."),
     show: bool = typer.Option(False, "--show", help="Render the manual page in the terminal."),
@@ -1363,6 +1367,19 @@ def manual_cmd(
     from rich.markup import escape
 
     from maglab.manuals import available_languages, list_manuals, resolve_manual
+
+    languages = set(available_languages())
+    topic = topic_or_lang
+    if topic_or_lang in languages:
+        lang = topic_or_lang
+        topic = topic_after_lang
+    elif topic_after_lang is not None:
+        console.print(
+            "[red]Unexpected second manual argument.[/] Use "
+            "[cyan]maglab manual <topic> --lang ko[/] or "
+            "[cyan]maglab manual ko <topic>[/]."
+        )
+        raise typer.Exit(2)
 
     if topic is None:
         entries = list_manuals(lang)
@@ -1375,7 +1392,8 @@ def manual_cmd(
         console.print(table)
         console.print(
             "Use [cyan]maglab manual <topic> --lang "
-            f"{escape(lang)}[/] or [cyan]/manual {escape(lang)} <topic>[/]."
+            f"{escape(lang)}[/], [cyan]maglab manual {escape(lang)} <topic>[/], "
+            f"or [cyan]/manual {escape(lang)} <topic>[/]."
         )
         return
 
