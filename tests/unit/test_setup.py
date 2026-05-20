@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import re
 import tomllib
 from pathlib import Path
 
@@ -19,6 +20,9 @@ def test_research_extra_contains_all_feature_dependency_groups() -> None:
 
     assert "research" in optional
     assert "all" in optional
+    research_packages = {
+        re.split(r"[<>=!~;\[]", dep, maxsplit=1)[0].strip().lower() for dep in optional["research"]
+    }
     for package in (
         "litellm",
         "ollama",
@@ -31,7 +35,7 @@ def test_research_extra_contains_all_feature_dependency_groups() -> None:
         "bibtexparser",
         "slack-bolt",
     ):
-        assert package in optional["research"]
+        assert package in research_packages
 
 
 def test_setup_registry_has_slash_for_each_research_feature() -> None:

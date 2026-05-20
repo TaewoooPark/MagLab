@@ -44,7 +44,7 @@ literature = [
   "scikit-learn", "keybert", "yake", "lancedb", "pdfplumber",
 ]
 reviewer = ["rank-bm25"]
-authoring = ["bibtexparser", "pylatex", "python-pptx", "python-docx"]
+authoring = ["bibtexparser>=2.0.0b9", "pylatex", "python-pptx", "python-docx"]
 gateway = ["slack-bolt", "python-telegram-bot", "discord.py"]
 research = [
   "litellm", "ollama",
@@ -55,7 +55,7 @@ research = [
   "pyalex", "semanticscholar", "arxiv", "habanero",
   "scikit-learn", "keybert", "yake", "lancedb",
   "rank-bm25",
-  "bibtexparser", "pylatex", "python-pptx", "python-docx",
+  "bibtexparser>=2.0.0b9", "pylatex", "python-pptx", "python-docx",
   "slack-bolt", "python-telegram-bot", "discord.py",
 ]
 all = [
@@ -67,7 +67,7 @@ all = [
   "pyalex", "semanticscholar", "arxiv", "habanero",
   "scikit-learn", "keybert", "yake", "lancedb",
   "rank-bm25",
-  "bibtexparser", "pylatex", "python-pptx", "python-docx",
+  "bibtexparser>=2.0.0b9", "pylatex", "python-pptx", "python-docx",
   "slack-bolt", "python-telegram-bot", "discord.py",
 ]
 dev = ["ruff", "mypy", "pytest", "pytest-cov", "pre-commit"]

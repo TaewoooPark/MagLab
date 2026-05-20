@@ -339,12 +339,15 @@ wheels = [
 
 [[package]]
 name = "bibtexparser"
-version = "1.4.4"
+version = "2.0.0b9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyparsing" },
+    { name = "pylatexenc" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/44/1c/577d3ce406e88f370e80a6ebf76ae52a2866521e0b585e8ec612759894f1/bibtexparser-1.4.4.tar.gz", hash = "sha256:093b6c824f7a71d3a748867c4057b71f77c55b8dbc07efc993b781771520d8fb", size = 55594, upload-time = "2026-01-29T18:58:01.366Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f4/37/e21f79f5116ad1fb92a8eb0e8a005cad59eb24660003982840daa6b9fafd/bibtexparser-2.0.0b9.tar.gz", hash = "sha256:bcddf796cfe321bb92c17c844ca65d81731fb753a1dd0e82bc76a9947aa0f360", size = 40435, upload-time = "2026-01-29T19:47:52.605Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/60/8e/5a3726bd421d4977262cee94a3660da4b9ca94397f951499c7d31ec0e863/bibtexparser-2.0.0b9-py3-none-any.whl", hash = "sha256:c30c73a9b4e2e8a4669c8c4d726e2d285990553f60612d8c952786af3cf766ca", size = 41407, upload-time = "2026-01-29T19:47:51.608Z" },
+]
 
 [[package]]
 name = "bleach"
@@ -2288,6 +2291,7 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/64/5d/1d66b84f850089254c230ef6ea6b267a5a54e2e179a5d960036a05d501d7/lxml-6.1.1-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:80c2dfadb855da477cf73373ad29a333535dedb9b12bad02c9814c8e2b43bf08", size = 5226877, upload-time = "2026-05-18T19:18:00.875Z" },
     { url = "https://files.pythonhosted.org/packages/ad/00/84c4b5302d42a2d0184f38d538c8a197f33b52a50bd4f7bcfe990bce3036/lxml-6.1.1-cp311-cp311-win32.whl", hash = "sha256:30a89d3ac8faec007453fb541f3f46807eeec88edd5826f6e3fe001752a2c621", size = 3594072, upload-time = "2026-05-18T19:17:12.714Z" },
     { url = "https://files.pythonhosted.org/packages/61/9d/2e2f7d876349f45e0f3e29f72da311668853d59b58d473a2dea4f0160135/lxml-6.1.1-cp311-cp311-win_amd64.whl", hash = "sha256:abbefa31eee84842140f67acef1c828e28bba8bbf0c3bc6e5492a9af88152c28", size = 4025469, upload-time = "2026-05-18T19:17:50.566Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/d5/570e6390e4110331e6208b2ba83d1482cc9146808ee118b22824a34c1070/lxml-6.1.1-cp311-cp311-win_arm64.whl", hash = "sha256:dcb292aa7fe485ceff7af4f92e46c5af397daec5dff64871a528f0fc47a3cc5b", size = 3667640, upload-time = "2026-05-19T19:22:48.293Z" },
     { url = "https://files.pythonhosted.org/packages/6a/6e/c4add832b6fc1e887125b96f880d7b9b70aae5248718e046b1704bcac4b9/lxml-6.1.1-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:104c09bda8d2a562824c0e319d0768ce26a779b7601e0931d33b09b53c392ef7", size = 8570821, upload-time = "2026-05-18T19:17:42.068Z" },
     { url = "https://files.pythonhosted.org/packages/22/00/ff3009c88e65de8011630acf8ab5a09cb2becd2aaf47fba2f3449f6224e9/lxml-6.1.1-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:25c6997a9a534e016695a0ba06b2f07945de682731ff01065b6d5a4474179da1", size = 4624252, upload-time = "2026-05-18T19:17:47.897Z" },
     { url = "https://files.pythonhosted.org/packages/42/95/bb63f0fd62e554fe078e1fb3c8fe9083c14ddc7ad7fa178d10e57e071ac7/lxml-6.1.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:c921ba5c51e4e9f63b8b00267d06566e1f63407408a0496da2d1d0bfc819c7fc", size = 4930746, upload-time = "2026-05-18T19:18:29.637Z" },
@@ -2305,6 +2309,7 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/65/d1/bc0ed2427bf609f2ee10da303a6a226f9c8bce94f945dc29a32ce55de6e4/lxml-6.1.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:aa366a1e55b8ebfe8ca8ddc3cfe75c8ebade181aeb0f661d0cb05986b647f72a", size = 5260995, upload-time = "2026-05-18T19:18:37.091Z" },
     { url = "https://files.pythonhosted.org/packages/69/8b/6772e1a4b513fc50a8d931f19edde0e13ae6918510a1e13ff67864f3e5ed/lxml-6.1.1-cp312-cp312-win32.whl", hash = "sha256:126c93f7f56f0eda92f6d8c619edc463a4f23d9252f1c9d0405a76f25fa9f11a", size = 3596382, upload-time = "2026-05-18T19:17:18.37Z" },
     { url = "https://files.pythonhosted.org/packages/1b/89/45198e9624762af2dfd2cb8782598477ceb29f6e59caab560388ae1f4ec1/lxml-6.1.1-cp312-cp312-win_amd64.whl", hash = "sha256:26e6eda8d38c1fcab1090dd196ee87cbd13788e531937610e2589085de074e77", size = 3997255, upload-time = "2026-05-18T19:17:56.781Z" },
+    { url = "https://files.pythonhosted.org/packages/90/a9/7a54b6834088d9ae528a7b780584ba6a39a9457b0ac330479f20ffbc9449/lxml-6.1.1-cp312-cp312-win_arm64.whl", hash = "sha256:6540377fbd53fe1b629172288c464fb18db11ce1fa7dc15891da10aa9dcc3e7f", size = 3659610, upload-time = "2026-05-19T19:22:50.843Z" },
     { url = "https://files.pythonhosted.org/packages/a5/eb/7e6f37c5584ccbb2ff267f56fd0339016938c1c8684cfefab9b33ffc2f36/lxml-6.1.1-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:68a9198d0fc122d14bb76837de9aa80cf84caed990b5b237f532ed87d3706736", size = 8559780, upload-time = "2026-05-18T19:17:57.661Z" },
     { url = "https://files.pythonhosted.org/packages/a1/36/587c2521cf23a2cd6c9c22108aa7528f683a1f195ed7ccd23a4b1786ad36/lxml-6.1.1-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:7d47866cb32fb503450b6edc9df355d10dc49836af2e89901bd6ac6b0896d9d9", size = 4618006, upload-time = "2026-05-18T19:18:04.452Z" },
     { url = "https://files.pythonhosted.org/packages/6e/ca/ab7bfe2bf4c972af5e7878262845ead3a24a929a9b04bc11c7c1ece6c82a/lxml-6.1.1-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:eb7c9811bfaa8b1ed5ed319f5d370dfbcaa59d52ea64be2a5a85e18195930354", size = 4924139, upload-time = "2026-05-18T19:19:04.873Z" },
@@ -2322,6 +2327,7 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/4d/f8/f6a5e8185bcb28c2befae3d31f8e3df3b811cb0f47746517a81279fcafe1/lxml-6.1.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:47402e62c52ff5988c1e8c6c63177f5708bccf48e366dea4e3dcf1e645e04947", size = 5250276, upload-time = "2026-05-18T19:19:03.834Z" },
     { url = "https://files.pythonhosted.org/packages/c7/f2/1a2b9f1b7a49d45495369be7ef9ad05b262930f2eab3e3145706fca8083f/lxml-6.1.1-cp313-cp313-win32.whl", hash = "sha256:3483644525531e1d5762b0c44a8e18b6efba321b6dcf8a8952de10b037618bca", size = 3596903, upload-time = "2026-05-18T19:17:29.863Z" },
     { url = "https://files.pythonhosted.org/packages/e6/99/f4ffb024f238eec2131aaa09f3278fb6129cf892741bf68e1fc1afb8c100/lxml-6.1.1-cp313-cp313-win_amd64.whl", hash = "sha256:a10bd2fd62e8ce916ececb342f348f190724a098c1faa056fdfb2a22ad5e8660", size = 3995869, upload-time = "2026-05-18T19:18:02.596Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/53/70eb8c5c6037f27448f1e3c54ebede9545a801ae63f0a7254afca4fe8e45/lxml-6.1.1-cp313-cp313-win_arm64.whl", hash = "sha256:424aa57aca0897eb922aef34395bd1289b3b6f04e6bae20ea123c0c7e333cffc", size = 3658490, upload-time = "2026-05-19T19:22:53.846Z" },
     { url = "https://files.pythonhosted.org/packages/b5/32/86a3f0f724a3a402d4627937a7fc27b160e45e7012b4adf47f6e1e844511/lxml-6.1.1-pp311-pypy311_pp73-macosx_10_15_x86_64.whl", hash = "sha256:31033dc34636ea6b7d5cc11b1ddbda78a14de858ba9d3e1ed4b69a3085bc521e", size = 3930127, upload-time = "2026-05-18T19:19:02.27Z" },
     { url = "https://files.pythonhosted.org/packages/40/44/d832e82af08723761556d004b1d04d281c09f9a8cecd7d3148548c9941a3/lxml-6.1.1-pp311-pypy311_pp73-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:3893c14c4b6ac5b2d54ba8cf03e99fe5104e592de491f19bd6b82756c09f8004", size = 4210769, upload-time = "2026-05-18T19:20:41.427Z" },
     { url = "https://files.pythonhosted.org/packages/6d/39/0dc5949f759ed7d951e0bb8c2f2d9d7aca1908d22352fa84a8afd2ea54af/lxml-6.1.1-pp311-pypy311_pp73-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:c07da4cebf6889f03ebac8d238f62318e29f495de0aa18a51ea14e61ae907e2e", size = 4318163, upload-time = "2026-05-18T19:20:44.702Z" },
@@ -2353,6 +2359,39 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "arxiv" },
+    { name = "bibtexparser" },
+    { name = "cairosvg" },
+    { name = "discord-py" },
+    { name = "discretisedfield" },
+    { name = "fastmcp" },
+    { name = "habanero" },
+    { name = "keybert" },
+    { name = "lancedb" },
+    { name = "litellm" },
+    { name = "magnumnp" },
+    { name = "matplotlib" },
+    { name = "mcp" },
+    { name = "micromagneticmodel" },
+    { name = "ollama" },
+    { name = "oommfc" },
+    { name = "pdfplumber" },
+    { name = "pyalex" },
+    { name = "pylatex" },
+    { name = "python-docx" },
+    { name = "python-pptx" },
+    { name = "python-telegram-bot" },
+    { name = "pyvisa" },
+    { name = "pyvisa-sim" },
+    { name = "pyvista" },
+    { name = "rank-bm25" },
+    { name = "scienceplots" },
+    { name = "scikit-learn" },
+    { name = "semanticscholar" },
+    { name = "slack-bolt" },
+    { name = "yake" },
+]
 authoring = [
     { name = "bibtexparser" },
     { name = "pylatex" },
@@ -2401,6 +2440,39 @@ mcp = [
     { name = "fastmcp" },
     { name = "mcp" },
 ]
+research = [
+    { name = "arxiv" },
+    { name = "bibtexparser" },
+    { name = "cairosvg" },
+    { name = "discord-py" },
+    { name = "discretisedfield" },
+    { name = "fastmcp" },
+    { name = "habanero" },
+    { name = "keybert" },
+    { name = "lancedb" },
+    { name = "litellm" },
+    { name = "magnumnp" },
+    { name = "matplotlib" },
+    { name = "mcp" },
+    { name = "micromagneticmodel" },
+    { name = "ollama" },
+    { name = "oommfc" },
+    { name = "pdfplumber" },
+    { name = "pyalex" },
+    { name = "pylatex" },
+    { name = "python-docx" },
+    { name = "python-pptx" },
+    { name = "python-telegram-bot" },
+    { name = "pyvisa" },
+    { name = "pyvisa-sim" },
+    { name = "pyvista" },
+    { name = "rank-bm25" },
+    { name = "scienceplots" },
+    { name = "scikit-learn" },
+    { name = "semanticscholar" },
+    { name = "slack-bolt" },
+    { name = "yake" },
+]
 reviewer = [
     { name = "rank-bm25" },
 ]
@@ -2413,60 +2485,122 @@ sim = [
 
 [package.metadata]
 requires-dist = [
+    { name = "arxiv", marker = "extra == 'all'" },
     { name = "arxiv", marker = "extra == 'literature'" },
-    { name = "bibtexparser", marker = "extra == 'authoring'" },
+    { name = "arxiv", marker = "extra == 'research'" },
+    { name = "bibtexparser", marker = "extra == 'all'", specifier = ">=2.0.0b9" },
+    { name = "bibtexparser", marker = "extra == 'authoring'", specifier = ">=2.0.0b9" },
+    { name = "bibtexparser", marker = "extra == 'research'", specifier = ">=2.0.0b9" },
+    { name = "cairosvg", marker = "extra == 'all'" },
     { name = "cairosvg", marker = "extra == 'figure'" },
+    { name = "cairosvg", marker = "extra == 'research'" },
+    { name = "discord-py", marker = "extra == 'all'" },
     { name = "discord-py", marker = "extra == 'gateway'" },
+    { name = "discord-py", marker = "extra == 'research'" },
+    { name = "discretisedfield", marker = "extra == 'all'" },
+    { name = "discretisedfield", marker = "extra == 'research'" },
     { name = "discretisedfield", marker = "extra == 'sim'" },
+    { name = "fastmcp", marker = "extra == 'all'" },
     { name = "fastmcp", marker = "extra == 'mcp'" },
+    { name = "fastmcp", marker = "extra == 'research'" },
+    { name = "habanero", marker = "extra == 'all'" },
     { name = "habanero", marker = "extra == 'literature'" },
+    { name = "habanero", marker = "extra == 'research'" },
     { name = "jinja2", specifier = ">=3.1" },
+    { name = "keybert", marker = "extra == 'all'" },
     { name = "keybert", marker = "extra == 'literature'" },
+    { name = "keybert", marker = "extra == 'research'" },
     { name = "keyring", specifier = ">=25.0" },
+    { name = "lancedb", marker = "extra == 'all'" },
     { name = "lancedb", marker = "extra == 'literature'" },
+    { name = "lancedb", marker = "extra == 'research'" },
+    { name = "litellm", marker = "extra == 'all'" },
     { name = "litellm", marker = "extra == 'llm'" },
+    { name = "litellm", marker = "extra == 'research'" },
     { name = "lmfit", specifier = ">=1.3" },
+    { name = "magnumnp", marker = "extra == 'all'" },
+    { name = "magnumnp", marker = "extra == 'research'" },
     { name = "magnumnp", marker = "extra == 'sim'" },
+    { name = "matplotlib", marker = "extra == 'all'" },
     { name = "matplotlib", marker = "extra == 'figure'" },
+    { name = "matplotlib", marker = "extra == 'research'" },
+    { name = "mcp", marker = "extra == 'all'" },
     { name = "mcp", marker = "extra == 'mcp'" },
+    { name = "mcp", marker = "extra == 'research'" },
+    { name = "micromagneticmodel", marker = "extra == 'all'" },
+    { name = "micromagneticmodel", marker = "extra == 'research'" },
     { name = "micromagneticmodel", marker = "extra == 'sim'" },
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "numpy", specifier = ">=1.26" },
+    { name = "ollama", marker = "extra == 'all'" },
     { name = "ollama", marker = "extra == 'llm'" },
+    { name = "ollama", marker = "extra == 'research'" },
+    { name = "oommfc", marker = "extra == 'all'" },
+    { name = "oommfc", marker = "extra == 'research'" },
     { name = "oommfc", marker = "extra == 'sim'" },
     { name = "pandas", specifier = ">=2.2" },
+    { name = "pdfplumber", marker = "extra == 'all'" },
     { name = "pdfplumber", marker = "extra == 'instr'" },
     { name = "pdfplumber", marker = "extra == 'literature'" },
+    { name = "pdfplumber", marker = "extra == 'research'" },
     { name = "platformdirs", specifier = ">=4.0" },
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "prompt-toolkit", specifier = ">=3.0" },
     { name = "prov", specifier = ">=2.0" },
+    { name = "pyalex", marker = "extra == 'all'" },
     { name = "pyalex", marker = "extra == 'literature'" },
+    { name = "pyalex", marker = "extra == 'research'" },
     { name = "pydantic", specifier = ">=2.6" },
     { name = "pyfiglet", specifier = ">=1.0" },
+    { name = "pylatex", marker = "extra == 'all'" },
     { name = "pylatex", marker = "extra == 'authoring'" },
+    { name = "pylatex", marker = "extra == 'research'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
+    { name = "python-docx", marker = "extra == 'all'" },
     { name = "python-docx", marker = "extra == 'authoring'" },
+    { name = "python-docx", marker = "extra == 'research'" },
+    { name = "python-pptx", marker = "extra == 'all'" },
     { name = "python-pptx", marker = "extra == 'authoring'" },
+    { name = "python-pptx", marker = "extra == 'research'" },
+    { name = "python-telegram-bot", marker = "extra == 'all'" },
     { name = "python-telegram-bot", marker = "extra == 'gateway'" },
+    { name = "python-telegram-bot", marker = "extra == 'research'" },
+    { name = "pyvisa", marker = "extra == 'all'" },
     { name = "pyvisa", marker = "extra == 'instr'" },
+    { name = "pyvisa", marker = "extra == 'research'" },
+    { name = "pyvisa-sim", marker = "extra == 'all'" },
     { name = "pyvisa-sim", marker = "extra == 'instr'" },
+    { name = "pyvisa-sim", marker = "extra == 'research'" },
+    { name = "pyvista", marker = "extra == 'all'" },
     { name = "pyvista", marker = "extra == 'figure'" },
+    { name = "pyvista", marker = "extra == 'research'" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "rank-bm25", marker = "extra == 'all'" },
+    { name = "rank-bm25", marker = "extra == 'research'" },
     { name = "rank-bm25", marker = "extra == 'reviewer'" },
     { name = "rich", specifier = ">=13.7" },
     { name = "ruff", marker = "extra == 'dev'" },
+    { name = "scienceplots", marker = "extra == 'all'" },
     { name = "scienceplots", marker = "extra == 'figure'" },
+    { name = "scienceplots", marker = "extra == 'research'" },
+    { name = "scikit-learn", marker = "extra == 'all'" },
     { name = "scikit-learn", marker = "extra == 'literature'" },
+    { name = "scikit-learn", marker = "extra == 'research'" },
     { name = "scipy", specifier = ">=1.12" },
+    { name = "semanticscholar", marker = "extra == 'all'" },
     { name = "semanticscholar", marker = "extra == 'literature'" },
+    { name = "semanticscholar", marker = "extra == 'research'" },
+    { name = "slack-bolt", marker = "extra == 'all'" },
     { name = "slack-bolt", marker = "extra == 'gateway'" },
+    { name = "slack-bolt", marker = "extra == 'research'" },
     { name = "tomlkit", specifier = ">=0.13" },
     { name = "typer", specifier = ">=0.12" },
+    { name = "yake", marker = "extra == 'all'" },
     { name = "yake", marker = "extra == 'literature'" },
+    { name = "yake", marker = "extra == 'research'" },
 ]
-provides-extras = ["llm", "mcp", "sim", "figure", "instr", "literature", "reviewer", "authoring", "gateway", "dev"]
+provides-extras = ["llm", "mcp", "sim", "figure", "instr", "literature", "reviewer", "authoring", "gateway", "research", "all", "dev"]
 
 [[package]]
 name = "magnumnp"
@@ -3984,6 +4118,12 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/6d/a8/10cf6b955b5fa19438790d9949867e04c785ae845e631c5ef6db444401d1/PyLaTeX-1.4.2.tar.gz", hash = "sha256:bb7b21bec57ecdba3f6f44c856ebebdf6549fd6e80661bd44fd5094236729242", size = 59710, upload-time = "2023-10-19T16:22:54.096Z" }
 
 [[package]]
+name = "pylatexenc"
+version = "2.10"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5d/ab/34ec41718af73c00119d0351b7a2531d2ebddb51833a36448fc7b862be60/pylatexenc-2.10.tar.gz", hash = "sha256:3dd8fd84eb46dc30bee1e23eaab8d8fb5a7f507347b23e5f38ad9675c84f40d3", size = 162597, upload-time = "2021-04-06T07:56:07.854Z" }
+
+[[package]]
 name = "pyparsing"
 version = "3.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -4775,8 +4915,8 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography" },
-    { name = "jeepney" },
+    { name = "cryptography", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "jeepney", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
