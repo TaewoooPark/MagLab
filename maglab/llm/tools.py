@@ -531,6 +531,27 @@ def sim_validate(spec_dict: dict[str, Any]) -> dict[str, Any]:
 
 
 @tool(
+    read_only=True,
+    description="Diagnose MagLab simulation backend readiness for CPU, local GPU, SSH GPU, or SSH HPC.",
+)
+def sim_doctor(
+    backend: str = "auto",
+    host: str | None = None,
+    user: str | None = None,
+    probe_ssh: bool = False,
+) -> dict[str, Any]:
+    """Diagnose MagLab simulation backend readiness."""
+    from maglab.sim.environment import diagnose_sim_environment
+
+    return diagnose_sim_environment(
+        backend=backend,
+        host=host,
+        user=user,
+        probe_ssh=probe_ssh,
+    )
+
+
+@tool(
     read_only=False,
     destructive=False,
     description="Render a MagLab FigureSpec dictionary to a PDF/SVG/EPS file in the workspace.",

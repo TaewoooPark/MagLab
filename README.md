@@ -189,7 +189,7 @@ maglab -p "QUERY"         non-interactive one-shot query
 auth      codex · claude · gemini-cli · ollama · anthropic · grok · deepseek · qwen · kimi · gemini · openai · set · list · status · test
 physics   compute · units · oracle
 mat       list · show · build
-sim       micro · validate · plot · job · dft · atomistic · pipeline
+sim       doctor · micro · validate · plot · job · dft · atomistic · pipeline
 fit       --effect EFFECT DATA.csv
 analyze   load · model · consistency · symmetry
 device    fom

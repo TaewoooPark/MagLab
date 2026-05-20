@@ -1191,10 +1191,87 @@ def info() -> None:
 
 sim_app = typer.Typer(
     name="sim",
-    help="[P1] Multiscale simulation (micro·validate·plot·job).",
+    help="[P1] Multiscale simulation (doctor·micro·validate·plot·job).",
     no_args_is_help=True,
 )
 app.add_typer(sim_app)
+
+
+def _print_sim_check_table(title: str, rows: list[dict[str, Any]]) -> None:
+    """Render a compact simulation environment check table."""
+    table = Table(title=title, show_lines=False)
+    table.add_column("Check", style="cyan")
+    table.add_column("Status")
+    table.add_column("Detail")
+    table.add_column("Action")
+    for row in rows:
+        ok = bool(row.get("ok"))
+        table.add_row(
+            str(row.get("name", "")),
+            "[green]ready[/]" if ok else "[yellow]missing[/]",
+            str(row.get("detail", "")),
+            str(row.get("action", "")),
+        )
+    console.print(table)
+
+
+@sim_app.command("doctor")
+def sim_doctor(
+    backend: str = typer.Option(
+        "auto",
+        "--backend",
+        "-b",
+        help="Target path to diagnose (auto·cpu·local-gpu·ssh-gpu·ssh-hpc·mock).",
+    ),
+    host: str | None = typer.Option(None, "--host", help="SSH host for remote GPU/HPC checks."),
+    user: str | None = typer.Option(None, "--user", "-u", help="SSH username."),
+    remote_work_dir: str = typer.Option(
+        "/tmp/maglab", "--remote-work-dir", help="Remote working directory."
+    ),
+    probe_ssh: bool = typer.Option(
+        False,
+        "--probe-ssh/--no-probe-ssh",
+        help="Actually test non-interactive SSH connectivity.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
+) -> None:
+    """Diagnose simulation readiness for CPU, local GPU, SSH GPU, and SSH HPC paths."""
+    import json
+
+    from maglab.sim.environment import diagnose_sim_environment
+
+    report = diagnose_sim_environment(
+        backend=backend,
+        host=host,
+        user=user,
+        remote_work_dir=remote_work_dir,
+        probe_ssh=probe_ssh,
+    )
+    if json_output:
+        typer.echo(json.dumps(report, indent=2))
+        return
+
+    console.print(
+        "[bold cyan]Simulation environment[/] "
+        f"requested={report['backend_requested']}  recommended={report['recommended_backend']}"
+    )
+    cpu_engines = report.get("cpu_engines", [])
+    console.print(f"  CPU engines: {', '.join(cpu_engines) if cpu_engines else 'none detected'}")
+    console.print(
+        "  Local GPU: "
+        + ("[green]ready[/]" if report.get("local_gpu_ready") else "[yellow]not ready[/]")
+    )
+    if report.get("ssh_target"):
+        console.print(f"  SSH target: {report['ssh_target']}")
+
+    _print_sim_check_table("Python simulation packages", report["python"])
+    _print_sim_check_table("External solver and remote-execution tools", report["binaries"])
+    if report["ssh"]:
+        _print_sim_check_table("SSH target", report["ssh"])
+
+    console.print("[bold]Next commands[/]")
+    for item in report["recommendations"]:
+        console.print(f"  • {item}")
 
 
 @sim_app.command("micro")

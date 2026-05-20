@@ -96,6 +96,7 @@ _BASE_SLASH_COMMANDS: CommandTree = {
     "/ask": None,
     "/run": None,
     "/sim": {
+        "doctor": None,
         "micro": None,
         "validate": None,
         "plot": None,
@@ -215,7 +216,8 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
             HelpEntry("/physics compute|units|oracle", "formula, unit, and sanity checks"),
             HelpEntry("/mat list|show|build", "materials database and stack builder"),
             HelpEntry(
-                "/sim micro|validate|plot|job|dft|atomistic|pipeline", "simulation workflows"
+                "/sim doctor|micro|validate|plot|job|dft|atomistic|pipeline",
+                "simulation workflows and backend readiness",
             ),
             HelpEntry("/analyze load|model|consistency|symmetry", "data/model consistency checks"),
             HelpEntry("/device fom", "device figure-of-merit calculations"),

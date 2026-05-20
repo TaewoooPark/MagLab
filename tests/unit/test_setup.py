@@ -34,6 +34,7 @@ def test_research_extra_contains_all_feature_dependency_groups() -> None:
         "rank-bm25",
         "bibtexparser",
         "slack-bolt",
+        "paramiko",
     ):
         assert package in research_packages
 
@@ -77,6 +78,18 @@ def test_render_setup_feature_shows_terminal_commands() -> None:
     assert 'uv pip install -e ".[llm]"' in output
     assert "maglab auth codex" in output
     assert "/connect codex" in output
+
+
+def test_render_setup_simulation_shows_doctor_commands() -> None:
+    stream = io.StringIO()
+    console = Console(file=stream, force_terminal=False, width=120)
+
+    render_setup("simulation", console=console)
+
+    output = stream.getvalue()
+    assert 'uv pip install -e ".[sim]"' in output
+    assert "maglab sim doctor" in output
+    assert "--probe-ssh" in output
 
 
 def test_normalize_feature_aliases() -> None:

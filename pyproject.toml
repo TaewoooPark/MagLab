@@ -36,7 +36,7 @@ dependencies = [
 [project.optional-dependencies]
 llm = ["litellm", "ollama"]
 mcp = ["fastmcp", "mcp"]
-sim = ["discretisedfield", "micromagneticmodel", "oommfc", "magnumnp"]
+sim = ["discretisedfield", "micromagneticmodel", "oommfc", "magnumnp", "paramiko"]
 figure = ["matplotlib", "scienceplots", "pyvista", "cairosvg"]
 instr = ["pyvisa", "pyvisa-sim", "pdfplumber"]
 literature = [
@@ -49,7 +49,7 @@ gateway = ["slack-bolt", "python-telegram-bot", "discord.py"]
 research = [
   "litellm", "ollama",
   "fastmcp", "mcp",
-  "discretisedfield", "micromagneticmodel", "oommfc", "magnumnp",
+  "discretisedfield", "micromagneticmodel", "oommfc", "magnumnp", "paramiko",
   "matplotlib", "scienceplots", "pyvista", "cairosvg",
   "pyvisa", "pyvisa-sim", "pdfplumber",
   "pyalex", "semanticscholar", "arxiv", "habanero",
@@ -61,7 +61,7 @@ research = [
 all = [
   "litellm", "ollama",
   "fastmcp", "mcp",
-  "discretisedfield", "micromagneticmodel", "oommfc", "magnumnp",
+  "discretisedfield", "micromagneticmodel", "oommfc", "magnumnp", "paramiko",
   "matplotlib", "scienceplots", "pyvista", "cairosvg",
   "pyvisa", "pyvisa-sim", "pdfplumber",
   "pyalex", "semanticscholar", "arxiv", "habanero",

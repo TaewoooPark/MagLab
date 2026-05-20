@@ -46,6 +46,7 @@ def test_figure_help_exit_0() -> None:
 @pytest.mark.parametrize(
     "args",
     [
+        ["sim", "doctor", "--help"],
         ["sim", "micro", "--help"],
         ["sim", "validate", "--help"],
         ["sim", "plot", "--help"],
@@ -74,6 +75,19 @@ def test_sim_no_args_shows_help() -> None:
     # no_args_is_help=True → exit 0 (Typer) or exit 2 (some versions)
     # Key: the P1 stub message ('P1') is not printed; subcommand list is shown
     assert "micro" in result.stdout or "validate" in result.stdout or "plot" in result.stdout
+
+
+@pytest.mark.smoke
+def test_sim_doctor_json_smoke() -> None:
+    """sim doctor emits machine-readable backend readiness JSON."""
+    result = runner.invoke(app, ["sim", "doctor", "--json"])
+
+    assert result.exit_code == 0, f"exit={result.exit_code}\n{result.stdout}"
+    report = json.loads(result.stdout)
+    assert report["backend_requested"] == "auto"
+    assert report["recommended_backend"] in {"local-gpu", "cpu", "mock"}
+    assert "python" in report
+    assert "binaries" in report
 
 
 @pytest.mark.smoke

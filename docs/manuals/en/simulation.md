@@ -17,6 +17,10 @@ VAMPIRE, VASP, Quantum ESPRESSO, or HPC/GPU execution tools.
 ## Commands
 
 ```sh
+maglab sim doctor
+maglab sim doctor --backend ssh-gpu --host gpu.cluster.edu --user alice
+maglab sim doctor --backend ssh-hpc --host login.cluster.edu --user alice --probe-ssh
+
 maglab sim micro --material Permalloy --nx 64 --ny 64 --nz 1 --cell-nm 4
 maglab sim validate spec.json
 maglab sim plot data.csv --journal nature --format pdf --output figure.pdf
@@ -26,6 +30,24 @@ maglab sim dft --structure bcc_fe --engine qe --calc-type jij --output-dir runs/
 maglab sim atomistic --engine vampire --j-ij-k 398 --t-max-k 1300
 maglab sim pipeline --structure bcc_fe --scales dft,atomistic,micro,device --backend mock
 ```
+
+## Environment Doctor
+
+Run `maglab sim doctor` before spending real solver, GPU, or cluster time. It
+checks MagLab's Python simulation packages, local solver binaries, GPU
+visibility, SSH/HPC utilities, and the currently recommended backend.
+
+Use these paths depending on where the compute will run:
+
+- No GPU or no solver installed: start with `maglab sim pipeline --backend mock`
+  and use the generated artifacts to validate the workflow.
+- CPU fallback: install `maglab[sim]`, keep meshes modest, and confirm the
+  doctor reports a CPU engine such as `magnumnp`.
+- Local GPU: install MuMax3 and NVIDIA drivers, then confirm both `mumax3` and
+  `nvidia-smi` are reported ready.
+- SSH GPU or HPC: pass `--host` and `--user`; add `--probe-ssh` only after SSH
+  keys work from the terminal. The default command does not open a remote
+  connection.
 
 ## Workflow Patterns
 
