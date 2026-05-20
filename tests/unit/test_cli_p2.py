@@ -60,6 +60,7 @@ class TestHelp:
         result = runner.invoke(app, ["fit", "--help"])
         assert result.exit_code == 0, result.output
         assert "effect" in result.output.lower()
+        assert "--discover" in result.output
 
     def test_analyze_help(self, app: typer.Typer, runner: CliRunner) -> None:
         result = runner.invoke(app, ["analyze", "--help"])
@@ -166,6 +167,60 @@ class TestFit:
         result = runner.invoke(app, ["fit", "--effect", "ordinary_hall", str(csv_path), "--refs"])
         assert result.exit_code == 0, result.output
         assert "Reference" in result.output or "DOI" in result.output or "Phys" in result.output
+
+    def test_fit_discover_ordinary_hall(
+        self, app: typer.Typer, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """--discover runs the deterministic bilevel inner loop and reports AIC/BIC."""
+        import numpy as np
+
+        B = np.linspace(-1.0, 1.0, 40)
+        rho_xy = 1.5e-10 * B
+
+        csv_path = tmp_path / "ordinary_hall.csv"
+        _write_csv(csv_path, B=B.tolist(), rho_xy=rho_xy.tolist())
+
+        result = runner.invoke(
+            app,
+            [
+                "fit",
+                "--discover",
+                "--effect",
+                "ordinary_hall",
+                "--init-grid",
+                '{"R_H":[-1e-10,0,1e-10]}',
+                str(csv_path),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "Bilevel Discover Fit" in result.output
+        assert "AIC" in result.output
+        assert "BIC" in result.output
+        assert "deterministic inner optimization" in result.output.lower()
+        assert "known effect model form" in result.output.lower()
+
+    def test_fit_discover_rejects_invalid_init_grid(
+        self, app: typer.Typer, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """Invalid --init-grid payloads produce an actionable CLI error."""
+        csv_path = tmp_path / "ordinary_hall.csv"
+        _write_csv(csv_path, B=[-1.0, 0.0, 1.0], rho_xy=[-1e-10, 0.0, 1e-10])
+
+        result = runner.invoke(
+            app,
+            [
+                "fit",
+                "--discover",
+                "--effect",
+                "ordinary_hall",
+                "--init-grid",
+                '{"R_H":"bad"}',
+                str(csv_path),
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "--init-grid invalid" in result.output
 
 
 # ===========================================================================

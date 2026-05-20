@@ -43,6 +43,7 @@ def test_slash_completion_tree_registers_research_surface() -> None:
         SLASH_COMMANDS["/comms"]
     )
     assert {"setup", "start", "stop", "status", "install"} <= set(SLASH_COMMANDS["/gateway"])
+    assert {"--effect", "--discover", "--init-grid"} <= set(SLASH_COMMANDS["/fit"])
 
 
 def test_model_choice_prompt_is_noop_outside_tty() -> None:

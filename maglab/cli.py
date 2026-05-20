@@ -21,6 +21,9 @@ from rich.table import Table
 from maglab import __version__
 from maglab.commands import p0_project, p2_analysis, p4_ralph, p5_literature, p6_authoring
 from maglab.config import Config, load_config
+from maglab.figure.runtime import ensure_matplotlib_runtime_env
+
+ensure_matplotlib_runtime_env()
 
 # ---------------------------------------------------------------------------
 # App & console

@@ -146,7 +146,7 @@ _BASE_SLASH_COMMANDS: CommandTree = {
         "skillgen": None,
         "implement": None,
     },
-    "/fit": None,
+    "/fit": {"--effect": None, "--discover": None, "--init-grid": None},
     "/analyze": {"load": None, "model": None, "consistency": None, "symmetry": None},
     "/device": {"fom": None},
     "/ralph": {"start": None, "status": None, "cancel": None},

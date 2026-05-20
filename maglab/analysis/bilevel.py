@@ -160,6 +160,7 @@ def discover_fit(
     param_specs: list[ParamSpec],
     init_grid: dict[str, list[float]] | None = None,
     max_attempts: int = 10,
+    method: str = "leastsq",
     model_description: str = "",
 ) -> BilevelResult:
     """--discover flag entry point: grid search over initial values then optimize.
@@ -171,6 +172,7 @@ def discover_fit(
         param_specs: Parameter specifications.
         init_grid: {parameter: [value1, value2, ...]} initial value grid.
         max_attempts: Circuit breaker maximum attempt count.
+        method: lmfit minimization method.
         model_description: Model description.
 
     Returns:
@@ -193,6 +195,7 @@ def discover_fit(
         param_specs=param_specs,
         init_candidates=candidates,
         max_attempts=max_attempts,
+        method=method,
         model_description=model_description,
     )
 

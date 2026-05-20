@@ -184,6 +184,7 @@ maglab lab plan "SOT efficiency in Pt/CoFeB/MgO" --n-doe 16 --output sot_plan.ya
 maglab analyze load data/stfmr.csv --columns frequency,field,voltage
 maglab analyze model stfmr
 maglab fit --effect stfmr data/stfmr.csv --method least_squares
+maglab fit --discover --effect ordinary_hall data/hall.csv --init-grid '{"R_H":[-1e-10,0,1e-10]}'
 maglab sim plot data/stfmr.csv --journal aps --format pdf --output figures/stfmr.pdf
 ```
 

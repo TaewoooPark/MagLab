@@ -64,6 +64,34 @@ _FIT_METHOD_OPT = typer.Option(
     "-m",
     help="lmfit minimisation method (leastsq · least_squares · nelder).",
 )
+_FIT_DISCOVER_OPT = typer.Option(
+    False,
+    "--discover",
+    help=(
+        "Run the deterministic bilevel inner loop: use the selected effect model form, "
+        "multi-start initial values, and report AIC/BIC. No LLM proposes numbers."
+    ),
+)
+_FIT_INIT_GRID_OPT = typer.Option(
+    None,
+    "--init-grid",
+    help="JSON initial-value grid for --discover, e.g. '{\"R_H\":[-1e-10,0,1e-10]}'.",
+)
+_FIT_MAX_ATTEMPTS_OPT = typer.Option(
+    10,
+    "--max-attempts",
+    help="Maximum deterministic inner-loop attempts for --discover.",
+)
+_FIT_X_COL_OPT = typer.Option(
+    None,
+    "--x-col",
+    help="Independent-variable column for --discover. Defaults to the first required column.",
+)
+_FIT_Y_COL_OPT = typer.Option(
+    None,
+    "--y-col",
+    help="Dependent-variable column for --discover. Defaults to the last required column.",
+)
 _FIT_REFS_OPT = typer.Option(False, "--refs", help="Print primary literature references.")
 
 _LOAD_DATA_ARG = typer.Argument(..., help="CSV or HDF5 data file path.")
@@ -139,6 +167,11 @@ def fit_command(
     data: Path = _FIT_DATA_ARG,
     geometry: str | None = _FIT_GEO_OPT,
     method: str = _FIT_METHOD_OPT,
+    discover: bool = _FIT_DISCOVER_OPT,
+    init_grid_json: str | None = _FIT_INIT_GRID_OPT,
+    max_attempts: int = _FIT_MAX_ATTEMPTS_OPT,
+    x_col: str | None = _FIT_X_COL_OPT,
+    y_col: str | None = _FIT_Y_COL_OPT,
     show_refs: bool = _FIT_REFS_OPT,
 ) -> None:
     """[P2] Fit a known effect model to experimental data.
@@ -146,6 +179,7 @@ def fit_command(
     Examples:
         maglab fit --effect anomalous_hall data.csv
         maglab fit --effect fmr_kittel kittel.csv --method least_squares
+        maglab fit --discover --effect ordinary_hall hall.csv --init-grid '{"R_H":[-1e-10,0,1e-10]}'
         maglab fit --effect list
     """
     # ---- special case: list all effects ----
@@ -216,6 +250,25 @@ def fit_command(
             console.print(f"[red]Geometry JSON parse error:[/] {exc}")
             raise typer.Exit(1) from exc
 
+    if discover:
+        _run_discover_fit(
+            model=model,
+            data_dict=data_dict,
+            effect=effect,
+            data_path=data_path,
+            geometry=geo,
+            init_grid_json=init_grid_json,
+            max_attempts=max_attempts,
+            method=method,
+            x_col=x_col,
+            y_col=y_col,
+        )
+        if show_refs:
+            console.print("\n[bold]References:[/]")
+            for ref in model.references:
+                console.print(f"  • {ref}")
+        return
+
     # ---- run fit ----
     from maglab.analysis.fit import FitConvergenceError
 
@@ -261,6 +314,129 @@ def fit_command(
         console.print("\n[bold]References:[/]")
         for ref in model.references:
             console.print(f"  • {ref}")
+
+
+def _run_discover_fit(
+    *,
+    model: object,
+    data_dict: dict[str, object],
+    effect: str,
+    data_path: Path,
+    geometry: dict | None,
+    init_grid_json: str | None,
+    max_attempts: int,
+    method: str,
+    x_col: str | None,
+    y_col: str | None,
+) -> None:
+    """Run the deterministic inner loop for ``maglab fit --discover``."""
+    import json
+
+    import numpy as np
+
+    from maglab.analysis.bilevel import CircuitBreakerError, discover_fit
+    from maglab.analysis.fit import FitConvergenceError
+
+    required_columns = list(model.measurement_config.required_columns)  # type: ignore[attr-defined]
+    if len(required_columns) < 2 and (x_col is None or y_col is None):
+        console.print(
+            "[red]--discover needs an independent and dependent column.[/] "
+            "Pass --x-col and --y-col for this effect."
+        )
+        raise typer.Exit(1)
+    selected_x = x_col or required_columns[0]
+    selected_y = y_col or required_columns[-1]
+    if selected_x not in data_dict or selected_y not in data_dict:
+        console.print(f"[red]Missing --discover columns:[/] x={selected_x!r}, y={selected_y!r}")
+        console.print(f"  CSV columns: {list(data_dict)}")
+        raise typer.Exit(1)
+
+    init_grid = None
+    if init_grid_json:
+        try:
+            parsed = json.loads(init_grid_json)
+        except json.JSONDecodeError as exc:
+            console.print(f"[red]--init-grid JSON parse error:[/] {exc}")
+            raise typer.Exit(1) from exc
+        try:
+            init_grid = _normalize_init_grid(parsed)
+        except typer.BadParameter as exc:
+            console.print(f"[red]--init-grid invalid:[/] {exc}")
+            raise typer.Exit(1) from exc
+
+    base_geometry = dict(geometry or {})
+
+    def model_fn(x_data: np.ndarray, **params: float) -> np.ndarray:
+        local_geometry = {**base_geometry, selected_x: x_data}
+        return model.forward(params, geometry=local_geometry)  # type: ignore[attr-defined]
+
+    with console.status(f"[dim]Discovering deterministic inner fit for {effect} …[/]"):
+        try:
+            result = discover_fit(
+                model_fn=model_fn,
+                x_data=np.asarray(data_dict[selected_x], dtype=float),
+                y_data=np.asarray(data_dict[selected_y], dtype=float),
+                param_specs=model.parameters,  # type: ignore[attr-defined]
+                init_grid=init_grid,
+                max_attempts=max_attempts,
+                method=method,
+                model_description=f"{effect}:known_effect_form",
+            )
+        except CircuitBreakerError as exc:
+            console.print(f"[red]Bilevel circuit breaker:[/] {exc}")
+            raise typer.Exit(1) from exc
+        except FitConvergenceError as exc:
+            console.print(f"[red]Discover fit convergence failed:[/] {exc}")
+            raise typer.Exit(1) from exc
+        except Exception as exc:
+            console.print(f"[red]Discover fit error:[/] {exc}")
+            raise typer.Exit(1) from exc
+
+    fit_result = result.fit_result
+    console.print(
+        f"\n[bold cyan]Bilevel Discover Fit[/] — effect=[bold]{effect}[/]  data={data_path.name}"
+    )
+    console.print(
+        "  Mode: deterministic inner optimization over a known effect model form; "
+        "no LLM-generated equation or numeric result was accepted."
+    )
+    console.print(f"  Columns: x={selected_x}  y={selected_y}")
+    console.print(f"  Attempts: {result.n_iter}/{max_attempts}")
+    console.print(f"  Convergence: {'[green]OK[/]' if result.converged else '[red]FAILED[/]'}")
+    console.print(
+        f"  χ² = {fit_result.chi2:.6g}   reduced χ² = {fit_result.reduced_chi2:.4f}   "
+        f"AIC = {result.aic:.6g}   BIC = {result.bic:.6g}"
+    )
+    if fit_result.params:
+        tbl = Table(title="Discovered Inner Parameters", show_lines=False)
+        tbl.add_column("Parameter", style="cyan")
+        tbl.add_column("Value", justify="right")
+        tbl.add_column("±1σ", justify="right")
+        unit_map = {p.name: p.unit for p in model.parameters}  # type: ignore[attr-defined]
+        for pname, pval in fit_result.params.items():
+            unc = fit_result.uncertainties.get(pname, 0.0)
+            unit = unit_map.get(pname, "")
+            tbl.add_row(pname, f"{pval:.6g} {unit}", f"±{unc:.3g}")
+        console.print(tbl)
+    if fit_result.provenance_id:
+        console.print(f"  Provenance ID: [dim]{fit_result.provenance_id}[/]")
+
+
+def _normalize_init_grid(parsed: object) -> dict[str, list[float]]:
+    """Validate and normalize the ``--init-grid`` JSON payload."""
+    if not isinstance(parsed, dict):
+        raise typer.BadParameter("--init-grid must be a JSON object.")
+    grid: dict[str, list[float]] = {}
+    for key, values in parsed.items():
+        if not isinstance(key, str) or not key:
+            raise typer.BadParameter("--init-grid keys must be parameter names.")
+        if not isinstance(values, list) or not values:
+            raise typer.BadParameter(f"--init-grid value for {key!r} must be a non-empty list.")
+        try:
+            grid[key] = [float(value) for value in values]
+        except (TypeError, ValueError) as exc:
+            raise typer.BadParameter(f"--init-grid values for {key!r} must be numeric.") from exc
+    return grid
 
 
 # ---------------------------------------------------------------------------
