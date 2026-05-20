@@ -35,12 +35,15 @@ uv venv --python 3.12
 source .venv/bin/activate
 uv pip install -e .
 uv pip install -e ".[research]"
+maglab doctor
 maglab setup all
 ```
 
 For a working research machine, the recommended path is the all-in-one
-`.[research]` extra. `maglab setup all` shows what is already ready, what still
-needs terminal setup, and the matching REPL slash commands. Use
-`maglab setup <feature>` or `/setup-<feature>` for targeted setup checks.
+`.[research]` extra. `maglab doctor` gives the first-run readiness report for
+the active folder, backend, extras, external tools, and simulation stack.
+`maglab setup all` shows what is already ready, what still needs terminal setup,
+and the matching REPL slash commands. Use `maglab setup <feature>` or
+`/setup-<feature>` for targeted setup checks.
 Simulation backends such as OOMMF, MuMax3, magnum.np, VAMPIRE, VASP, and
 Quantum ESPRESSO may require separate installation outside MagLab.

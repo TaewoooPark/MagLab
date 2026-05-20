@@ -18,6 +18,7 @@ def test_bundled_llm_tools_are_registered() -> None:
     assert "physics_compute" in names
     assert "sim_validate" in names
     assert "sim_doctor" in names
+    assert "maglab_doctor" in names
     assert "figure_render" in names
 
 

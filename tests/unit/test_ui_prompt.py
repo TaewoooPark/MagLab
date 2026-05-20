@@ -22,6 +22,7 @@ def test_connect_completion_tree_includes_model_choices() -> None:
 def test_slash_completion_tree_registers_research_surface() -> None:
     assert "/help" in SLASH_COMMANDS
     assert "/install" in SLASH_COMMANDS
+    assert "/doctor" in SLASH_COMMANDS
     assert "/workspace" in SLASH_COMMANDS
     assert "/reset" in SLASH_COMMANDS
 

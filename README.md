@@ -180,6 +180,13 @@ maglab comms cover-letter --journal "Physical Review Letters" --title "Spin-orbi
 maglab present slides "Key results and figures from the SOT study" --format beamer --n-slides 12
 ```
 
+**First-run readiness check**
+
+```sh
+maglab doctor
+maglab doctor --feature simulation --sim-backend ssh-gpu --host gpu.example.edu --user alice
+```
+
 ## Command Surface
 
 ```text
@@ -212,6 +219,7 @@ skill     list
 cost
 config    show · path · restore · reset
 install
+doctor
 workspace status · init · tree
 theme     list · set
 version · info
@@ -287,13 +295,14 @@ uv pip install -e ".[dev]"             # ruff, mypy, pytest, pre-commit
 ```
 
 For normal research use, prefer the all-in-one `.[research]` extra. Then run
-`maglab setup all` to see feature readiness, terminal setup checks, and the
+`maglab doctor` for a first-run readiness report and `maglab setup all` to see
+feature-specific setup checks, terminal setup commands, and the
 matching REPL slash commands. Inside the MagLab REPL, use `/setup`,
 `/setup <feature>`, or direct commands such as `/setup-llm`,
 `/setup-literature`, `/setup-simulation`, `/setup-figure`,
 `/setup-instrument`, `/setup-authoring`, `/setup-review`, `/setup-gateway`, and
 `/setup-mcp`. Existing working dependencies and commands are treated as ready;
-the setup view only tells you what still needs attention.
+the setup and doctor views only tell you what still needs attention.
 
 Some simulation engines require external binaries or external Python packages
 that must be installed separately: OOMMF, MuMax3, magnum.np, VAMPIRE, VASP,

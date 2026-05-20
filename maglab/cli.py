@@ -1,7 +1,7 @@
 """maglab CLI application — Typer app + Appendix A subcommand tree.
 
 P0 available commands: auth · physics · mat · theme · skill · cost · mcp · agents ·
-                       config · version · info.
+                       config · doctor · version · info.
 P1 available commands: sim (micro·validate·plot·job) · figure (spec·render·compose·export).
 Subsequent Phase commands are registered as honest stubs (exit 0, prints Phase number).
 
@@ -33,6 +33,15 @@ app = typer.Typer(
     invoke_without_command=True,
 )
 console = Console()
+
+
+def _feature_status(values: dict[str, bool]) -> str:
+    """Render a compact ok/missing count for doctor tables."""
+    if not values:
+        return "n/a"
+    ok = sum(1 for value in values.values() if value)
+    total = len(values)
+    return "ok" if ok == total else f"{ok}/{total}"
 
 
 def _build_orchestrator(config: Config) -> Any:
@@ -1075,6 +1084,115 @@ def setup_cmd(
     from maglab.setup import render_setup
 
     render_setup(feature, console=console)
+
+
+@app.command("doctor")
+def doctor_cmd(
+    feature: str = typer.Option(
+        "all",
+        "--feature",
+        "-f",
+        help="Feature scope: all·llm·literature·simulation·figure·instrument·authoring·review·gateway·mcp.",
+    ),
+    include_sim: bool = typer.Option(
+        True,
+        "--sim/--no-sim",
+        help="Include simulation backend readiness checks.",
+    ),
+    sim_backend: str = typer.Option(
+        "auto",
+        "--sim-backend",
+        help="Simulation backend to diagnose: auto·cpu·local-gpu·ssh-gpu·ssh-hpc.",
+    ),
+    host: str | None = typer.Option(
+        None,
+        "--host",
+        help="Optional SSH host for ssh-gpu or ssh-hpc checks.",
+    ),
+    user: str | None = typer.Option(
+        None,
+        "--user",
+        "-u",
+        help="Optional SSH user.",
+    ),
+    probe_ssh: bool = typer.Option(
+        False,
+        "--probe-ssh/--no-probe-ssh",
+        help="Actually run a lightweight SSH probe. Default is non-destructive/no remote call.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
+) -> None:
+    """Check first-run readiness for workspace, backend, feature extras, and simulation."""
+    import json
+
+    from rich.markup import escape
+
+    from maglab.doctor import run_doctor
+
+    report = run_doctor(
+        feature=feature,
+        include_sim=include_sim,
+        sim_backend=sim_backend,
+        host=host,
+        user=user,
+        probe_ssh=probe_ssh,
+    )
+    if json_output:
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
+        return
+
+    backend = report["backend"]
+    workspace = report["workspace"]
+
+    workspace_table = Table(title="MagLab doctor")
+    workspace_table.add_column("Area", style="cyan")
+    workspace_table.add_column("Status")
+    workspace_table.add_column("Detail")
+    backend_marker = "ok" if backend["ok"] else "missing"
+    workspace_table.add_row("backend", backend_marker, f"{backend['label']} — {backend['detail']}")
+    workspace_table.add_row("workspace", "ok", workspace["root"])
+    workspace_table.add_row(
+        "MAGLAB.md",
+        "ok" if workspace["maglab_md"] else "missing",
+        workspace["maglab_md"] or "run `maglab workspace init`",
+    )
+    workspace_table.add_row("config", "ok", report["config"])
+    console.print(workspace_table)
+
+    feature_table = Table(title="Feature readiness")
+    feature_table.add_column("Feature", style="cyan")
+    feature_table.add_column("Python")
+    feature_table.add_column("External")
+    feature_table.add_column("Slash")
+    for item in report["features"]:
+        feature_table.add_row(
+            item["key"],
+            _feature_status(item["python"]),
+            _feature_status(item["external"]),
+            item["slash"],
+        )
+    console.print(feature_table)
+
+    sim = report.get("simulation")
+    if sim:
+        sim_table = Table(title="Simulation readiness")
+        sim_table.add_column("Field", style="cyan")
+        sim_table.add_column("Value")
+        sim_table.add_row("backend requested", str(sim.get("backend_requested")))
+        sim_table.add_row("recommended backend", str(sim.get("recommended_backend")))
+        sim_table.add_row("local GPU ready", str(sim.get("local_gpu_ready")))
+        ssh_checks = sim.get("ssh") or []
+        for check in ssh_checks:
+            sim_table.add_row(
+                f"ssh:{check.get('name', '')}",
+                f"{check.get('detail', '')} ({'ready' if check.get('ok') else 'not ready'})",
+            )
+        console.print(sim_table)
+
+    if report["recommendations"]:
+        console.print("[bold]Next actions[/]")
+        for rec in report["recommendations"]:
+            console.print(f"  - {escape(rec)}")
 
 
 # ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -52,6 +53,16 @@ def test_workspace_status_shows_current_folder_paths() -> None:
     assert result.exit_code == 0, result.output
     assert "workspace root" in result.output
     assert "global config" in result.output
+
+
+@pytest.mark.smoke
+def test_doctor_json_reports_workspace_and_features() -> None:
+    result = runner.invoke(app, ["doctor", "--no-sim", "--json"])
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.output)
+    assert "workspace" in report
+    assert "backend" in report
+    assert "features" in report
 
 
 @pytest.mark.smoke

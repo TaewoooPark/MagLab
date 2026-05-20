@@ -64,6 +64,7 @@ _SUBAPP_HELP_ARGS: list[list[str]] = [
     ["config", "restore", "--help"],
     ["config", "reset", "--help"],
     ["install", "--help"],
+    ["doctor", "--help"],
     ["workspace", "--help"],
     ["workspace", "status", "--help"],
     ["workspace", "init", "--help"],

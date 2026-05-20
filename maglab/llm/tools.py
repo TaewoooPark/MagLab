@@ -552,6 +552,26 @@ def sim_doctor(
 
 
 @tool(
+    read_only=True,
+    description="Check MagLab first-run readiness for the active workspace, LLM backend, installed extras, and simulation environment.",
+)
+def maglab_doctor(
+    feature: str = "all",
+    include_sim: bool = True,
+    sim_backend: str = "auto",
+) -> dict[str, Any]:
+    """Check MagLab first-run readiness without exposing secrets."""
+    from maglab.doctor import run_doctor
+
+    return run_doctor(
+        feature=feature,
+        include_sim=include_sim,
+        sim_backend=sim_backend,
+        probe_ssh=False,
+    )
+
+
+@tool(
     read_only=False,
     destructive=False,
     description="Render a MagLab FigureSpec dictionary to a PDF/SVG/EPS file in the workspace.",

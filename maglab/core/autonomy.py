@@ -79,6 +79,7 @@ _DEFAULT_TIER_MAP: dict[str, CostTier] = {
     "material_search": CostTier.T0,
     "sim_validate": CostTier.T0,
     "sim_doctor": CostTier.T0,
+    "maglab_doctor": CostTier.T0,
     "memory.read": CostTier.T0,
     "pool.query": CostTier.T0,
     "read": CostTier.T0,

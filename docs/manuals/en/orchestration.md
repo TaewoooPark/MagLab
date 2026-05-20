@@ -10,10 +10,15 @@ than run a single command.
 ```sh
 maglab
 maglab -p "Plan a reproducible SOT analysis workflow for Pt/CoFeB/MgO"
+maglab doctor
 ```
 
 The REPL is the natural-language surface. It should route work into deterministic
 tools, notebooks, literature workflows, analysis, and authoring.
+
+`maglab doctor` is the first command to run after installation. It checks the
+current workspace, `MAGLAB.md`, configured backend, optional research extras,
+external solvers, and simulation readiness without printing secrets.
 
 ## Credentials and Configuration
 
@@ -29,6 +34,7 @@ maglab auth openai
 maglab auth list
 maglab auth test anthropic
 maglab auth status
+maglab doctor --feature llm
 maglab config
 maglab cost
 maglab theme list

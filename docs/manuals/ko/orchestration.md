@@ -10,10 +10,15 @@
 ```sh
 maglab
 maglab -p "Plan a reproducible SOT analysis workflow for Pt/CoFeB/MgO"
+maglab doctor
 ```
 
 REPL은 자연어 표면입니다. deterministic tool, notebook, literature workflow,
 analysis, authoring으로 작업을 라우팅하는 데 사용합니다.
+
+설치 직후에는 `maglab doctor`를 먼저 실행하세요. 현재 workspace, `MAGLAB.md`,
+configured backend, optional research extra, 외부 solver, simulation readiness를
+비밀값 출력 없이 한 번에 점검합니다.
 
 ## Credential과 configuration
 
@@ -29,6 +34,7 @@ maglab auth openai
 maglab auth list
 maglab auth test anthropic
 maglab auth status
+maglab doctor --feature llm
 maglab config
 maglab cost
 maglab theme list
