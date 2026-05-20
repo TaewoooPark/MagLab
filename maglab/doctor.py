@@ -215,8 +215,8 @@ def _ux_contract_report(
             key="design-refs",
             title="Poster and deck references",
             status=("ready" if _path_exists("authoring", "present", "templates") else "partial"),
-            evidence="beamer, beamerposter, Marp, SVG, PPTX template entry points",
-            command="maglab present slides --help · maglab present poster --help",
+            evidence="source-backed APS oral/poster, A0, beamerposter, Marp, SVG, PPTX profiles",
+            command="maglab present templates --detail",
         ),
         UXDoctor(
             key="language",

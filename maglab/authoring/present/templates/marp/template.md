@@ -2,6 +2,7 @@
 marp: true
 title: "%%TITLE%%"
 theme: default
+size: 16:9
 paginate: true
 header: "HUMAN REVIEW REQUIRED — AI draft"
 footer: "[FILL: Author] | [FILL: Conference/Venue] | %%DATE%%"

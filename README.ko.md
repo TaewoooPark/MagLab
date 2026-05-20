@@ -190,7 +190,9 @@ maglab instr check hall_sweep.py
 ```sh
 maglab write "ST-FMR fit gives xi_DL=0.12 with provenance IDs ..." --journal prl --dry-run
 maglab comms cover-letter --journal "Physical Review Letters" --title "Spin-orbit torque ..."
-maglab present slides "Key results and figures from the SOT study" --format beamer --n-slides 12
+maglab present templates --detail
+maglab present slides "Key results and figures from the SOT study" --template aps-12min --format beamer --n-slides 10
+maglab present poster "Key results and figures from the SOT study" --template aps-march-poster --format svg
 ```
 
 ## 명령어 표면
@@ -217,7 +219,7 @@ ralph     start · status · cancel
 write     RESULTS
 comms     revision · cover-letter · email · abstract · grant · rebuttal
 gateway   setup · start · stop · status · install
-present   slides · poster
+present   templates · slides · poster
 hypotheses TOPIC
 mcp       list · serve · add · enable · disable
 agents    list · show

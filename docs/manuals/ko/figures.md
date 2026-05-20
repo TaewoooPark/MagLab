@@ -56,6 +56,7 @@ size, label, export requirement는 항상 target journal guideline과 대조해�
 
 ```sh
 maglab write "Results with FigureSpec path figures/figspec.json"
+maglab present templates
 maglab present slides "Use figures/stfmr.pdf and figures/device.svg"
 maglab present poster "Use verified figure exports from figures/"
 ```

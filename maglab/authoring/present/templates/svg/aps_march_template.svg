@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MagLab APS March/April poster template -->
+<!-- HUMAN REVIEW REQUIRED — AI draft, the presenter bears full responsibility. -->
+<!-- Source basis: APS poster logistics, common March/April board size 8 ft W x 4 ft H. -->
+<!-- No audiovisuals: printed visuals only. -->
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="96in" height="48in"
+     viewBox="0 0 9600 4800">
+
+  <rect width="9600" height="4800" fill="#ffffff"/>
+
+  <rect x="0" y="0" width="9600" height="520" fill="#004b8d"/>
+  <text x="4800" y="220"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="150" font-weight="bold"
+        fill="white" text-anchor="middle">%%TITLE%%</text>
+  <text x="4800" y="390"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="80" fill="white" text-anchor="middle">
+    [FILL: Author names and affiliations]
+  </text>
+
+  <rect x="0" y="520" width="9600" height="110" fill="#fff3bf"/>
+  <text x="4800" y="595"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="52" font-weight="bold"
+        fill="#2b2b2b" text-anchor="middle">
+    HUMAN REVIEW REQUIRED — APS March/April printed poster draft; replace all [FILL] fields.
+  </text>
+
+  <g font-family="Arial, Helvetica, sans-serif" fill="#1f2933">
+    <rect x="180" y="780" width="2200" height="3000" rx="26"
+          fill="#f6f8fb" stroke="#004b8d" stroke-width="10"/>
+    <text x="1280" y="930" font-size="88" font-weight="bold"
+          fill="#004b8d" text-anchor="middle">Motivation</text>
+    <text x="280" y="1060" font-size="58">[FILL: problem, material system, and gap]</text>
+
+    <rect x="2520" y="780" width="2200" height="3000" rx="26"
+          fill="#ffffff" stroke="#004b8d" stroke-width="10"/>
+    <text x="3620" y="930" font-size="88" font-weight="bold"
+          fill="#004b8d" text-anchor="middle">Methods</text>
+    <text x="2620" y="1060" font-size="58">[FILL: stack, device, protocol, model]</text>
+    <rect x="2680" y="1450" width="1880" height="1500"
+          fill="#eef6ff" stroke="#004b8d" stroke-width="6" stroke-dasharray="30,18"/>
+    <text x="3620" y="2220" font-size="72" fill="#004b8d" text-anchor="middle">
+      {{figure:device-or-geometry}}
+    </text>
+
+    <rect x="4860" y="780" width="2920" height="3000" rx="26"
+          fill="#f6f8fb" stroke="#004b8d" stroke-width="10"/>
+    <text x="6320" y="930" font-size="88" font-weight="bold"
+          fill="#004b8d" text-anchor="middle">Verified Results</text>
+    <rect x="5060" y="1080" width="2520" height="2050"
+          fill="#eef6ff" stroke="#004b8d" stroke-width="6" stroke-dasharray="30,18"/>
+    <text x="6320" y="2120" font-size="72" fill="#004b8d" text-anchor="middle">
+      {{figure:main-result}}
+    </text>
+    <text x="5060" y="3260" font-size="58">[FILL: one quantified result with provenance ID]</text>
+
+    <rect x="7920" y="780" width="1500" height="3000" rx="26"
+          fill="#ffffff" stroke="#004b8d" stroke-width="10"/>
+    <text x="8670" y="930" font-size="88" font-weight="bold"
+          fill="#004b8d" text-anchor="middle">Takeaways</text>
+    <text x="8040" y="1090" font-size="58">[FILL: claim 1]</text>
+    <text x="8040" y="1240" font-size="58">[FILL: claim 2]</text>
+    <text x="8040" y="1390" font-size="58">[FILL: claim 3]</text>
+    <rect x="8220" y="2650" width="900" height="900"
+          fill="#eef6ff" stroke="#004b8d" stroke-width="6" stroke-dasharray="30,18"/>
+    <text x="8670" y="3130" font-size="54" fill="#004b8d" text-anchor="middle">
+      [FILL: QR]
+    </text>
+
+    <rect x="180" y="4000" width="9240" height="520" rx="22"
+          fill="#004b8d"/>
+    <text x="4800" y="4210" font-size="70" font-weight="bold"
+          fill="white" text-anchor="middle">
+      [FILL: short conclusion tied to verified figures]
+    </text>
+    <text x="4800" y="4370" font-size="54" fill="white" text-anchor="middle">
+      [FILL: data/code DOI] | [FILL: contact email] | %%DATE%%
+    </text>
+  </g>
+</svg>

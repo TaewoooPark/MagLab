@@ -134,6 +134,7 @@ _SUBAPP_HELP_ARGS: list[list[str]] = [
     ["gateway", "status", "--help"],
     ["gateway", "install", "--help"],
     ["present", "--help"],
+    ["present", "templates", "--help"],
     ["present", "slides", "--help"],
     ["present", "poster", "--help"],
     ["hypotheses", "--help"],

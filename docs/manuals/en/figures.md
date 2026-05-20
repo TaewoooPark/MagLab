@@ -59,6 +59,7 @@ Figures are usually consumed by:
 
 ```sh
 maglab write "Results with FigureSpec path figures/figspec.json"
+maglab present templates
 maglab present slides "Use figures/stfmr.pdf and figures/device.svg"
 maglab present poster "Use verified figure exports from figures/"
 ```

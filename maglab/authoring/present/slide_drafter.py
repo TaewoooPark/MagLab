@@ -230,6 +230,7 @@ class SlidesDrafter:
             f"Format: {fmt.value}\n"
             f"Template: {template}\n"
             f"Target slides: {n_slides}\n\n"
+            f"{_template_guidance_or_note(template)}\n\n"
             f"Results context:\n{results}\n\n"
             "Produce the slide outline as a JSON object with key 'slides' "
             "containing a list of slide objects."
@@ -310,6 +311,7 @@ class SlidesDrafter:
         """Export as a python-pptx .pptx file."""
         try:
             from pptx import Presentation
+            from pptx.util import Inches
         except ImportError:
             log.warning("python-pptx not installed; writing plain text fallback.")
             out_path = output_dir / "slides.txt"
@@ -322,6 +324,8 @@ class SlidesDrafter:
             return out_path
 
         prs = Presentation()
+        prs.slide_width = Inches(13.333)
+        prs.slide_height = Inches(7.5)
         # Title slide
         title_slide_layout = prs.slide_layouts[0]
         slide = prs.slides.add_slide(title_slide_layout)
@@ -345,3 +349,16 @@ class SlidesDrafter:
         out_path = output_dir / "slides.pptx"
         prs.save(str(out_path))
         return out_path
+
+
+def _template_guidance_or_note(template: str) -> str:
+    """Return source-backed template guidance when the template is known."""
+    try:
+        from maglab.authoring.present.catalog import template_guidance
+
+        return template_guidance(template)
+    except Exception:
+        return (
+            "Template profile: custom\n"
+            "Use the requested template name as a researcher constraint; do not infer venue rules."
+        )

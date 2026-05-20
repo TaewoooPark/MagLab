@@ -141,7 +141,11 @@ _BASE_SLASH_COMMANDS: CommandTree = {
         "rebuttal": None,
     },
     "/gateway": {"setup": None, "start": None, "stop": None, "status": None, "install": None},
-    "/present": {"slides": None, "poster": None},
+    "/present": {
+        "templates": {"--detail": None, "--kind": {"all": None, "slides": None, "poster": None}},
+        "slides": None,
+        "poster": None,
+    },
     "/hypotheses": None,
 }
 
@@ -256,7 +260,7 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
             HelpEntry("/agents list|show", "subagent definitions"),
             HelpEntry("/ralph start|status|cancel", "autonomous loop engine"),
             HelpEntry("/gateway setup|start|stop|status|install", "messaging gateway"),
-            HelpEntry("/present slides|poster", "presentation materials"),
+            HelpEntry("/present templates|slides|poster", "presentation materials"),
             HelpEntry("/hypotheses", "hypothesis generation"),
         ),
     ),

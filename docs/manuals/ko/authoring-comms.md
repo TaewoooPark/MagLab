@@ -38,10 +38,20 @@ maglab comms email collaboration --recipient "Prof. X" --purpose "follow-up on S
 ## 발표 자료
 
 ```sh
-maglab present slides "Main results and verified figures" --format beamer --n-slides 12
+maglab present templates
+maglab present templates --detail
+maglab present templates --kind poster
+maglab present slides "Main results and verified figures" --template aps-12min --format beamer --n-slides 10
 maglab present slides "Main results and verified figures" --format pptx
 maglab present poster "Main results and verified figures" --size A0 --format svg
+maglab present poster "Main results and verified figures" --template aps-march-poster --format svg
+maglab present poster "Main results and verified figures" --size A0 --format beamerposter
 ```
+
+Template profile은 APS March/April contributed oral talk(발표 10분 + 질문 2분),
+긴 seminar deck, internal update, APS March/April 96 x 48 inch poster board,
+A0 SVG/PDF poster, A0 beamerposter LaTeX source를 포함합니다. `--detail`을
+붙이면 각 profile의 설치된 source file과 public reference URL이 함께 출력됩니다.
 
 ## 추천 입력 패키지
 

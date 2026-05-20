@@ -30,7 +30,7 @@ class PosterFile:
     """Result of a poster draft call."""
 
     path: Path
-    format: str  # "svg" or "pdf"
+    format: str  # "svg", "pdf", or "beamerposter"
     human_review_required: bool = True
 
 
@@ -79,10 +79,11 @@ class PosterDrafter:
         *,
         size: str = "A0",
         fmt: str = "svg",
+        template: str | None = None,
         output_dir: Path | None = None,
         title: str = "[FILL: poster title]",
     ) -> PosterFile:
-        """Draft a poster SVG layout.
+        """Draft a poster layout.
 
         Parameters
         ----------
@@ -91,7 +92,10 @@ class PosterDrafter:
         size:
             Poster size (default "A0").
         fmt:
-            Output format: "svg" (default) or "pdf" (requires cairosvg/Inkscape).
+            Output format: "svg" (default), "pdf" (requires cairosvg/Inkscape),
+            or "beamerposter" / "tex" for a LaTeX poster source.
+        template:
+            Optional poster profile, e.g. "a0-poster" or "aps-march-poster".
         output_dir:
             Directory to write output files.
         title:
@@ -108,15 +112,19 @@ class PosterDrafter:
             _tmp = tempfile.mkdtemp(prefix="maglab_poster_")
             output_dir = Path(_tmp)
         output_dir.mkdir(parents=True, exist_ok=True)
+        fmt = fmt.strip().lower()
 
         # Write HUMAN_REVIEW_REQUIRED marker
         (output_dir / "HUMAN_REVIEW_REQUIRED.txt").write_text(HUMAN_REVIEW_MARKER, encoding="utf-8")
 
+        if fmt in {"beamerposter", "tex"}:
+            return self._draft_beamerposter(results, output_dir=output_dir, title=title)
+
         # Try loading the bundled SVG template first (T-P6-23).
         # Fall back to LLM inline generation if the template is absent.
-        template_src = self._load_template_file("svg", "template.svg")
-        if template_src is not None and fmt == "svg":
-            log.debug("PosterDrafter: using svg/template.svg")
+        template_src = self._load_template_file("svg", _svg_template_filename(size, template))
+        if template_src is not None and fmt in {"svg", "pdf"}:
+            log.debug("PosterDrafter: using svg template for size=%s template=%s", size, template)
             today = datetime.date.today().isoformat()
             svg_raw = template_src.replace("%%TITLE%%", title).replace("%%DATE%%", today)
         else:
@@ -151,6 +159,21 @@ class PosterDrafter:
 
         return PosterFile(path=svg_path, format="svg")
 
+    def _draft_beamerposter(self, results: str, *, output_dir: Path, title: str) -> PosterFile:
+        """Write a beamerposter .tex source using the bundled A0 template."""
+        template_src = self._load_template_file("beamerposter", "template.tex")
+        if template_src is None:
+            raise FileNotFoundError("Bundled beamerposter template is missing.")
+        content = _beamerposter_content(results)
+        tex = (
+            template_src.replace("%%TITLE%%", _latex_escape(title))
+            .replace("%%AUTHOR%%", "[FILL: Author names]")
+            .replace("%%CONTENT%%", content)
+        )
+        tex_path = output_dir / "poster.tex"
+        tex_path.write_text(tex, encoding="utf-8")
+        return PosterFile(path=tex_path, format="beamerposter")
+
     @staticmethod
     def _ensure_svg_wrapper(raw: str, size: str) -> str:
         """Wrap raw content in SVG tags if not already present."""
@@ -158,6 +181,17 @@ class PosterDrafter:
 
         if re.search(r"<svg", raw, re.IGNORECASE):
             return raw
+        token = size.strip().lower().replace(" ", "").replace("_", "-")
+        if token in {"96x48in", "96in-x-48in", "aps-march", "aps-march-poster"}:
+            return (
+                '<?xml version="1.0" encoding="utf-8"?>\n'
+                '<svg xmlns="http://www.w3.org/2000/svg" '
+                'width="96in" height="48in" '
+                'viewBox="0 0 9600 4800">\n'
+                f"<!-- MagLab AI draft APS poster - {size} - HUMAN REVIEW REQUIRED -->\n"
+                f"{raw}\n"
+                "</svg>\n"
+            )
         # A0 dimensions in mm → converted to px at 96 dpi
         # A0: 841 × 1189 mm → 3179 × 4493 px at 96 dpi
         return (
@@ -202,3 +236,75 @@ class PosterDrafter:
             pass
 
         return None
+
+
+def _svg_template_filename(size: str, template: str | None) -> str:
+    """Return the bundled SVG template filename for a poster profile."""
+    token = (
+        (template or size or "")
+        .strip()
+        .lower()
+        .replace(" ", "")
+        .replace("_", "-")
+        .replace("inch", "in")
+    )
+    if token in {
+        "aps",
+        "aps-march",
+        "aps-march-poster",
+        "march",
+        "march-meeting",
+        "96x48in",
+        "96in-x-48in",
+    }:
+        return "aps_march_template.svg"
+    return "template.svg"
+
+
+def _beamerposter_content(results: str) -> str:
+    """Return a conservative beamerposter block layout from researcher input."""
+    summary = _latex_escape(results.strip() or "[FILL: verified result summary]")
+    return (
+        "\\begin{columns}[t]\n"
+        "  \\begin{column}{0.31\\paperwidth}\n"
+        "    \\begin{block}{Motivation}\n"
+        "      [FILL: research problem, material system, and why it matters]\n"
+        "    \\end{block}\n"
+        "    \\begin{block}{Methods}\n"
+        "      [FILL: growth, device geometry, measurement protocol, simulation or fitting method]\n"
+        "    \\end{block}\n"
+        "  \\end{column}\n"
+        "  \\begin{column}{0.31\\paperwidth}\n"
+        "    \\begin{block}{Verified Results}\n"
+        f"      {summary}\n\n"
+        "      \\vspace{1ex}\n"
+        "      \\includegraphics[width=0.95\\linewidth]{[FILL: verified figure path]}\n"
+        "    \\end{block}\n"
+        "  \\end{column}\n"
+        "  \\begin{column}{0.31\\paperwidth}\n"
+        "    \\begin{block}{Takeaways}\n"
+        "      [FILL: one to three claims tied to provenance IDs]\n"
+        "    \\end{block}\n"
+        "    \\begin{block}{Data and Code}\n"
+        "      [FILL: repository, DOI, QR code, contact]\n"
+        "    \\end{block}\n"
+        "  \\end{column}\n"
+        "\\end{columns}\n"
+    )
+
+
+def _latex_escape(text: str) -> str:
+    """Escape a small subset of LaTeX-special characters in user text."""
+    replacements = {
+        "\\": r"\textbackslash{}",
+        "&": r"\&",
+        "%": r"\%",
+        "$": r"\$",
+        "#": r"\#",
+        "_": r"\_",
+        "{": r"\{",
+        "}": r"\}",
+        "~": r"\textasciitilde{}",
+        "^": r"\textasciicircum{}",
+    }
+    return "".join(replacements.get(char, char) for char in text)

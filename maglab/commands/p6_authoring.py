@@ -844,6 +844,54 @@ def gateway_install(
 # ===========================================================================
 
 
+@present_app.command("templates")
+def present_templates(
+    kind: Annotated[
+        str,
+        typer.Option("--kind", "-k", help="Template kind: all | slides | poster."),
+    ] = "all",
+    detail: Annotated[
+        bool,
+        typer.Option("--detail", help="Print constraints, source files, and public references."),
+    ] = False,
+) -> None:
+    """[P6] List installed slide/poster template profiles and how to use them."""
+    try:
+        from maglab.authoring.present.catalog import list_presentation_templates
+
+        entries = list_presentation_templates(kind)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(2) from exc
+
+    table = Table(title="MagLab presentation templates")
+    table.add_column("template", style="bold cyan", no_wrap=True)
+    table.add_column("kind")
+    table.add_column("formats")
+    table.add_column("use case")
+    table.add_column("command")
+
+    for entry in entries:
+        table.add_row(
+            entry.name,
+            entry.kind,
+            ", ".join(entry.formats),
+            entry.use_case,
+            entry.command,
+        )
+
+    console.print(table)
+    if detail:
+        for entry in entries:
+            console.print(Panel(_template_detail_text(entry), title=entry.name, expand=False))
+    console.print()
+    console.print("[bold yellow]HUMAN REVIEW REQUIRED[/] for every generated deck or poster.")
+    console.print(
+        "[dim]Use --template for slides and poster profiles. "
+        "Use --format svg, pdf, or beamerposter for posters.[/]"
+    )
+
+
 @present_app.command("slides")
 def present_slides(
     results: Annotated[
@@ -859,9 +907,13 @@ def present_slides(
         typer.Option("--template", "-t", help="Template name (e.g. aps-12min, seminar)."),
     ] = "default",
     n_slides: Annotated[
-        int,
-        typer.Option("--n-slides", "-n", help="Target number of slides."),
-    ] = 12,
+        int | None,
+        typer.Option(
+            "--n-slides",
+            "-n",
+            help="Target number of slides. Defaults come from known templates.",
+        ),
+    ] = None,
     output_dir: Annotated[
         str | None,
         typer.Option("--output-dir", "-o", help="Output directory."),
@@ -875,13 +927,16 @@ def present_slides(
 
     HUMAN REVIEW REQUIRED — figures and data must be verified before presentation.
     """
+    resolved_n_slides = _template_slide_count(template, n_slides)
     out_dir = Path(output_dir) if output_dir else Path("maglab_slides")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if dry_run:
         _write_human_review_marker(out_dir)
         (out_dir / f"slides.{_slide_extension(fmt)}").write_text(
-            f"% HUMAN REVIEW REQUIRED\n% Dry-run stub — format={fmt}\n",
+            "% HUMAN REVIEW REQUIRED\n"
+            f"% Dry-run stub - format={fmt}, template={template}, "
+            f"n_slides={resolved_n_slides}\n",
             encoding="utf-8",
         )
         console.print(f"[green]Dry-run complete.[/] Output: [bold]{out_dir}[/]")
@@ -915,7 +970,7 @@ def present_slides(
                 results=results,
                 fmt=slide_fmt,
                 template=template,
-                n_slides=n_slides,
+                n_slides=resolved_n_slides,
             )
         except Exception as exc:
             console.print(f"[red]Slide drafting failed:[/] {exc}")
@@ -948,16 +1003,23 @@ def present_poster(
         typer.Argument(help="Researcher-provided results summary for the poster."),
     ],
     size: Annotated[
-        str,
-        typer.Option("--size", "-s", help="Poster size (e.g. A0, A1)."),
-    ] = "A0",
+        str | None,
+        typer.Option("--size", "-s", help="Poster size (e.g. A0, A1, 96x48in)."),
+    ] = None,
     fmt: Annotated[
         str,
-        typer.Option("--format", "-f", help="Output format: svg | pdf."),
+        typer.Option("--format", "-f", help="Output format: svg | pdf | beamerposter | tex."),
     ] = "svg",
     title: Annotated[
         str | None,
         typer.Option("--title", "-t", help="Poster title (default: [FILL: poster title])."),
+    ] = None,
+    template: Annotated[
+        str | None,
+        typer.Option(
+            "--template",
+            help="Poster profile: a0-poster | aps-march-poster | beamerposter-a0.",
+        ),
     ] = None,
     output_dir: Annotated[
         str | None,
@@ -973,13 +1035,21 @@ def present_poster(
     Vector layout only — no raster AI image generation (§2.4).
     HUMAN REVIEW REQUIRED before printing or presenting.
     """
+    fmt = fmt.strip().lower()
+    valid_formats = {"svg", "pdf", "beamerposter", "tex"}
+    if fmt not in valid_formats:
+        console.print(f"[red]Unknown format:[/] {fmt!r}.  Valid: svg, pdf, beamerposter, tex")
+        raise typer.Exit(2)
+    resolved_size = _template_poster_size(template, size)
+
     out_dir = Path(output_dir) if output_dir else Path("maglab_poster")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if dry_run:
         _write_human_review_marker(out_dir)
-        (out_dir / f"poster.{fmt}").write_text(
-            "<!-- HUMAN REVIEW REQUIRED — Dry-run stub -->",
+        (out_dir / f"poster.{_poster_extension(fmt)}").write_text(
+            "HUMAN REVIEW REQUIRED\n"
+            f"Dry-run poster stub - format={fmt}, template={template}, size={resolved_size}\n",
             encoding="utf-8",
         )
         console.print(f"[green]Dry-run complete.[/] Output: [bold]{out_dir}[/]")
@@ -1004,8 +1074,9 @@ def present_poster(
         try:
             poster = drafter.draft_poster(
                 results=results,
-                size=size,
+                size=resolved_size,
                 fmt=fmt,
+                template=template,
                 output_dir=out_dir,
                 title=title or "[FILL: poster title]",
             )
@@ -1015,8 +1086,10 @@ def present_poster(
 
     _write_human_review_marker(out_dir)
 
+    profile_msg = f", template={template}" if template else ""
     console.print(
-        f"[green]Poster drafted:[/] [bold]{poster.path}[/]  (format={poster.format}, size={size})"
+        f"[green]Poster drafted:[/] [bold]{poster.path}[/]  "
+        f"(format={poster.format}, size={resolved_size}{profile_msg})"
     )
     console.print(
         "[bold yellow]HUMAN REVIEW REQUIRED[/] — verify all data and figures before printing."
@@ -1175,10 +1248,53 @@ def _slide_extension(fmt: str) -> str:
     return mapping.get(fmt, "tex")
 
 
+def _template_slide_count(template: str, requested: int | None) -> int:
+    """Return requested slide count or a source-backed template default."""
+    if requested is not None:
+        return requested
+    normalized = template.strip().lower()
+    aliases = {"aps": "aps-12min", "aps-march": "aps-12min", "march-meeting": "aps-12min"}
+    target = aliases.get(normalized, normalized)
+    return {"aps-12min": 10, "seminar": 24, "internal-update": 8}.get(target, 12)
+
+
+def _template_poster_size(template: str | None, requested: str | None) -> str:
+    """Return requested poster size or a template-specific default."""
+    if requested:
+        return requested
+    normalized = (template or "").strip().lower().replace("_", "-")
+    aliases = {"aps": "aps-march-poster", "aps-march": "aps-march-poster"}
+    target = aliases.get(normalized, normalized)
+    if target in {"aps-march-poster", "march", "march-meeting"}:
+        return "96x48in"
+    return "A0"
+
+
+def _poster_extension(fmt: str) -> str:
+    """Return the file extension for a given poster format."""
+    mapping = {"svg": "svg", "pdf": "pdf", "beamerposter": "tex", "tex": "tex"}
+    return mapping.get(fmt, "svg")
+
+
+def _template_detail_text(entry: object) -> str:
+    """Format a presentation template catalog entry."""
+    constraints = "\n".join(f"- {item}" for item in getattr(entry, "constraints", ()))
+    sources = "\n".join(f"- {path}" for path in getattr(entry, "source_paths", ()))
+    refs = "\n".join(f"- {url}" for url in getattr(entry, "reference_urls", ()))
+    return (
+        f"[bold]Use case[/]\n{getattr(entry, 'use_case', '')}\n\n"
+        f"[bold]Constraints[/]\n{constraints or '- none'}\n\n"
+        f"[bold]Installed sources[/]\n{sources or '- none'}\n\n"
+        f"[bold]Public references[/]\n{refs or '- none'}\n\n"
+        f"[bold]Notes[/]\n{getattr(entry, 'notes', '')}"
+    )
+
+
 def _write_pptx_deck(deck: object, out_file: Path) -> None:
     """Write a SlideDeck to a .pptx file using python-pptx (optional dep)."""
     try:
         from pptx import Presentation  # type: ignore[import]
+        from pptx.util import Inches  # type: ignore[import]
     except ImportError as exc:
         console.print(
             f"[red]python-pptx not installed:[/] {exc}\nInstall with:  pip install python-pptx"
@@ -1186,6 +1302,8 @@ def _write_pptx_deck(deck: object, out_file: Path) -> None:
         raise typer.Exit(1) from exc
 
     prs = Presentation()
+    prs.slide_width = Inches(13.333)
+    prs.slide_height = Inches(7.5)
     slides_list = getattr(deck, "slides", [])
     for slide_spec in slides_list:
         slide_layout = prs.slide_layouts[1]  # Title and Content

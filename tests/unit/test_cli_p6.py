@@ -103,6 +103,10 @@ class TestHelpExits:
         result = runner.invoke(present_app, ["--help"])
         assert result.exit_code == 0, result.output
 
+    def test_present_templates_help(self) -> None:
+        result = runner.invoke(present_app, ["templates", "--help"])
+        assert result.exit_code == 0, result.output
+
     def test_present_slides_help(self) -> None:
         result = runner.invoke(present_app, ["slides", "--help"])
         assert result.exit_code == 0, result.output
@@ -851,6 +855,23 @@ class TestPresentSlides:
         )
         assert (out_dir / "HUMAN_REVIEW_REQUIRED.txt").is_file()
 
+    def test_slides_dry_run_aps_template_defaults_to_ten_slides(self, tmp_path: Path) -> None:
+        out_dir = tmp_path / "slides_aps"
+        result = runner.invoke(
+            present_app,
+            [
+                "slides",
+                "Verified APS oral results.",
+                "--template",
+                "aps-12min",
+                "--dry-run",
+                "--output-dir",
+                str(out_dir),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "n_slides=10" in (out_dir / "slides.tex").read_text(encoding="utf-8")
+
     def test_slides_invalid_format_exits_1(self, tmp_path: Path) -> None:
         # Non-dry-run with invalid format — note: currently can only test
         # invalid format after imports succeed; rely on dry-run path.
@@ -868,6 +889,30 @@ class TestPresentSlides:
         # The format validation only runs in non-dry-run mode.
         # Just ensure the command does not crash unexpectedly with exit code > 1.
         assert result.exit_code in (0, 1, 2)
+
+
+class TestPresentTemplates:
+    """Tests for 'present templates'."""
+
+    def test_templates_lists_aps_and_poster_profiles(self) -> None:
+        result = runner.invoke(present_app, ["templates"])
+        assert result.exit_code == 0, result.output
+        assert "aps-12min" in result.output
+        assert "aps-march-poster" in result.output
+        assert "a0-poster" in result.output
+        assert "beamerposter-a0" in result.output
+
+    def test_templates_kind_filter(self) -> None:
+        result = runner.invoke(present_app, ["templates", "--kind", "poster"])
+        assert result.exit_code == 0, result.output
+        assert "a0-poster" in result.output
+        assert "aps-12min" not in result.output
+
+    def test_templates_detail_prints_references(self) -> None:
+        result = runner.invoke(present_app, ["templates", "--detail", "--kind", "slides"])
+        assert result.exit_code == 0, result.output
+        assert "Public references" in result.output
+        assert "aps.org" in result.output
 
 
 class TestPresentPoster:
@@ -914,6 +959,40 @@ class TestPresentPoster:
             ],
         )
         assert "HUMAN REVIEW REQUIRED" in result.output
+
+    def test_poster_dry_run_beamerposter_writes_tex(self, tmp_path: Path) -> None:
+        out_dir = tmp_path / "poster_tex"
+        result = runner.invoke(
+            present_app,
+            [
+                "poster",
+                "Verified spin wave dispersion results.",
+                "--dry-run",
+                "--format",
+                "beamerposter",
+                "--output-dir",
+                str(out_dir),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (out_dir / "poster.tex").is_file()
+
+    def test_poster_dry_run_aps_template_defaults_to_board_size(self, tmp_path: Path) -> None:
+        out_dir = tmp_path / "poster_aps"
+        result = runner.invoke(
+            present_app,
+            [
+                "poster",
+                "Verified APS poster results.",
+                "--template",
+                "aps-march-poster",
+                "--dry-run",
+                "--output-dir",
+                str(out_dir),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "size=96x48in" in (out_dir / "poster.svg").read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------

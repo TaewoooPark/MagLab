@@ -40,10 +40,21 @@ maglab comms email collaboration --recipient "Prof. X" --purpose "follow-up on S
 ## Presentations
 
 ```sh
-maglab present slides "Main results and verified figures" --format beamer --n-slides 12
+maglab present templates
+maglab present templates --detail
+maglab present templates --kind poster
+maglab present slides "Main results and verified figures" --template aps-12min --format beamer --n-slides 10
 maglab present slides "Main results and verified figures" --format pptx
 maglab present poster "Main results and verified figures" --size A0 --format svg
+maglab present poster "Main results and verified figures" --template aps-march-poster --format svg
+maglab present poster "Main results and verified figures" --size A0 --format beamerposter
 ```
+
+Template profiles include APS March/April contributed oral talks (10 minute
+talk + 2 minute Q&A), longer seminar decks, internal updates, APS March/April
+96 x 48 inch poster boards, A0 SVG/PDF posters, and A0 beamerposter LaTeX
+source. Use `--detail` to print the installed source file and public reference
+URLs behind each profile.
 
 ## Recommended Input Pack
 

@@ -8,6 +8,10 @@ from pathlib import Path
 import pytest
 
 from maglab.authoring.data_vault import DataVault
+from maglab.authoring.present.catalog import (
+    get_presentation_template,
+    list_presentation_templates,
+)
 from maglab.authoring.present.poster_drafter import (
     _TEMPLATES_DIR as _POSTER_TEMPLATES_DIR,
 )
@@ -110,6 +114,32 @@ class TestPresentTemplatesDirectory:
         """beamer/template.tex contains HUMAN REVIEW REQUIRED."""
         src = (_SLIDES_TEMPLATES_DIR / "beamer" / "template.tex").read_text(encoding="utf-8")
         assert "HUMAN REVIEW REQUIRED" in src
+
+
+class TestPresentationTemplateCatalog:
+    """Template profiles expose plan-level slide/poster references."""
+
+    def test_catalog_lists_aps_and_beamerposter_profiles(self) -> None:
+        names = {entry.name for entry in list_presentation_templates()}
+        assert "aps-12min" in names
+        assert "seminar" in names
+        assert "aps-march-poster" in names
+        assert "beamerposter-a0" in names
+
+    def test_catalog_kind_filter(self) -> None:
+        entries = list_presentation_templates("poster")
+        assert entries
+        assert all(entry.kind == "poster" for entry in entries)
+
+    def test_catalog_alias_resolves_march_meeting(self) -> None:
+        entry = get_presentation_template("march-meeting")
+        assert entry.name == "aps-12min"
+        assert "APS March Meeting" in entry.use_case
+
+    def test_catalog_records_public_references(self) -> None:
+        entry = get_presentation_template("aps-march-poster")
+        assert entry.reference_urls
+        assert any("aps.org" in url for url in entry.reference_urls)
 
 
 # ---------------------------------------------------------------------------
@@ -284,8 +314,10 @@ class TestPosterDrafter:
         assert marker.is_file()
         assert "HUMAN REVIEW REQUIRED" in marker.read_text(encoding="utf-8")
 
-    def test_draft_poster_fallback_to_llm_for_pdf(self, tmp_path: Path) -> None:
-        """When fmt='pdf' with no cairosvg, LLM path is still triggered gracefully."""
+    def test_draft_poster_pdf_uses_template_then_converts_or_falls_back(
+        self, tmp_path: Path
+    ) -> None:
+        """When fmt='pdf', the SVG template is used before PDF conversion fallback."""
         vault = DataVault()
         drafter = PosterDrafter(vault=vault, llm_fn=_make_llm(_DUMMY_SVG))
         # PDF conversion will likely fail (no cairosvg/Inkscape in CI)
@@ -293,3 +325,43 @@ class TestPosterDrafter:
         poster = drafter.draft_poster("results", fmt="pdf", output_dir=tmp_path)
         # Either pdf or svg fallback is acceptable
         assert poster.path.is_file()
+
+    def test_draft_poster_beamerposter_writes_tex(self, tmp_path: Path) -> None:
+        """fmt='beamerposter' writes an A0 LaTeX poster source."""
+        vault = DataVault()
+
+        def _should_not_be_called(s: str, u: str) -> str:
+            raise AssertionError("LLM called for beamerposter template")
+
+        drafter = PosterDrafter(vault=vault, llm_fn=_should_not_be_called)
+        poster = drafter.draft_poster(
+            "A verified damping-like torque result.",
+            title="Spin Torque Poster",
+            fmt="beamerposter",
+            output_dir=tmp_path,
+        )
+        assert poster.format == "beamerposter"
+        assert poster.path.name == "poster.tex"
+        content = poster.path.read_text(encoding="utf-8")
+        assert "\\documentclass[final]{beamer}" in content
+        assert "Spin Torque Poster" in content
+        assert "A verified damping-like torque result." in content
+
+    def test_draft_poster_aps_march_template_uses_8ft_board(self, tmp_path: Path) -> None:
+        """APS March poster profile writes a 96 x 48 inch SVG canvas."""
+        vault = DataVault()
+
+        def _should_not_be_called(s: str, u: str) -> str:
+            raise AssertionError("LLM called for APS March SVG template")
+
+        drafter = PosterDrafter(vault=vault, llm_fn=_should_not_be_called)
+        poster = drafter.draft_poster(
+            "Verified result.",
+            title="APS Poster",
+            fmt="svg",
+            template="aps-march-poster",
+            output_dir=tmp_path,
+        )
+        content = poster.path.read_text(encoding="utf-8")
+        assert 'width="96in" height="48in"' in content
+        assert "APS Poster" in content

@@ -1,10 +1,15 @@
 %% MagLab Beamer slide template — maglab/authoring/present/templates/beamer/template.tex
 %% HUMAN REVIEW REQUIRED — AI draft, the presenter bears full responsibility.
 %%
-%% Usage: loaded by SlidesDrafter when fmt="beamer" and template="default".
+%% Usage: loaded by SlidesDrafter when fmt="beamer".
 %% The drafter substitutes %%TITLE%%, %%AUTHOR%%, and %%SLIDES%% placeholders.
+%%
+%% Format basis:
+%% - APS March/April contributed oral slot: 10 min talk + 2 min Q&A.
+%% - Widescreen 16:9 follows the current default presentation aspect ratio used
+%%   by PowerPoint and the Marp template in this package.
 
-\documentclass{beamer}
+\documentclass[aspectratio=169]{beamer}
 
 % -- Theme --
 \usetheme{Madrid}
