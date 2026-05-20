@@ -28,10 +28,15 @@ def test_slash_completion_tree_registers_research_surface() -> None:
 
     assert {"status", "init", "tree"} <= set(SLASH_COMMANDS["/workspace"])
     assert {"config", "defaults"} <= set(SLASH_COMMANDS["/reset"])
+    assert {"list", "create", "install"} <= set(SLASH_COMMANDS["/skill"])
+    assert {"inventory"} <= set(SLASH_COMMANDS["/report"])
+    assert {"summary", "status"} <= set(SLASH_COMMANDS["/prov"])
+    assert {"list", "status", "scaffold"} <= set(SLASH_COMMANDS["/task"])
     assert {"micro", "validate", "plot", "job", "dft", "atomistic", "pipeline"} <= set(
         SLASH_COMMANDS["/sim"]
     )
     assert {"spec", "render", "compose", "export", "primitives"} <= set(SLASH_COMMANDS["/figure"])
+    assert {"list", "show", "ingest"} <= set(SLASH_COMMANDS["/figure"]["primitives"])
     assert {"search", "authors", "keywords", "journal", "graph"} <= set(SLASH_COMMANDS["/lit"])
     assert {"revision", "cover-letter", "email", "abstract", "grant", "rebuttal"} <= set(
         SLASH_COMMANDS["/comms"]

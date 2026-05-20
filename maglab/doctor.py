@@ -187,7 +187,7 @@ def _ux_contract_report(
             status="ready" if sim_report else "partial",
             evidence=(
                 f"recommended={sim_report.get('recommended_backend')} "
-                f"local_gpu={sim_report.get('local_gpu_ready')}"
+                f"paths={', '.join(p.get('key', '') + ':' + p.get('status', '') for p in sim_report.get('backend_paths', [])[:4])}"
                 if sim_report
                 else "simulation doctor not requested"
             ),

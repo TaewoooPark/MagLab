@@ -47,6 +47,48 @@ maglab figure primitives list --search skyrmion
 maglab figure primitives show skyrmion-bloch
 ```
 
+## Primitive Ingestion
+
+When a useful schematic does not exist in the built-in catalog, ingest the
+local SVG or JSON descriptor into a workspace review package instead of pasting
+ad hoc artwork into the manuscript. The deterministic ingestion core writes:
+
+- `.maglab/figure/primitives/catalog/<name>/PRIMITIVE.md`
+- `.maglab/figure/primitives/catalog/<name>/primitive.json`
+- `.maglab/figure/primitives/catalog/<name>/preview.svg`
+- `.maglab/figure/primitives/catalog/<name>/quality.json`
+- `.maglab/figure/primitives/catalog/<name>/REVIEW.md`
+
+Python usage until the CLI wrapper is wired:
+
+```python
+from maglab.figure.primitives import ingest_primitive
+
+result = ingest_primitive(
+    "schematics/sot-loop.svg",
+    metadata={
+        "category": "concept/process",
+        "tags": ["SOT", "torque"],
+        "description": "Spin-orbit torque loop schematic.",
+        "physics_convention": "Current along x; spin accumulation along y.",
+        "references": ["doi:10.1038/nnano.2013.243"],
+    },
+)
+print(result.status)
+print(result.review_md)
+```
+
+JSON descriptors may provide `svg` or `svg_path` plus metadata fields such as
+`name`, `category`, `tags`, `parameters`, `physics_convention`, `references`,
+and `journal_styles`. Ingestion never executes descriptor code. It only copies
+vector material, normalizes metadata, and records quality checks such as SVG
+parse validity, deterministic dimensions, embedded raster use, external links,
+parameterization, references, and physics convention completeness.
+
+Treat `ready_for_promotion` as "review passed, promotion possible", not as
+automatic installation into the built-in catalog. Promotion still requires a
+`primitive.py` implementation and tests.
+
 ## Journal Styles
 
 Figure rendering supports journal profiles such as APS, Nature, IEEE, and

@@ -38,6 +38,12 @@ maglab sim pipeline --structure bcc_fe --scales dft,atomistic,micro,device --bac
 binary, GPU visibility, SSH/HPC utility, 현재 권장 backend를 한 번에
 점검합니다.
 
+doctor는 사람이 읽는 checklist와 자동화용 JSON 계약을 같이 제공합니다.
+JSON에는 `backend_paths`가 들어 있고 각 path는 `status`, `next_command`,
+`setup_commands`, note를 갖습니다. 즉 terminal 안에서 다음에 무엇을 해야
+하는지 보여주되, 사용자가 요청하지 않은 SSH 연결이나 remote module 추정은
+하지 않습니다.
+
 실행 위치에 따라 다음처럼 사용합니다.
 
 - GPU나 solver가 없는 노트북: `maglab sim pipeline --backend mock`으로 먼저
@@ -49,6 +55,43 @@ binary, GPU visibility, SSH/HPC utility, 현재 권장 backend를 한 번에
 - SSH GPU/HPC: `--host`, `--user`를 넣고, terminal에서 SSH key가 동작하는
   것이 확인된 뒤에만 `--probe-ssh`를 붙입니다. 기본 doctor 명령은 원격
   연결을 열지 않습니다.
+
+### 설정 흐름
+
+**GPU 없는 노트북 / fresh install**
+
+```sh
+maglab sim doctor --backend auto
+maglab sim pipeline --structure bcc_fe --scales dft,atomistic,micro,device --backend mock
+```
+
+**Local CPU fallback**
+
+```sh
+pipx inject maglab "maglab[sim]"
+maglab sim doctor --backend cpu
+maglab sim micro --material Permalloy --nx 64 --ny 64 --nz 1 --cell-nm 4
+```
+
+**Local NVIDIA GPU**
+
+```sh
+mumax3 -h
+nvidia-smi
+maglab sim doctor --backend local-gpu
+```
+
+**SSH GPU / HPC**
+
+```sh
+maglab sim doctor --backend ssh-gpu --host gpu.cluster.edu --user alice
+ssh alice@gpu.cluster.edu
+maglab sim doctor --backend ssh-gpu --host gpu.cluster.edu --user alice --probe-ssh
+```
+
+HPC login node는 `--backend ssh-hpc`를 사용합니다. MagLab은
+`--probe-ssh`가 있을 때만 SSH를 probe하며, local machine 상태만 보고 remote
+CUDA, MuMax3, Slurm module availability를 추정하지 않습니다.
 
 ## workflow 패턴
 

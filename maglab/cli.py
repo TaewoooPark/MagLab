@@ -18,7 +18,7 @@ from rich.console import Console
 from rich.table import Table
 
 from maglab import __version__
-from maglab.commands import p2_analysis, p4_ralph, p5_literature, p6_authoring
+from maglab.commands import p0_project, p2_analysis, p4_ralph, p5_literature, p6_authoring
 from maglab.config import Config, load_config
 
 # ---------------------------------------------------------------------------
@@ -776,6 +776,53 @@ def skill_list() -> None:
         console.print(f"[yellow]{len(loader.errors)} load error(s):[/]")
         for k, v in loader.errors.items():
             console.print(f"  [dim]{k}:[/] {v}")
+
+
+@skill_app.command("create")
+def skill_create(
+    name: str = typer.Argument(..., help="Skill name or label."),
+    description: str = typer.Option(
+        "Workspace skill for MagLab orchestration.",
+        "--description",
+        "-d",
+        help="Skill trigger description.",
+    ),
+) -> None:
+    """Create an idempotent workspace-local SKILL.md package."""
+    from maglab.core.skills import SkillLoadError, create_skill_skeleton
+
+    try:
+        result = create_skill_skeleton(name, description=description)
+    except SkillLoadError as exc:
+        console.print(f"[red]Skill create failed:[/] {exc}")
+        raise typer.Exit(1) from exc
+    if result.skipped:
+        console.print(f"[dim]Skill already exists:[/] {result.skill_dir}")
+    else:
+        console.print(f"[green]✓[/] Created skill [bold]{result.name}[/]: {result.skill_dir}")
+    console.print("Use [cyan]maglab skill list[/] or [cyan]/skill list[/] to verify discovery.")
+
+
+@skill_app.command("install")
+def skill_install(
+    source: str = typer.Argument(..., help="Local skill package directory containing SKILL.md."),
+) -> None:
+    """Install a local SKILL.md package into the active workspace."""
+    from maglab.core.skills import SkillLoadError, install_local_skill
+
+    try:
+        result = install_local_skill(source)
+    except SkillLoadError as exc:
+        console.print(f"[red]Skill install failed:[/] {exc}")
+        raise typer.Exit(1) from exc
+    if result.skipped:
+        console.print(f"[dim]Skill already installed:[/] {result.skill_dir}")
+    else:
+        console.print(
+            f"[green]✓[/] Installed skill [bold]{result.name}[/] from {result.source_dir}"
+        )
+        console.print(f"  target: [bold]{result.skill_dir}[/]")
+    console.print("Use [cyan]maglab skill list[/] or [cyan]/skill list[/] to verify discovery.")
 
 
 # ---------------------------------------------------------------------------
@@ -1863,6 +1910,8 @@ primitives_app = typer.Typer(
 )
 figure_app.add_typer(primitives_app)
 
+_PRIMITIVE_TAG_OPT = typer.Option(None, "--tag", help="Tag; may be repeated.")
+
 
 @primitives_app.command("list")
 def figure_primitives_list(
@@ -1911,6 +1960,57 @@ def figure_primitives_show(
     table.add_row("Description", str(meta.get("description", "")))
     table.add_row("Journal styles", ", ".join(meta.get("journal_styles", [])))
     console.print(table)
+
+
+@primitives_app.command("ingest")
+def figure_primitives_ingest(
+    source: str = typer.Argument(..., help="Local .svg or .json primitive descriptor."),
+    name: str | None = typer.Option(None, "--name", help="Override primitive name."),
+    category: str | None = typer.Option(None, "--category", help="Primitive category."),
+    description: str | None = typer.Option(None, "--description", "-d", help="Description."),
+    tag: list[str] | None = _PRIMITIVE_TAG_OPT,
+    overwrite: bool = typer.Option(False, "--overwrite", help="Replace an existing package."),
+    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
+) -> None:
+    """Ingest a local primitive into the workspace review catalog."""
+    import json
+
+    from maglab.figure.primitives import PrimitiveIngestError, ingest_primitive
+
+    metadata: dict[str, object] = {}
+    if name:
+        metadata["name"] = name
+    if category:
+        metadata["category"] = category
+    if description:
+        metadata["description"] = description
+    if tag:
+        metadata["tags"] = tag
+
+    try:
+        result = ingest_primitive(source, metadata=metadata, overwrite=overwrite)
+    except PrimitiveIngestError as exc:
+        console.print(f"[red]Primitive ingest failed:[/] {exc}")
+        raise typer.Exit(1) from exc
+
+    payload = result.as_dict()
+    if json_output:
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+
+    table = Table(title=f"Primitive ingest: {result.name}")
+    table.add_column("Field", style="cyan")
+    table.add_column("Value")
+    table.add_row("status", result.status)
+    table.add_row("package", str(result.package_dir))
+    table.add_row("review", str(result.review_md))
+    table.add_row("quality", str(result.quality_json))
+    if result.preview_svg:
+        table.add_row("preview", str(result.preview_svg))
+    console.print(table)
+    for check in result.checks:
+        marker = "[green]ok[/]" if check.status == "ok" else "[yellow]warn[/]"
+        console.print(f"  {marker} {check.name}: {check.message}")
 
 
 @figure_app.command("spec")
@@ -2459,6 +2559,7 @@ def instr_implement(
 # P2 · P4 · P5 · P6 commands — wired from maglab/commands/
 # ===========================================================================
 
+p0_project.register(app)
 p2_analysis.register(app)
 p4_ralph.register(app)
 p5_literature.register(app)

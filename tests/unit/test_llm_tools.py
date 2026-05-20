@@ -12,6 +12,7 @@ from maglab.llm.tools import call_tool, get_registered_tools, get_tool_definitio
 def test_bundled_llm_tools_are_registered() -> None:
     names = {tool.name for tool in get_registered_tools()}
 
+    assert "workspace_context" in names
     assert "workspace_tree" in names
     assert "workspace_read_file" in names
     assert "workspace_search" in names
@@ -44,6 +45,42 @@ def test_workspace_read_file_is_scoped_to_cwd(
     escaped = call_tool("workspace_read_file", {"path": str(tmp_path.parent / "outside.md")})
     assert escaped["ok"] is False
     assert "escapes active workspace" in escaped["error"]
+
+
+def test_workspace_context_includes_marker_and_key_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "MAGLAB.md").write_text("# Project\nSpin Hall context\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("# Readme\n", encoding="utf-8")
+    (tmp_path / "data").mkdir()
+
+    result = call_tool("workspace_context", {"max_entries": 10, "max_maglab_chars": 100})
+
+    assert result["ok"] is True
+    assert result["root"] == str(tmp_path)
+    assert result["maglab_md"] == str(tmp_path / "MAGLAB.md")
+    assert "Spin Hall context" in result["maglab_md_excerpt"]
+    assert "README.md" in result["key_paths"]
+    assert "data/" in result["key_paths"]
+    assert "Before answering project-specific questions" in result["prompt"]
+
+
+def test_workspace_context_prunes_ignored_heavy_directories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "MAGLAB.md").write_text("# Project\n", encoding="utf-8")
+    (tmp_path / "node_modules").mkdir()
+    (tmp_path / "node_modules" / "hidden.js").write_text("should not appear\n", encoding="utf-8")
+    (tmp_path / "notes.md").write_text("visible\n", encoding="utf-8")
+
+    result = call_tool("workspace_context", {"max_entries": 20})
+
+    assert result["ok"] is True
+    assert "notes.md" in result["entries"]
+    assert "node_modules/" not in result["entries"]
+    assert all("hidden.js" not in entry for entry in result["entries"])
 
 
 def test_workspace_search_returns_line_matches(

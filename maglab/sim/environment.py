@@ -23,6 +23,19 @@ class EnvCheck:
     action: str = ""
 
 
+@dataclass(frozen=True)
+class BackendPath:
+    """User-facing execution path with deterministic setup guidance."""
+
+    key: str
+    label: str
+    status: str
+    detail: str
+    next_command: str
+    setup_commands: list[str]
+    notes: list[str]
+
+
 def _module_ok(module: str) -> bool:
     return importlib.util.find_spec(module) is not None
 
@@ -91,6 +104,164 @@ def _available_cpu_engines() -> list[str]:
     """Detect CPU engines without letting third-party import banners leak to stdout."""
     with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
         return CPUBackendRouter.available_engines()
+
+
+def _format_remote_doctor_command(
+    backend: str,
+    *,
+    host: str | None,
+    user: str | None,
+    probe_ssh: bool,
+) -> str:
+    command = f"maglab sim doctor --backend {backend} --host {host or '<host>'}"
+    command += f" --user {user or '<user>'}"
+    if probe_ssh:
+        command += " --probe-ssh"
+    return command
+
+
+def _ssh_probe_status(ssh_checks: list[EnvCheck], *, probe_ssh: bool, host: str | None) -> str:
+    if not host:
+        return "needs-target"
+    if not probe_ssh:
+        return "not-probed"
+    probe = next((check for check in ssh_checks if check.name == "ssh probe"), None)
+    if probe and probe.ok:
+        return "ssh-ready"
+    return "ssh-blocked"
+
+
+def _build_backend_paths(
+    *,
+    cpu_engines: list[str],
+    local_gpu_ready: bool,
+    has_mumax: bool,
+    has_gpu_probe: bool,
+    host: str | None,
+    user: str | None,
+    ssh_target: str,
+    probe_ssh: bool,
+    ssh_checks: list[EnvCheck],
+) -> list[BackendPath]:
+    """Return deterministic setup/run paths without probing remote solver state."""
+    cpu_ready = bool(cpu_engines)
+    gpu_missing: list[str] = []
+    if not has_mumax:
+        gpu_missing.append("mumax3")
+    if not has_gpu_probe:
+        gpu_missing.append("nvidia-smi")
+
+    ssh_status = _ssh_probe_status(ssh_checks, probe_ssh=probe_ssh, host=host)
+    remote_target = ssh_target or "<user>@<host>"
+
+    return [
+        BackendPath(
+            key="mock",
+            label="No-GPU dry run",
+            status="ready",
+            detail="Artifact-only pipeline; no solver, GPU, or SSH connection required.",
+            next_command=(
+                "maglab sim pipeline --structure bcc_fe "
+                "--scales dft,atomistic,micro,device --backend mock"
+            ),
+            setup_commands=[],
+            notes=[
+                "Use this first on laptops or fresh installs to validate specs and provenance.",
+                "Mock mode does not claim physical solver results.",
+            ],
+        ),
+        BackendPath(
+            key="cpu",
+            label="Local CPU fallback",
+            status="ready" if cpu_ready else "needs-setup",
+            detail=(
+                f"Detected CPU engine(s): {', '.join(cpu_engines)}."
+                if cpu_ready
+                else "No Python CPU micromagnetic engine detected."
+            ),
+            next_command=(
+                "maglab sim micro --material Permalloy --nx 64 --ny 64 --nz 1 --cell-nm 4"
+                if cpu_ready
+                else 'pipx inject maglab "maglab[sim]"'
+            ),
+            setup_commands=[
+                'pipx inject maglab "maglab[sim]"',
+                "maglab sim doctor --backend cpu",
+            ],
+            notes=[
+                "Keep meshes modest on CPU; start around 64^3 cells or smaller.",
+                "CPU is the preferred real-compute fallback when no local GPU is present.",
+            ],
+        ),
+        BackendPath(
+            key="local-gpu",
+            label="Local NVIDIA GPU",
+            status="ready" if local_gpu_ready else "needs-setup",
+            detail=(
+                "MuMax3 and nvidia-smi are both visible on PATH."
+                if local_gpu_ready
+                else f"Missing local GPU prerequisite(s): {', '.join(gpu_missing)}."
+            ),
+            next_command=(
+                "maglab sim doctor --backend local-gpu"
+                if local_gpu_ready
+                else "maglab sim doctor --backend local-gpu"
+            ),
+            setup_commands=[
+                "mumax3 -h",
+                "nvidia-smi",
+                "maglab sim doctor --backend local-gpu",
+            ],
+            notes=[
+                "MagLab only checks local command visibility here; it does not run a GPU job.",
+                "Use this path for real MuMax3 execution after a small validated mock/CPU run.",
+            ],
+        ),
+        BackendPath(
+            key="ssh-gpu",
+            label="SSH GPU server",
+            status=ssh_status,
+            detail=(
+                f"Remote target configured as {remote_target}."
+                if host
+                else "No SSH host supplied; remote GPU path is not configured."
+            ),
+            next_command=_format_remote_doctor_command(
+                "ssh-gpu", host=host, user=user, probe_ssh=True
+            ),
+            setup_commands=[
+                "ssh <user>@<host>",
+                _format_remote_doctor_command("ssh-gpu", host=host, user=user, probe_ssh=False),
+                _format_remote_doctor_command("ssh-gpu", host=host, user=user, probe_ssh=True),
+            ],
+            notes=[
+                "Without --probe-ssh, MagLab records the target but opens no remote connection.",
+                "Remote solver modules are not inferred; load MuMax3/CUDA on the host before runs.",
+            ],
+        ),
+        BackendPath(
+            key="ssh-hpc",
+            label="SSH HPC / Slurm",
+            status=ssh_status,
+            detail=(
+                f"Remote login target configured as {remote_target}."
+                if host
+                else "No cluster login host supplied; HPC path is not configured."
+            ),
+            next_command=_format_remote_doctor_command(
+                "ssh-hpc", host=host, user=user, probe_ssh=True
+            ),
+            setup_commands=[
+                "ssh <user>@<login-host>",
+                _format_remote_doctor_command("ssh-hpc", host=host, user=user, probe_ssh=False),
+                _format_remote_doctor_command("ssh-hpc", host=host, user=user, probe_ssh=True),
+            ],
+            notes=[
+                "Local sbatch/squeue checks are advisory only; real Slurm is checked on the cluster.",
+                "Keep --probe-ssh off until key-based, non-interactive SSH works in your terminal.",
+            ],
+        ),
+    ]
 
 
 def diagnose_sim_environment(
@@ -182,11 +353,27 @@ def diagnose_sim_environment(
         else:
             recommended_backend = "mock"
 
+    backend_paths = _build_backend_paths(
+        cpu_engines=cpu_engines,
+        local_gpu_ready=local_gpu_ready,
+        has_mumax=has_mumax,
+        has_gpu_probe=has_gpu_probe,
+        host=host,
+        user=user,
+        ssh_target=ssh_target,
+        probe_ssh=probe_ssh,
+        ssh_checks=ssh_checks,
+    )
+
     recommendations: list[str] = []
+    recommendations.append(f"Recommended backend now: {recommended_backend}.")
+    recommendations.append(
+        "No-GPU safe start: maglab sim pipeline --structure bcc_fe "
+        "--scales dft,atomistic,micro,device --backend mock"
+    )
     if recommended_backend == "mock":
         recommendations.append(
-            "Use mock mode first: maglab sim pipeline --structure bcc_fe "
-            "--scales dft,atomistic,micro,device --backend mock"
+            "Use mock mode before spending solver time; it validates schemas and provenance only."
         )
     if cpu_engines:
         recommendations.append(
@@ -201,16 +388,23 @@ def diagnose_sim_environment(
         recommendations.append("Local GPU path looks usable for MuMax3-style GPU execution.")
     else:
         recommendations.append(
-            "No complete local GPU path was detected; use CPU/mock locally or configure SSH GPU."
+            "Local GPU setup: install MuMax3, confirm `nvidia-smi`, then rerun "
+            "`maglab sim doctor --backend local-gpu`."
         )
     if not host:
         recommendations.append(
-            "For remote GPU/HPC, rerun with: maglab sim doctor --backend ssh-gpu "
-            "--host <host> --user <user> --probe-ssh"
+            "SSH GPU/HPC setup: rerun without probing first: "
+            "maglab sim doctor --backend ssh-gpu --host <host> --user <user>; "
+            "add --probe-ssh only after terminal SSH works."
         )
     elif probe_ssh:
         recommendations.append(
             f"Remote target checked: {ssh_target}. Confirm solver modules on the host before real runs."
+        )
+    else:
+        recommendations.append(
+            f"Remote target recorded as {ssh_target}; no connection was opened. "
+            "Add --probe-ssh after keys are configured."
         )
 
     return {
@@ -219,6 +413,7 @@ def diagnose_sim_environment(
         "cpu_engines": cpu_engines,
         "local_gpu_ready": local_gpu_ready,
         "ssh_target": ssh_target,
+        "backend_paths": [asdict(path) for path in backend_paths],
         "python": [asdict(c) for c in python_checks],
         "binaries": [asdict(c) for c in binary_checks],
         "ssh": [asdict(c) for c in ssh_checks],

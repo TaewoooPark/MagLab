@@ -13,6 +13,10 @@ from maglab.core.skills import (
     SkillMeta,
     _extract_frontmatter,
     _validate_frontmatter,
+    create_skill_skeleton,
+    install_local_skill,
+    normalize_skill_name,
+    workspace_skill_root,
 )
 
 # ---------------------------------------------------------------------------
@@ -279,3 +283,84 @@ def test_skill_meta_fields(tmp_path: Path) -> None:
     assert m.description == "Meta field check."
     assert m.license == "MIT"
     assert m.skill_dir.is_dir()
+
+
+# ---------------------------------------------------------------------------
+# Local create/install helpers
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_skill_name_accepts_human_label() -> None:
+    assert normalize_skill_name("SR830 Driver Skill") == "sr830-driver-skill"
+
+
+def test_create_skill_skeleton_creates_loadable_workspace_skill(tmp_path: Path) -> None:
+    result = create_skill_skeleton(
+        "Spin Hall Analyzer",
+        description="Analyze spin Hall measurements.",
+        root=tmp_path,
+    )
+
+    assert result.created is True
+    assert result.skipped is False
+    assert result.skill_dir == workspace_skill_root(tmp_path) / "spin-hall-analyzer"
+    assert result.skill_dir.joinpath("SKILL.md").is_file()
+    assert {path.name for path in result.files} >= {"SKILL.md", ".gitkeep"}
+
+    loader = SkillLoader(extra_paths=[workspace_skill_root(tmp_path)])
+    loaded = loader.load("spin-hall-analyzer")
+    assert loaded.description == "Analyze spin Hall measurements."
+    assert "Inspect the relevant workspace files" in loaded.body
+
+
+def test_create_skill_skeleton_skips_existing_without_overwrite(tmp_path: Path) -> None:
+    first = create_skill_skeleton("Existing Skill", root=tmp_path)
+    marker = first.skill_dir / "SKILL.md"
+    marker.write_text(marker.read_text(encoding="utf-8") + "\nLOCAL EDIT\n", encoding="utf-8")
+
+    second = create_skill_skeleton("Existing Skill", root=tmp_path)
+
+    assert second.created is False
+    assert second.skipped is True
+    assert second.reason == "skill already exists"
+    assert "LOCAL EDIT" in marker.read_text(encoding="utf-8")
+
+
+def test_install_local_skill_copies_package_and_is_discoverable(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    install_root = tmp_path / "workspace"
+    source = make_skill_dir(source_root, name="local-lit-skill")
+    bundle = source / "references" / "protocol.md"
+    bundle.parent.mkdir()
+    bundle.write_text("protocol", encoding="utf-8")
+
+    result = install_local_skill(source, root=install_root)
+
+    assert result.installed is True
+    assert result.skipped is False
+    assert result.skill_dir == workspace_skill_root(install_root) / "local-lit-skill"
+    assert result.skill_dir.joinpath("references", "protocol.md").is_file()
+
+    loader = SkillLoader(extra_paths=[workspace_skill_root(install_root)])
+    assert loader.load("local-lit-skill").name == "local-lit-skill"
+
+
+def test_install_local_skill_skips_existing_registration(tmp_path: Path) -> None:
+    source = make_skill_dir(tmp_path / "source", name="duplicate-skill")
+    install_root = tmp_path / "workspace"
+
+    first = install_local_skill(source, root=install_root)
+    second = install_local_skill(source, root=install_root)
+
+    assert first.installed is True
+    assert second.installed is False
+    assert second.skipped is True
+    assert second.reason == "skill already installed"
+
+
+def test_install_local_skill_rejects_missing_skill_md(tmp_path: Path) -> None:
+    bad_source = tmp_path / "bad-source"
+    bad_source.mkdir()
+
+    with pytest.raises(SkillLoadError, match="SKILL.md"):
+        install_local_skill(bad_source, root=tmp_path / "workspace")

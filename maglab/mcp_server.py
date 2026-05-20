@@ -25,7 +25,11 @@ P4 instrument-domain tools (T-P4-28):
 P0/P4 resources:
   - materials://           : full material list JSON
   - provenance://          : full DataPoint list JSON
-  - manuals://             : list of cached instrument manuals
+  - manuals://             : installed MagLab manuals index plus manual cache JSON
+  - manuals://{lang}       : installed manual index for a language
+  - manuals://{lang}/{topic}: installed manual Markdown content
+  - primitives://          : magnetic figure primitive catalog JSON
+  - primitives://{name}    : magnetic figure primitive detail JSON
 
 ``maglab mcp serve`` entry point.
 ``create_server()`` — use to create a server instance directly in tests.
@@ -933,55 +937,14 @@ def _register_instrument_tools(mcp: FastMCP) -> None:
 def _register_resources(mcp: FastMCP) -> None:
     """Register P0 resources with the MCP server."""
 
-    @mcp.resource("materials://")
-    def materials_resource() -> str:
-        """Return the full magnetic material list as JSON.
-
-        Returns:
-            Material list JSON string.
-        """
+    def _json(data: Any) -> str:
+        """Serialize resource payloads consistently."""
         import json
 
-        from maglab.physics.materials import list_materials
+        return json.dumps(data, ensure_ascii=False, indent=2, default=str)
 
-        mats = list_materials()
-        return json.dumps(
-            [m.model_dump() for m in mats],
-            ensure_ascii=False,
-            indent=2,
-        )
-
-    @mcp.resource("provenance://")
-    def provenance_resource() -> str:
-        """Return the full list of registered DataPoints as JSON.
-
-        Returns:
-            DataPoint list JSON string.
-        """
-        import json
-
-        from maglab.provenance.ledger import ProvenanceLedger
-
-        ledger = ProvenanceLedger()
-        ids = ledger.all_ids()
-        items = []
-        for dp_id in ids:
-            dp = ledger.get(dp_id)
-            if dp is not None:
-                items.append(dp.model_dump())
-        return json.dumps(items, ensure_ascii=False, indent=2, default=str)
-
-    @mcp.resource("manuals://")
-    def manuals_resource() -> str:
-        """Return the list of cached instrument manuals as JSON.
-
-        Lists all PDFs under the standard manual cache root
-        (``~/.local/share/maglab/manuals/``).
-
-        Returns:
-            JSON array of ``{manufacturer, model, pdf_path, sha256}`` entries.
-        """
-        import json
+    def _manual_cache_entries() -> list[dict[str, Any]]:
+        """Return cached instrument-manual PDFs from the user data directory."""
         from pathlib import Path
 
         cache_root = Path.home() / ".local" / "share" / "maglab" / "manuals"
@@ -1009,7 +972,170 @@ def _register_resources(mcp: FastMCP) -> None:
                             }
                         )
 
-        return json.dumps(entries, ensure_ascii=False, indent=2)
+        return entries
+
+    def _installed_manuals(lang: str | None = None) -> dict[str, Any]:
+        """Return installed bundled manuals as a deterministic index."""
+        from maglab.manuals import available_languages, list_manuals
+
+        try:
+            languages = available_languages()
+        except FileNotFoundError as exc:
+            return {"ok": False, "error": str(exc), "languages": [], "manuals": []}
+
+        selected = (lang,) if lang else languages
+        manuals: list[dict[str, str]] = []
+        errors: list[str] = []
+        for language in selected:
+            try:
+                for entry in list_manuals(language):
+                    manuals.append(
+                        {
+                            "lang": entry.lang,
+                            "topic": entry.topic,
+                            "title": entry.title,
+                            "uri": f"manuals://{entry.lang}/{entry.topic}",
+                            "path": str(entry.path),
+                        }
+                    )
+            except FileNotFoundError as exc:
+                errors.append(str(exc))
+
+        return {
+            "ok": not errors,
+            "languages": list(languages),
+            "manuals": manuals,
+            "errors": errors,
+        }
+
+    def _primitive_catalog() -> list[dict[str, Any]]:
+        """Return the installed primitive metadata index."""
+        from maglab.figure.primitives.registry import make_default_registry
+
+        registry = make_default_registry()
+        return [
+            {
+                **item,
+                "uri": f"primitives://{item['name']}",
+            }
+            for item in sorted(registry.list_all(), key=lambda entry: entry["name"])
+        ]
+
+    @mcp.resource("materials://")
+    def materials_resource() -> str:
+        """Return the full magnetic material list as JSON.
+
+        Returns:
+            Material list JSON string.
+        """
+        from maglab.physics.materials import list_materials
+
+        mats = list_materials()
+        return _json(
+            [m.model_dump() for m in mats],
+        )
+
+    @mcp.resource("provenance://")
+    def provenance_resource() -> str:
+        """Return the full list of registered DataPoints as JSON.
+
+        Returns:
+            DataPoint list JSON string.
+        """
+        from maglab.provenance.ledger import ProvenanceLedger
+
+        ledger = ProvenanceLedger()
+        ids = ledger.all_ids()
+        items = []
+        for dp_id in ids:
+            dp = ledger.get(dp_id)
+            if dp is not None:
+                items.append(dp.model_dump())
+        return _json(items)
+
+    @mcp.resource("manuals://")
+    def manuals_resource() -> str:
+        """Return installed MagLab manuals and cached instrument manuals as JSON.
+
+        Returns:
+            JSON object with bundled Markdown manuals and user cached manual PDFs.
+        """
+
+        return _json(
+            {
+                "installed": _installed_manuals(),
+                "cached_instrument_manuals": _manual_cache_entries(),
+            }
+        )
+
+    @mcp.resource("manuals://{lang}")
+    def manuals_language_resource(lang: str) -> str:
+        """Return installed MagLab manual index for one language as JSON."""
+
+        return _json(_installed_manuals(lang))
+
+    @mcp.resource("manuals://{lang}/{topic}")
+    def manuals_detail_resource(lang: str, topic: str) -> str:
+        """Return one installed MagLab manual page as Markdown."""
+
+        from maglab.manuals import resolve_manual
+
+        try:
+            entry = resolve_manual(topic, lang=lang)
+            return entry.path.read_text(encoding="utf-8")
+        except OSError as exc:
+            return _json({"ok": False, "error": str(exc), "lang": lang, "topic": topic})
+
+    @mcp.resource("primitives://")
+    def primitives_resource() -> str:
+        """Return the installed magnetic figure primitive catalog as JSON."""
+
+        primitives = _primitive_catalog()
+        return _json({"ok": True, "count": len(primitives), "primitives": primitives})
+
+    @mcp.resource("primitives://{name}")
+    def primitive_detail_resource(name: str) -> str:
+        """Return one magnetic figure primitive's metadata and source notes as JSON."""
+
+        from pathlib import Path
+
+        from maglab.figure.primitives.registry import make_default_registry
+
+        registry = make_default_registry()
+        try:
+            primitive = registry.load(name)
+        except (KeyError, RuntimeError) as exc:
+            available = [item["name"] for item in _primitive_catalog()]
+            return _json(
+                {
+                    "ok": False,
+                    "error": str(exc),
+                    "name": name,
+                    "available": available,
+                }
+            )
+
+        catalog_doc = (
+            Path(__file__).parent / "figure" / "primitives" / "catalog" / name / "PRIMITIVE.md"
+        )
+        doc_text = catalog_doc.read_text(encoding="utf-8") if catalog_doc.is_file() else ""
+
+        return _json(
+            {
+                "ok": True,
+                "name": primitive.name,
+                "category": primitive.category,
+                "tags": primitive.tags,
+                "description": primitive.description,
+                "parameters": primitive.parameters,
+                "physics_convention": primitive.physics_convention,
+                "references": primitive.references,
+                "provenance": primitive.provenance,
+                "preview": primitive.preview,
+                "journal_styles": primitive.journal_styles,
+                "catalog_doc": doc_text,
+            }
+        )
 
 
 # ---------------------------------------------------------------------------

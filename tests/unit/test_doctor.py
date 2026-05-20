@@ -40,3 +40,23 @@ def test_doctor_recommends_workspace_init_when_marker_missing(
 
     assert report["workspace"]["maglab_md"] is None
     assert any("maglab workspace init" in item for item in report["recommendations"])
+
+
+def test_doctor_surfaces_sim_backend_path_statuses(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("maglab.sim.environment._binary_path", lambda name: None)
+    monkeypatch.setattr("maglab.sim.environment._module_ok", lambda name: False)
+    monkeypatch.setattr(
+        "maglab.sim.environment.CPUBackendRouter.available_engines",
+        staticmethod(lambda: []),
+    )
+
+    report = run_doctor(feature="llm", include_sim=True)
+
+    paths = {item["key"]: item for item in report["simulation"]["backend_paths"]}
+    assert paths["mock"]["status"] == "ready"
+    ux = {item["key"]: item for item in report["ux_contract"]}
+    assert "mock:ready" in ux["gpu-ssh-cpu"]["evidence"]

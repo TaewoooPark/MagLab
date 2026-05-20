@@ -28,6 +28,10 @@ def test_diagnose_prefers_local_gpu_when_mumax_and_nvidia_are_available(monkeypa
     assert report["recommended_backend"] == "local-gpu"
     assert report["local_gpu_ready"] is True
     assert report["cpu_engines"] == ["magnumnp"]
+    paths = {item["key"]: item for item in report["backend_paths"]}
+    assert paths["local-gpu"]["status"] == "ready"
+    assert paths["cpu"]["status"] == "ready"
+    assert "maglab sim doctor --backend local-gpu" in paths["local-gpu"]["next_command"]
 
 
 def test_diagnose_uses_mock_when_no_solver_is_detected(monkeypatch) -> None:
@@ -42,7 +46,11 @@ def test_diagnose_uses_mock_when_no_solver_is_detected(monkeypatch) -> None:
 
     assert report["recommended_backend"] == "mock"
     assert report["local_gpu_ready"] is False
-    assert any("mock mode first" in item for item in report["recommendations"])
+    paths = {item["key"]: item for item in report["backend_paths"]}
+    assert paths["mock"]["status"] == "ready"
+    assert paths["cpu"]["status"] == "needs-setup"
+    assert paths["local-gpu"]["status"] == "needs-setup"
+    assert any("No-GPU safe start" in item for item in report["recommendations"])
 
 
 def test_diagnose_ssh_target_without_probe_is_non_destructive(monkeypatch) -> None:
@@ -59,6 +67,9 @@ def test_diagnose_ssh_target_without_probe_is_non_destructive(monkeypatch) -> No
     assert report["ssh_target"] == "alice@gpu.example.edu"
     assert report["ssh"][1]["name"] == "ssh probe"
     assert report["ssh"][1]["detail"] == "not probed"
+    paths = {item["key"]: item for item in report["backend_paths"]}
+    assert paths["ssh-gpu"]["status"] == "not-probed"
+    assert "no connection was opened" in " ".join(report["recommendations"])
 
 
 def test_diagnose_ssh_probe_runs_only_when_requested(monkeypatch) -> None:
@@ -85,4 +96,6 @@ def test_diagnose_ssh_probe_runs_only_when_requested(monkeypatch) -> None:
     )
 
     assert report["ssh"][1]["ok"] is True
+    paths = {item["key"]: item for item in report["backend_paths"]}
+    assert paths["ssh-hpc"]["status"] == "ssh-ready"
     assert calls and calls[0][0] == "ssh"

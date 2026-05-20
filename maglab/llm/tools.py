@@ -324,6 +324,21 @@ def _is_ignored_workspace_path(path: Path, root: Path) -> bool:
 
 @tool(
     read_only=True,
+    description="Summarize the active MagLab workspace before project-specific work.",
+)
+def workspace_context(max_entries: int = 60, max_maglab_chars: int = 2_000) -> dict[str, Any]:
+    """Summarize the active MagLab workspace before project-specific work."""
+    from maglab.workspace import workspace_context as _workspace_context
+
+    context = _workspace_context(max_entries=max_entries, max_maglab_chars=max_maglab_chars)
+    data = context.to_dict()
+    data["ok"] = True
+    data["prompt"] = context.to_prompt()
+    return data
+
+
+@tool(
+    read_only=True,
     description="List visible files in the active MagLab workspace.",
 )
 def workspace_tree(max_entries: int = 80) -> dict[str, Any]:

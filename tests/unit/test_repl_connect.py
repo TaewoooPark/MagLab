@@ -8,7 +8,7 @@ from unittest.mock import patch
 from rich.console import Console
 
 from maglab.config import Config
-from maglab.repl import _handle_slash, _run_cli_slash
+from maglab.repl import _get_response, _handle_slash, _run_cli_slash, _workspace_startup_note
 
 
 def test_connect_codex_slash_saves_delegated_backend(tmp_path: Path) -> None:
@@ -106,6 +106,29 @@ def test_workspace_slash_dispatches_to_cli_command() -> None:
     assert keep_running is True
     args, _ = mock_run.call_args
     assert args[0] == ["/workspace", "status"]
+
+
+def test_workspace_startup_note_reports_folder_context(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "MAGLAB.md").write_text("# Project\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("# Readme\n", encoding="utf-8")
+
+    note = _workspace_startup_note(max_entries=5)
+
+    assert str(tmp_path) in note
+    assert "MAGLAB.md loaded" in note
+    assert "README.md" in note
+
+
+def test_no_backend_response_includes_workspace_note(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "MAGLAB.md").write_text("# Project\n", encoding="utf-8")
+
+    response = _get_response("what is this repo?", orchestrator=None)
+
+    assert "Workspace context:" in response
+    assert str(tmp_path) in response
+    assert "No LLM backend is connected" in response
 
 
 def test_manual_slash_accepts_language_first(capsys) -> None:

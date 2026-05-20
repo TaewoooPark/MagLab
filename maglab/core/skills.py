@@ -27,6 +27,7 @@ Dependencies: none (yaml, pathlib, re — standard/bundled libraries).
 from __future__ import annotations
 
 import re
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -139,6 +140,31 @@ class Skill(SkillMeta):
 
     body: str = ""
     """SKILL.md body (excluding frontmatter)."""
+
+
+@dataclass(frozen=True)
+class SkillCreateResult:
+    """Result returned by local skill skeleton creation."""
+
+    name: str
+    skill_dir: Path
+    files: list[Path]
+    created: bool
+    skipped: bool = False
+    reason: str = ""
+
+
+@dataclass(frozen=True)
+class SkillInstallResult:
+    """Result returned by local skill installation."""
+
+    name: str
+    source_dir: Path
+    skill_dir: Path
+    files: list[Path]
+    installed: bool
+    skipped: bool = False
+    reason: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -328,3 +354,214 @@ def get_loader() -> SkillLoader:
 def list_skills() -> list[SkillMeta]:
     """Return the full skill L1 list using the default loader."""
     return get_loader().list_meta()
+
+
+# ---------------------------------------------------------------------------
+# Local skill create/install helpers
+# ---------------------------------------------------------------------------
+
+
+_IGNORED_INSTALL_NAMES = {
+    ".DS_Store",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+}
+
+
+def workspace_skill_root(root: Path | None = None) -> Path:
+    """Return the active workspace-local skill root.
+
+    Skills placed here are discovered before user-global and bundled skills.
+    """
+    return (root or Path.cwd()).resolve() / ".maglab" / "skills"
+
+
+def user_skill_root() -> Path:
+    """Return the user-global MagLab skill root."""
+    return Path.home() / ".local" / "share" / "maglab" / "skills"
+
+
+def normalize_skill_name(name: str) -> str:
+    """Convert a human label to a valid MagLab skill name.
+
+    The open skill frontmatter requires kebab-case. This helper keeps local
+    creation deterministic while still accepting labels such as "SR830 Driver".
+    """
+    slug = re.sub(r"[^a-z0-9]+", "-", name.strip().lower())
+    slug = re.sub(r"-+", "-", slug).strip("-")
+    if len(slug) > 64:
+        slug = slug[:64].rstrip("-")
+    if not slug or not _NAME_RE.match(slug):
+        raise SkillLoadError(f"Cannot derive a valid kebab-case skill name from {name!r}.")
+    return slug
+
+
+def create_skill_skeleton(
+    name: str,
+    *,
+    description: str = "Workspace skill for MagLab orchestration.",
+    root: Path | None = None,
+) -> SkillCreateResult:
+    """Create a safe local ``SKILL.md`` skeleton.
+
+    Existing skill directories are never overwritten. Re-running the helper with
+    the same name returns ``skipped=True`` so CLI slash commands can be
+    idempotent.
+    """
+    skill_name = normalize_skill_name(name)
+    if not description.strip():
+        raise SkillLoadError("Skill description must not be empty.")
+    if len(description) > 1024:
+        raise SkillLoadError("Skill description must be 1024 characters or fewer.")
+
+    target_root = workspace_skill_root(root)
+    skill_dir = target_root / skill_name
+    if skill_dir.exists():
+        return SkillCreateResult(
+            name=skill_name,
+            skill_dir=skill_dir,
+            files=_skill_files(skill_dir),
+            created=False,
+            skipped=True,
+            reason="skill already exists",
+        )
+
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    files = [
+        _write_skill_template(skill_dir, skill_name, description.strip()),
+        _touch_bundle_marker(skill_dir / "references"),
+        _touch_bundle_marker(skill_dir / "scripts"),
+        _touch_bundle_marker(skill_dir / "evals"),
+    ]
+    return SkillCreateResult(
+        name=skill_name,
+        skill_dir=skill_dir,
+        files=files,
+        created=True,
+    )
+
+
+def install_local_skill(
+    source: str | Path,
+    *,
+    root: Path | None = None,
+) -> SkillInstallResult:
+    """Install a local skill package into the workspace skill root.
+
+    ``source`` must be a directory containing a valid ``SKILL.md``. The package
+    is copied to ``.maglab/skills/<frontmatter-name>`` and becomes discoverable
+    by :class:`SkillLoader`. Existing registrations are skipped without
+    overwriting local files.
+    """
+    source_dir = Path(source).expanduser().resolve()
+    skill_md = source_dir / "SKILL.md"
+    if not source_dir.is_dir():
+        raise SkillLoadError(f"Skill source is not a directory: {source_dir}")
+    if not skill_md.is_file():
+        raise SkillLoadError(f"Skill source has no SKILL.md: {source_dir}")
+
+    meta = SkillLoader._load_meta(source_dir, skill_md)
+    target_root = workspace_skill_root(root)
+    skill_dir = target_root / meta.name
+
+    if skill_dir.exists():
+        return SkillInstallResult(
+            name=meta.name,
+            source_dir=source_dir,
+            skill_dir=skill_dir,
+            files=_skill_files(skill_dir),
+            installed=False,
+            skipped=True,
+            reason="skill already installed",
+        )
+
+    if source_dir == skill_dir.resolve():
+        return SkillInstallResult(
+            name=meta.name,
+            source_dir=source_dir,
+            skill_dir=skill_dir,
+            files=_skill_files(skill_dir),
+            installed=False,
+            skipped=True,
+            reason="source is already the workspace installation",
+        )
+
+    target_root.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source_dir, skill_dir, ignore=_ignore_install_names)
+    return SkillInstallResult(
+        name=meta.name,
+        source_dir=source_dir,
+        skill_dir=skill_dir,
+        files=_skill_files(skill_dir),
+        installed=True,
+    )
+
+
+def _write_skill_template(skill_dir: Path, name: str, description: str) -> Path:
+    frontmatter = yaml.safe_dump(
+        {
+            "name": name,
+            "description": description,
+            "license": "MIT",
+            "compatibility": {"maglab": "workspace-skill"},
+            "user-invocable": True,
+            "disable-model-invocation": False,
+            "allowed-tools": [],
+            "paths": [],
+        },
+        sort_keys=False,
+        allow_unicode=True,
+    )
+    body = f"""# {name}
+
+## Purpose
+
+{description}
+
+## When to Use
+
+- Use this skill when the current workspace needs this specialized research workflow.
+
+## Inputs
+
+- Workspace files, datasets, notes, or commands relevant to the workflow.
+
+## Workflow
+
+1. Inspect the relevant workspace files before acting.
+2. Route calculations, parsing, or file operations through deterministic MagLab tools.
+3. Report generated artifacts and provenance clearly.
+
+## Safety
+
+- Do not fabricate measurements, citations, parameters, or file contents.
+- Ask for missing experimental context before changing safety-critical assumptions.
+"""
+    path = skill_dir / "SKILL.md"
+    path.write_text(f"---\n{frontmatter}---\n\n{body}", encoding="utf-8")
+    return path
+
+
+def _touch_bundle_marker(directory: Path) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    marker = directory / ".gitkeep"
+    marker.write_text("", encoding="utf-8")
+    return marker
+
+
+def _skill_files(base: Path) -> list[Path]:
+    if not base.exists():
+        return []
+    return sorted(path for path in base.rglob("*") if path.is_file())
+
+
+def _ignore_install_names(_directory: str, names: list[str]) -> set[str]:
+    return {
+        name
+        for name in names
+        if name in _IGNORED_INSTALL_NAMES or name.endswith(".pyc") or name.endswith(".pyo")
+    }

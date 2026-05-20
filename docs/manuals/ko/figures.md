@@ -46,6 +46,48 @@ maglab figure primitives list --search skyrmion
 maglab figure primitives show skyrmion-bloch
 ```
 
+## Primitive ingestion
+
+기본 catalog에 없는 schematic이 필요하면 manuscript에 임시 artwork를 붙이지
+말고, 먼저 로컬 SVG 또는 JSON descriptor를 workspace review package로
+ingest합니다. 결정론적 ingestion core는 다음 파일을 만듭니다.
+
+- `.maglab/figure/primitives/catalog/<name>/PRIMITIVE.md`
+- `.maglab/figure/primitives/catalog/<name>/primitive.json`
+- `.maglab/figure/primitives/catalog/<name>/preview.svg`
+- `.maglab/figure/primitives/catalog/<name>/quality.json`
+- `.maglab/figure/primitives/catalog/<name>/REVIEW.md`
+
+CLI wrapper가 연결되기 전에는 Python API로 사용할 수 있습니다.
+
+```python
+from maglab.figure.primitives import ingest_primitive
+
+result = ingest_primitive(
+    "schematics/sot-loop.svg",
+    metadata={
+        "category": "concept/process",
+        "tags": ["SOT", "torque"],
+        "description": "Spin-orbit torque loop schematic.",
+        "physics_convention": "Current along x; spin accumulation along y.",
+        "references": ["doi:10.1038/nnano.2013.243"],
+    },
+)
+print(result.status)
+print(result.review_md)
+```
+
+JSON descriptor는 `svg` 또는 `svg_path`와 함께 `name`, `category`, `tags`,
+`parameters`, `physics_convention`, `references`, `journal_styles` 같은
+metadata를 줄 수 있습니다. Ingestion은 descriptor code를 실행하지 않고,
+vector material copy, metadata normalization, quality check 기록만 수행합니다.
+검사 항목에는 SVG parse, deterministic dimension, embedded raster, external
+link, parameterization, reference, physics convention completeness가 포함됩니다.
+
+`ready_for_promotion`은 자동으로 내장 catalog에 설치된다는 뜻이 아니라 review가
+통과되어 승격 가능하다는 뜻입니다. 실제 승격에는 `primitive.py` 구현과 test가
+필요합니다.
+
 ## Journal style
 
 APS, Nature, IEEE, Elsevier 같은 journal profile을 지원합니다. 다만 최종 font

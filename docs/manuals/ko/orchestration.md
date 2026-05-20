@@ -65,6 +65,22 @@ search scouting, citation auditing, paper review, physics validation, result
 analysis, experiment management, hypothesis generation, communications writing
 같은 bounded role을 나타냅니다.
 
+Workspace skill은 `.maglab/skills/<skill-name>/` 아래에 두며, user-global
+skill과 번들 skill보다 먼저 발견됩니다. 현재 로컬 helper 계층은 deterministic
+offline 동작만 제공합니다.
+
+- `maglab skill create <name> --description "..."`
+  명령은 load 가능한 `SKILL.md` package와 `references/`, `scripts/`,
+  `evals/` 디렉터리를 만듭니다.
+- `maglab skill install <path>`는 기존 로컬 skill package의 frontmatter를
+  검증한 뒤 `.maglab/skills`로 복사합니다.
+- 두 helper 모두 idempotent입니다. 같은 skill이 이미 있으면 local edit를
+  덮어쓰지 않고 skip합니다.
+
+REPL에서도 같은 표면을 `/skill create`, `/skill install`, `/skill list`로
+사용할 수 있습니다. Instrument 전용 skill은 `maglab instr skillgen`을
+사용하세요.
+
 ## Ralph loop
 
 Ralph는 autonomous research-loop engine입니다. 무제한 자동 결론 생성이 아니라

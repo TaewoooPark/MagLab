@@ -66,6 +66,21 @@ such as local corpus checking, search scouting, citation auditing, paper review,
 physics validation, result analysis, experiment management, hypothesis
 generation, and communications writing.
 
+Workspace skills live under `.maglab/skills/<skill-name>/` and are discovered
+before user-global and bundled skills. The local helper layer is deterministic
+and offline:
+
+- `maglab skill create <name> --description "..."`
+  creates a loadable `SKILL.md` package with `references/`, `scripts/`, and
+  `evals/` directories.
+- `maglab skill install <path>` copies an existing local skill package into
+  `.maglab/skills` after validating its frontmatter.
+- Both helpers are idempotent. If the same skill is already present, they skip
+  without overwriting local edits.
+
+The same surfaces are available in the REPL as `/skill create`, `/skill install`,
+and `/skill list`. Use `maglab instr skillgen` for instrument-specific skills.
+
 ## Ralph Loop
 
 Ralph is the autonomous research-loop engine. Use it for bounded exploration,

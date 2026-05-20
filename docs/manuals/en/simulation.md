@@ -37,6 +37,12 @@ Run `maglab sim doctor` before spending real solver, GPU, or cluster time. It
 checks MagLab's Python simulation packages, local solver binaries, GPU
 visibility, SSH/HPC utilities, and the currently recommended backend.
 
+The doctor prints both a human-readable checklist and a JSON contract. The
+JSON includes `backend_paths`, where each path has `status`, `next_command`,
+`setup_commands`, and notes. This is designed for terminal setup flows: MagLab
+can tell you what to run next without opening SSH sessions or guessing remote
+module state.
+
 Use these paths depending on where the compute will run:
 
 - No GPU or no solver installed: start with `maglab sim pipeline --backend mock`
@@ -48,6 +54,43 @@ Use these paths depending on where the compute will run:
 - SSH GPU or HPC: pass `--host` and `--user`; add `--probe-ssh` only after SSH
   keys work from the terminal. The default command does not open a remote
   connection.
+
+### Setup flows
+
+**No GPU / fresh laptop**
+
+```sh
+maglab sim doctor --backend auto
+maglab sim pipeline --structure bcc_fe --scales dft,atomistic,micro,device --backend mock
+```
+
+**Local CPU fallback**
+
+```sh
+pipx inject maglab "maglab[sim]"
+maglab sim doctor --backend cpu
+maglab sim micro --material Permalloy --nx 64 --ny 64 --nz 1 --cell-nm 4
+```
+
+**Local NVIDIA GPU**
+
+```sh
+mumax3 -h
+nvidia-smi
+maglab sim doctor --backend local-gpu
+```
+
+**SSH GPU / HPC**
+
+```sh
+maglab sim doctor --backend ssh-gpu --host gpu.cluster.edu --user alice
+ssh alice@gpu.cluster.edu
+maglab sim doctor --backend ssh-gpu --host gpu.cluster.edu --user alice --probe-ssh
+```
+
+For HPC login nodes, use `--backend ssh-hpc`. MagLab only probes SSH when
+`--probe-ssh` is present, and it does not infer remote CUDA, MuMax3, or Slurm
+module availability from your local machine.
 
 ## Workflow Patterns
 

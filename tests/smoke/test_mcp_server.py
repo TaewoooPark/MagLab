@@ -14,6 +14,21 @@ import pytest
 
 from maglab.mcp_server import create_server
 
+
+def _resource_text(result) -> str:
+    """Extract text from FastMCP ResourceResult across supported versions."""
+    contents = getattr(result, "contents", result)
+    if isinstance(contents, list):
+        for item in contents:
+            text = getattr(item, "content", None) or getattr(item, "text", None)
+            if text:
+                return str(text)
+    text = getattr(contents, "content", None) or getattr(contents, "text", None)
+    if text:
+        return str(text)
+    return str(result)
+
+
 # ---------------------------------------------------------------------------
 # Server tool registration check
 # ---------------------------------------------------------------------------
@@ -202,6 +217,63 @@ def test_manuals_resource_registered(mcp_server) -> None:
     resources = asyncio.run(mcp_server.list_resources())
     uris = {str(r.uri) for r in resources}
     assert any("manuals" in u for u in uris), f"manuals:// not registered\n{uris}"
+
+
+@pytest.mark.smoke
+def test_manual_and_primitive_resource_templates_registered(mcp_server) -> None:
+    """Manual detail and primitive detail resource templates must be registered."""
+    templates = asyncio.run(mcp_server.list_resource_templates())
+    uri_templates = {str(t.uri_template) for t in templates}
+    assert "manuals://{lang}" in uri_templates
+    assert "manuals://{lang}/{topic}" in uri_templates
+    assert "primitives://{name}" in uri_templates
+
+
+@pytest.mark.smoke
+def test_installed_manuals_resource_content(mcp_server) -> None:
+    """manuals:// should expose installed bilingual manual metadata."""
+    import json
+
+    content = asyncio.run(mcp_server.read_resource("manuals://"))
+    parsed = json.loads(_resource_text(content))
+    assert parsed["installed"]["ok"] is True
+    assert {"en", "ko"} <= set(parsed["installed"]["languages"])
+    assert any(item["topic"] == "figures" for item in parsed["installed"]["manuals"])
+
+
+@pytest.mark.smoke
+def test_manual_detail_resource_content(mcp_server) -> None:
+    """manuals://{lang}/{topic} should return installed Markdown content."""
+    content = asyncio.run(mcp_server.read_resource("manuals://en/figures"))
+    text = _resource_text(content)
+    assert text.startswith("# Figures")
+    assert "reproducible research artifact" in text
+
+
+@pytest.mark.smoke
+def test_primitives_resource_content(mcp_server) -> None:
+    """primitives:// should expose the installed primitive catalog index."""
+    import json
+
+    content = asyncio.run(mcp_server.read_resource("primitives://"))
+    parsed = json.loads(_resource_text(content))
+    assert parsed["ok"] is True
+    assert parsed["count"] >= 10
+    assert any(item["name"] == "hall-bar" for item in parsed["primitives"])
+
+
+@pytest.mark.smoke
+def test_primitive_detail_resource_content(mcp_server) -> None:
+    """primitives://{name} should return full primitive metadata."""
+    import json
+
+    content = asyncio.run(mcp_server.read_resource("primitives://hall-bar"))
+    parsed = json.loads(_resource_text(content))
+    assert parsed["ok"] is True
+    assert parsed["name"] == "hall-bar"
+    assert parsed["category"] == "device geometry"
+    assert parsed["parameters"]
+    assert "hall-bar" in parsed["catalog_doc"]
 
 
 @pytest.mark.smoke

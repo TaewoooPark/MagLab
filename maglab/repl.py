@@ -404,6 +404,25 @@ def _print_turn_separator(con: Console) -> None:
         print(f"\n{_TURN_SEPARATOR}\n")
 
 
+def _workspace_startup_note(max_entries: int = 12) -> str:
+    """Return a short deterministic note about the active workspace."""
+    try:
+        from maglab.workspace import workspace_context
+
+        context = workspace_context(max_entries=max_entries, max_maglab_chars=500)
+    except Exception as exc:
+        return f"[dim]Workspace context unavailable: {exc}[/]"
+
+    marker = "MAGLAB.md loaded" if context.maglab_md else "MAGLAB.md missing"
+    entry_count = len(context.entries)
+    truncated = "+" if context.truncated else ""
+    key_hint = ", ".join(context.key_paths[:4]) if context.key_paths else "no common project files"
+    return (
+        f"[dim]Workspace context:[/] {context.root} · {marker} · "
+        f"{entry_count}{truncated} visible entries · {key_hint}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Response generation
 # ---------------------------------------------------------------------------
@@ -421,7 +440,9 @@ def _get_response(user_msg: str, orchestrator: object | None) -> str:
                 return str(respond(user_msg))
         except Exception as exc:
             return f"[Orchestrator error] {exc}"
+    workspace_note = _workspace_startup_note(max_entries=8)
     return (
+        f"{workspace_note}\n"
         "[dim]No LLM backend is connected. Use `/connect codex`, `/connect <provider>`, "
         "`/connect api <provider>`, "
         "or `/connect ollama`.[/]"
@@ -493,6 +514,7 @@ def run_repl(config: Config) -> None:
     # is None, so the try/finally is always safe.
     try:
         _session_panel(config, backend)
+        con.print(_workspace_startup_note())
 
         # --- 3. Spin-lattice rule separator ---
         try:
