@@ -327,8 +327,10 @@ def run_doctor(
 
     backend = _backend_snapshot(cfg, smoke=smoke)
     if not backend["ok"]:
+        backend_action = str(backend.get("action") or "").strip()
         recommendations.append(
-            "Connect an LLM backend with `maglab auth codex`, `maglab auth openai`, "
+            backend_action
+            or "Connect an LLM backend with `maglab auth codex`, `maglab auth openai`, "
             "or `/connect codex` inside the REPL."
         )
 

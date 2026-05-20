@@ -84,12 +84,19 @@ def test_llm_backend(config: Config) -> BackendStatus:
             max_tokens=20,
         )
     except Exception as exc:  # noqa: BLE001
+        detail = str(exc)
+        action = "Check CLI login/API key/Ollama server, then run `maglab auth test` again."
+        if "usage limit" in detail.lower() or "quota" in detail.lower():
+            action = (
+                "Wait for the provider quota reset, buy more credits, or switch backend with "
+                "`/connect openai`, `/connect anthropic`, or `/connect ollama`."
+            )
         return BackendStatus(
             False,
             mode,
             label,
-            str(exc),
-            "Check CLI login/API key/Ollama server, then run `maglab auth test` again.",
+            detail,
+            action,
         )
     content = (getattr(response, "content", None) or "").strip()
     normalized = content.strip("\"'").strip()

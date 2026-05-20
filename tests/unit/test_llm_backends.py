@@ -711,6 +711,33 @@ class TestDelegatedCLIBackend:
         ):
             backend.complete(messages)
 
+    def test_codex_nonzero_exit_prefers_jsonl_error_message(self) -> None:
+        """Codex non-zero exits should surface JSONL errors instead of generic stderr."""
+        from maglab.llm.backends.delegated_cli import DelegatedCLIBackend
+
+        stdout = "\n".join(
+            [
+                '{"type":"thread.started","thread_id":"thread_1"}',
+                '{"type":"turn.started"}',
+                '{"type":"error","message":"usage limit reached"}',
+                '{"type":"turn.failed","error":{"message":"usage limit reached"}}',
+            ]
+        )
+        backend = DelegatedCLIBackend(cli="codex", model="")
+        messages = [Message(role=Role.USER, content="ping")]
+        mock_proc = self._make_mock_proc(
+            stdout,
+            returncode=1,
+            stderr="Reading additional input from stdin...",
+        )
+
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/codex"),
+            patch("subprocess.run", return_value=mock_proc),
+            pytest.raises(RuntimeError, match="usage limit reached"),
+        ):
+            backend.complete(messages)
+
     def test_codex_cli_omits_model_flag_when_default_model_blank(self) -> None:
         """Codex delegated mode can rely on the user's authenticated CLI default model."""
         from maglab.llm.backends.delegated_cli import DelegatedCLIBackend

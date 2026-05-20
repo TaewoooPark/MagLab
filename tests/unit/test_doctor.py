@@ -88,3 +88,30 @@ def test_doctor_model_connection_is_partial_without_live_smoke(
     ux = {item["key"]: item for item in report["ux_contract"]}
     assert ux["models"]["status"] == "partial"
     assert "smoke not run" in ux["models"]["evidence"]
+
+
+def test_doctor_recommendations_use_backend_action_for_failed_smoke(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    def _failed_smoke(config):
+        return type(
+            "Status",
+            (),
+            {
+                "ok": False,
+                "mode": "delegated_cli",
+                "label": "codex:gpt-5.5 · delegated CLI",
+                "detail": "usage limit reached",
+                "action": "Wait for quota reset or switch backend with `/connect openai`.",
+            },
+        )()
+
+    monkeypatch.setattr("maglab.llm.factory.test_llm_backend", _failed_smoke)
+
+    report = run_doctor(feature="llm", include_sim=False, smoke=True)
+
+    assert any("quota reset" in item for item in report["recommendations"])
+    assert not any("maglab auth codex" in item for item in report["recommendations"])

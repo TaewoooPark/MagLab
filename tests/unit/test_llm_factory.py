@@ -109,3 +109,21 @@ def test_live_backend_smoke_accepts_plain_sentinel(monkeypatch) -> None:
     status = test_llm_backend(cfg)
 
     assert status.ok is True
+
+
+def test_live_backend_smoke_surfaces_quota_action(monkeypatch) -> None:
+    from maglab.llm.factory import test_llm_backend
+
+    class QuotaBackend:
+        def complete(self, *args, **kwargs):
+            raise RuntimeError("usage limit reached")
+
+    cfg = Config.model_validate({"backend": {"mode": "delegated_cli"}})
+    monkeypatch.setattr("maglab.llm.factory.create_llm_backend", lambda config: QuotaBackend())
+
+    status = test_llm_backend(cfg)
+
+    assert status.ok is False
+    assert "usage limit reached" in status.detail
+    assert "quota reset" in status.action
+    assert "/connect openai" in status.action

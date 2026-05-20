@@ -368,7 +368,16 @@ class DelegatedCLIBackend(LLMBackend):
 
         if proc.returncode != 0:
             stderr = proc.stderr.strip()
-            raise RuntimeError(f"CLI '{self.cli}' exit code {proc.returncode}: {stderr[:200]}")
+            stdout = proc.stdout.strip()
+            if self.cli == "codex" and stdout:
+                try:
+                    self._parse_codex_jsonl_stdout(stdout, model_str)
+                except RuntimeError as exc:
+                    raise RuntimeError(
+                        f"CLI '{self.cli}' exit code {proc.returncode}: {exc}"
+                    ) from exc
+            detail = stderr or stdout or "no error output"
+            raise RuntimeError(f"CLI '{self.cli}' exit code {proc.returncode}: {detail[:200]}")
 
         result = self._parse_stdout(proc.stdout, model_str)
         result.usage.latency_sec = time.monotonic() - t0
