@@ -284,6 +284,112 @@ class TestOrchestratorRespond:
         after = orch_with_backend.budget.session_summary().llm_calls
         assert after > before
 
+    def test_backend_error_is_not_wrapped_by_honesty_gate(
+        self, budget: BudgetTracker, checkpoint: CheckpointStore
+    ) -> None:
+        """Internal backend failures should be shown plainly, not as scientific claims."""
+        backend = MagicMock()
+        backend.complete.side_effect = RuntimeError("CLI exit code 1")
+        orch = Orchestrator(
+            backend=backend,
+            budget_tracker=budget,
+            checkpoint_store=checkpoint,
+        )
+
+        response = orch.respond("test")
+
+        assert response.startswith("[Error] Backend call failed:")
+        assert "HonestyGate" not in response
+
+    def test_registered_tools_are_passed_to_backend(
+        self, budget: BudgetTracker, checkpoint: CheckpointStore
+    ) -> None:
+        """The REPL tool loop must expose deterministic MagLab tools to capable backends."""
+        captured_tools: list[dict] | None = None
+
+        class CapturingBackend:
+            def complete(
+                self,
+                messages,
+                *,
+                model=None,
+                tools=None,
+                temperature=None,
+                max_tokens=4096,
+                stop=None,
+                **kwargs,
+            ):
+                nonlocal captured_tools
+                captured_tools = tools
+                return LLMResponse(content="Done.", tool_calls=[], usage=UsageStats())
+
+        orch = Orchestrator(
+            backend=CapturingBackend(),
+            budget_tracker=budget,
+            checkpoint_store=checkpoint,
+        )
+        orch.respond("What files are in this workspace?")
+
+        assert captured_tools is not None
+        names = {tool["function"]["name"] for tool in captured_tools}
+        assert "workspace_tree" in names
+        assert "physics_compute" in names
+
+    def test_registered_tool_call_executes_and_returns_tool_message(
+        self, budget: BudgetTracker, checkpoint: CheckpointStore
+    ) -> None:
+        """A backend-requested registered tool call should execute through the tool registry."""
+        from maglab.llm.base import Message, Role
+        from maglab.llm.base import ToolCall as LLMToolCall
+
+        captured_messages: list[list[Message]] = []
+
+        class ToolCallingBackend:
+            call_count = 0
+
+            def complete(
+                self,
+                messages,
+                *,
+                model=None,
+                tools=None,
+                temperature=None,
+                max_tokens=4096,
+                stop=None,
+                **kwargs,
+            ):
+                ToolCallingBackend.call_count += 1
+                captured_messages.append(list(messages))
+                if ToolCallingBackend.call_count == 1:
+                    return LLMResponse(
+                        content=None,
+                        tool_calls=[
+                            LLMToolCall(
+                                id="tool-1",
+                                name="physics_compute",
+                                arguments={
+                                    "formula": "exchange_length",
+                                    "params": {"A": 1.3e-11, "Ms": 8.0e5},
+                                },
+                            )
+                        ],
+                        usage=UsageStats(),
+                    )
+                return LLMResponse(content="Done.", tool_calls=[], usage=UsageStats())
+
+        orch = Orchestrator(
+            backend=ToolCallingBackend(),
+            budget_tracker=budget,
+            checkpoint_store=checkpoint,
+        )
+        response = orch.respond("Compute exchange length.")
+
+        assert response == "Done."
+        tool_messages = [m for m in captured_messages[1] if m.role == Role.TOOL]
+        assert len(tool_messages) == 1
+        assert tool_messages[0].tool_call_id == "tool-1"
+        assert "exchange_length" in str(tool_messages[0].content)
+
 
 # ---------------------------------------------------------------------------
 # Orchestrator.run() — autonomous research loop

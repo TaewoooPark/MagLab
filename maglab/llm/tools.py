@@ -11,8 +11,11 @@ from __future__ import annotations
 import functools
 import inspect
 import logging
+import re
 from collections.abc import Callable
-from typing import Any, get_type_hints
+from pathlib import Path
+from types import NoneType, UnionType
+from typing import Any, Union, get_args, get_origin, get_type_hints
 
 from pydantic import BaseModel, Field
 
@@ -173,32 +176,11 @@ def _build_json_schema(fn: Callable[..., Any]) -> dict[str, Any]:
     properties: dict[str, Any] = {}
     required: list[str] = []
 
-    _type_map: dict[type, str] = {
-        str: "string",
-        int: "integer",
-        float: "number",
-        bool: "boolean",
-        list: "array",
-        dict: "object",
-    }
-
     for param_name, param in sig.parameters.items():
         if param_name in ("self", "cls"):
             continue
         py_type = hints.get(param_name, Any)
-        # Unwrap Optional[X]
-        origin = getattr(py_type, "__origin__", None)
-        args = getattr(py_type, "__args__", None)
-        if origin is type(None):
-            json_type = "string"
-        elif origin is not None and args:
-            # Union[X, None] pattern
-            non_none = [a for a in args if a is not type(None)]
-            json_type = _type_map.get(non_none[0], "string") if non_none else "string"
-        else:
-            json_type = _type_map.get(py_type, "string")
-
-        prop: dict[str, Any] = {"type": json_type}
+        prop = _schema_for_type(py_type)
 
         # Parameters without a default value are required
         if param.default is inspect.Parameter.empty:
@@ -211,6 +193,45 @@ def _build_json_schema(fn: Callable[..., Any]) -> dict[str, Any]:
         "properties": properties,
         "required": required,
     }
+
+
+def _schema_for_type(py_type: Any) -> dict[str, Any]:
+    """Return a compact JSON Schema fragment for a Python type annotation."""
+    if py_type is Any:
+        return {}
+
+    origin = get_origin(py_type)
+    args = get_args(py_type)
+
+    if origin in (UnionType, Union) or isinstance(py_type, UnionType):
+        non_none = [arg for arg in args if arg is not NoneType]
+        if len(non_none) == 1:
+            schema = _schema_for_type(non_none[0])
+            if len(non_none) != len(args):
+                schema = dict(schema)
+                schema["nullable"] = True
+            return schema
+        return {}
+
+    if origin in (list, tuple, set, frozenset):
+        item_schema = _schema_for_type(args[0]) if args else {}
+        return {"type": "array", "items": item_schema}
+
+    if origin is dict:
+        return {"type": "object"}
+
+    type_map: dict[Any, str] = {
+        str: "string",
+        int: "integer",
+        float: "number",
+        bool: "boolean",
+        list: "array",
+        dict: "object",
+    }
+    json_type = type_map.get(py_type)
+    if json_type:
+        return {"type": json_type}
+    return {"type": "string"}
 
 
 # ---------------------------------------------------------------------------
@@ -264,3 +285,298 @@ def get_tool_definition(name: str) -> ToolDefinition | None:
     """Look up a tool definition by name."""
     entry = _REGISTRY.get(name)
     return entry[1] if entry else None
+
+
+# ---------------------------------------------------------------------------
+# Bundled deterministic MagLab tools
+# ---------------------------------------------------------------------------
+
+
+def _safe_workspace_path(path: str) -> tuple[Path, Path]:
+    """Resolve a user path inside the active workspace.
+
+    Returns ``(root, resolved_path)`` and raises ``ValueError`` when the target
+    escapes the workspace. Tool calls should never read or write arbitrary
+    absolute paths unless the user explicitly uses a CLI command outside the
+    model tool loop.
+    """
+    from maglab.workspace import workspace_root
+
+    root = workspace_root()
+    candidate = Path(path).expanduser()
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    resolved = candidate.resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f"Path escapes active workspace: {path}") from exc
+    return root, resolved
+
+
+def _is_ignored_workspace_path(path: Path, root: Path) -> bool:
+    """Return True when a workspace path is intentionally hidden from LLM tools."""
+    from maglab.workspace import _IGNORED_NAMES
+
+    rel = path.relative_to(root)
+    return any(part in _IGNORED_NAMES for part in rel.parts)
+
+
+@tool(
+    read_only=True,
+    description="List visible files in the active MagLab workspace.",
+)
+def workspace_tree(max_entries: int = 80) -> dict[str, Any]:
+    """List visible files in the active MagLab workspace."""
+    from maglab.workspace import iter_workspace_entries, workspace_root
+
+    root = workspace_root()
+    return {
+        "ok": True,
+        "root": str(root),
+        "entries": iter_workspace_entries(root, max_entries=max_entries),
+    }
+
+
+@tool(
+    read_only=True,
+    description="Read a UTF-8 text file from the active MagLab workspace.",
+)
+def workspace_read_file(path: str, max_chars: int = 20_000) -> dict[str, Any]:
+    """Read a UTF-8 text file from the active MagLab workspace."""
+    try:
+        root, target = _safe_workspace_path(path)
+    except ValueError as exc:
+        return {"ok": False, "path": path, "error": str(exc)}
+    if _is_ignored_workspace_path(target, root):
+        return {"ok": False, "path": path, "error": "Path is ignored by MagLab workspace policy."}
+    if not target.exists():
+        return {"ok": False, "path": path, "error": "File not found."}
+    if not target.is_file():
+        return {"ok": False, "path": path, "error": "Path is not a file."}
+    text = target.read_text(encoding="utf-8", errors="replace")
+    truncated = len(text) > max_chars
+    if truncated:
+        text = text[:max_chars]
+    return {
+        "ok": True,
+        "path": target.relative_to(root).as_posix(),
+        "content": text,
+        "truncated": truncated,
+        "chars": len(text),
+    }
+
+
+@tool(
+    read_only=True,
+    description="Regex-search text files in the active MagLab workspace.",
+)
+def workspace_search(
+    pattern: str,
+    glob: str = "*",
+    max_matches: int = 50,
+    max_file_chars: int = 200_000,
+) -> dict[str, Any]:
+    """Regex-search text files in the active MagLab workspace."""
+    from maglab.workspace import workspace_root
+
+    root = workspace_root()
+    try:
+        regex = re.compile(pattern)
+    except re.error as exc:
+        return {"ok": False, "pattern": pattern, "error": f"Invalid regex: {exc}"}
+
+    matches: list[dict[str, Any]] = []
+    for target in sorted(root.rglob(glob), key=lambda p: p.relative_to(root).as_posix()):
+        if len(matches) >= max_matches:
+            break
+        if not target.is_file() or _is_ignored_workspace_path(target, root):
+            continue
+        try:
+            text = target.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        if len(text) > max_file_chars:
+            text = text[:max_file_chars]
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            if regex.search(line):
+                matches.append(
+                    {
+                        "path": target.relative_to(root).as_posix(),
+                        "line": lineno,
+                        "text": line[:500],
+                    }
+                )
+                if len(matches) >= max_matches:
+                    break
+
+    return {
+        "ok": True,
+        "root": str(root),
+        "pattern": pattern,
+        "glob": glob,
+        "matches": matches,
+        "truncated": len(matches) >= max_matches,
+    }
+
+
+@tool(read_only=True, description="Compute a deterministic magnetic physics formula.")
+def physics_compute(formula: str, params: dict[str, float]) -> dict[str, Any]:
+    """Compute a deterministic magnetic physics formula."""
+    from maglab.physics import formulas as _f
+
+    fn = getattr(_f, formula, None)
+    if fn is None:
+        available = [n for n in dir(_f) if not n.startswith("_") and callable(getattr(_f, n))]
+        return {
+            "ok": False,
+            "formula": formula,
+            "error": f"Unknown formula: {formula}",
+            "available": available[:30],
+        }
+    try:
+        result = fn(**params)
+    except Exception as exc:
+        return {"ok": False, "formula": formula, "params": params, "error": str(exc)}
+    if hasattr(result, "model_dump"):
+        value: Any = result.model_dump()
+    elif hasattr(result, "value"):
+        value = {"value": result.value, "units": getattr(result, "units", "")}
+    else:
+        value = result
+    return {"ok": True, "formula": formula, "params": params, "result": value}
+
+
+@tool(read_only=True, description="Check physical parameters with the deterministic oracle.")
+def physics_check(params: dict[str, float]) -> dict[str, Any]:
+    """Check physical parameters with the deterministic oracle."""
+    from maglab.physics.oracle import check
+
+    result = check(params)
+    return {
+        "ok": result.ok,
+        "reason": result.reason,
+        "param": result.param,
+        "value": result.value,
+        "checks": list(result.checks),
+    }
+
+
+@tool(read_only=True, description="Convert a magnetic quantity between supported units.")
+def convert_units(value: float, from_unit: str, to_unit: str) -> dict[str, Any]:
+    """Convert a magnetic quantity between supported units."""
+    from maglab.physics import units as _u
+
+    fn_name = f"{from_unit}_to_{to_unit}"
+    fn = getattr(_u, fn_name, None)
+    if fn is None:
+        available = [n for n in dir(_u) if "_to_" in n and not n.startswith("_")]
+        return {
+            "ok": False,
+            "error": f"Conversion function not found: {fn_name}",
+            "available": available[:30],
+        }
+    try:
+        result = fn(value)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    return {"ok": True, "input": value, "from": from_unit, "to": to_unit, "result": result}
+
+
+@tool(read_only=True, description="Look up a magnetic material by MagLab material ID.")
+def material_lookup(material_id: str) -> dict[str, Any] | None:
+    """Look up a magnetic material by MagLab material ID."""
+    from maglab.physics.materials import lookup
+
+    mat = lookup(material_id)
+    return mat.model_dump() if mat is not None else None
+
+
+@tool(read_only=True, description="Search the bundled magnetic material database.")
+def material_search(query: str) -> list[dict[str, Any]]:
+    """Search the bundled magnetic material database."""
+    from maglab.physics.materials import search
+
+    return [m.model_dump() for m in search(query)]
+
+
+@tool(read_only=True, description="Statically validate a MagLab MultiScaleSpec dictionary.")
+def sim_validate(spec_dict: dict[str, Any]) -> dict[str, Any]:
+    """Statically validate a MagLab MultiScaleSpec dictionary."""
+    from maglab.sim.spec import MultiScaleSpec
+    from maglab.sim.validate import ValidationError, validate
+
+    try:
+        spec = MultiScaleSpec.model_validate(spec_dict)
+    except Exception as exc:
+        return {"ok": False, "violations": None, "error": f"spec parse error: {exc}"}
+    try:
+        validate(spec)
+        return {"ok": True, "violations": [], "error": None}
+    except ValidationError as exc:
+        return {
+            "ok": False,
+            "violations": [
+                {
+                    "rule": v.rule,
+                    "message": v.message,
+                    "actual": v.actual,
+                    "recommended": v.recommended,
+                    "scale_label": v.scale_label,
+                }
+                for v in exc.violations
+            ],
+            "error": str(exc),
+        }
+
+
+@tool(
+    read_only=False,
+    destructive=False,
+    description="Render a MagLab FigureSpec dictionary to a PDF/SVG/EPS file in the workspace.",
+)
+def figure_render(
+    spec_dict: dict[str, Any],
+    output_path: str,
+    fmt: str = "pdf",
+    datapoints: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Render a MagLab FigureSpec dictionary to a PDF/SVG/EPS file in the workspace."""
+    from maglab.figure.compose import FigureComposer
+    from maglab.figure.export import FigureExporter
+    from maglab.figure.spec import FigureSpec
+    from maglab.provenance.datapoint import DataPoint
+
+    try:
+        root, target = _safe_workspace_path(output_path)
+    except ValueError as exc:
+        return {"ok": False, "path": output_path, "error": str(exc)}
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        spec = FigureSpec.model_validate(spec_dict)
+    except Exception as exc:
+        return {"ok": False, "path": output_path, "error": f"FigureSpec parse error: {exc}"}
+
+    ledger: dict[str, DataPoint] = {}
+    if datapoints:
+        for dp_id, dp_dict in datapoints.items():
+            try:
+                ledger[dp_id] = DataPoint.model_validate(dp_dict)
+            except Exception:
+                continue
+
+    try:
+        fig = FigureComposer().compose(spec, ledger)
+        saved = FigureExporter().export(fig, str(target), fmt=fmt)  # type: ignore[arg-type]
+    except Exception as exc:
+        return {"ok": False, "path": output_path, "error": str(exc)}
+    finally:
+        try:
+            import matplotlib.pyplot as plt
+
+            plt.close("all")
+        except Exception:
+            pass
+
+    return {"ok": True, "path": Path(saved).relative_to(root).as_posix(), "error": None}

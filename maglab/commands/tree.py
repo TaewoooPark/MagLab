@@ -93,6 +93,8 @@ _BASE_SLASH_COMMANDS: CommandTree = {
     "/config": {"show": None, "path": None, "reset": None, "restore": None},
     "/version": None,
     "/info": None,
+    "/ask": None,
+    "/run": None,
     "/sim": {
         "micro": None,
         "validate": None,
@@ -185,6 +187,8 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
             HelpEntry("/workspace init", "create a local MAGLAB.md workspace marker"),
             HelpEntry("/workspace tree", "show the files MagLab sees in this folder"),
             HelpEntry("/setup <feature>", "show package and external-tool setup guidance"),
+            HelpEntry("/ask <query>", "run one non-interactive MagLab turn"),
+            HelpEntry("/run <goal>", "start the research-loop tree search"),
         ),
     ),
     HelpEntry(

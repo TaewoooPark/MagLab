@@ -194,7 +194,11 @@ def _run_cli_slash(parts: list[str], con: Console) -> None:
 
     from maglab.cli import app
 
-    args = [parts[0].removeprefix("/"), *parts[1:]]
+    root = parts[0].removeprefix("/")
+    if root in {"ask", "run"} and len(parts) > 2:
+        args = [root, " ".join(parts[1:])]
+    else:
+        args = [root, *parts[1:]]
     command = get_command(app)
     try:
         command.main(args=args, prog_name="maglab", standalone_mode=False)

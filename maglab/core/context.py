@@ -174,6 +174,10 @@ Current mode: {autonomy_mode}
 
 {workspace_context}
 
+## Available Deterministic Tools
+
+{tool_context}
+
 ## Additional Guidelines
 
 - Trust only the results returned by deterministic tool calls.
@@ -209,10 +213,21 @@ def build_system_prompt(
         provider_context = prompt_for_config(cfg)
     except Exception:
         provider_context = ""
+    try:
+        from maglab.llm.tools import get_registered_tools
+
+        tools = get_registered_tools()
+        if tools:
+            tool_context = "\n".join(f"- {tool.name}: {tool.description}" for tool in tools)
+        else:
+            tool_context = "No MagLab LLM tools are currently registered."
+    except Exception:
+        tool_context = "MagLab LLM tool list unavailable."
     prompt = _SYSTEM_PROMPT_TEMPLATE.format(
         autonomy_mode=cfg.autonomy.mode,
         maglab_md=maglab_md,
         workspace_context=workspace_context,
+        tool_context=tool_context,
     )
     if provider_context:
         prompt += f"\n## Runtime Provider Profile\n\n{provider_context}\n"

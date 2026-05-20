@@ -11,6 +11,7 @@ Running with no arguments → ``maglab.repl.run_repl(config)`` (interactive REPL
 from __future__ import annotations
 
 import sys
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -18,7 +19,7 @@ from rich.table import Table
 
 from maglab import __version__
 from maglab.commands import p2_analysis, p4_ralph, p5_literature, p6_authoring
-from maglab.config import load_config
+from maglab.config import Config, load_config
 
 # ---------------------------------------------------------------------------
 # App & console
@@ -32,6 +33,38 @@ app = typer.Typer(
     invoke_without_command=True,
 )
 console = Console()
+
+
+def _build_orchestrator(config: Config) -> Any:
+    """Create an orchestrator for one CLI invocation."""
+    from maglab.core.orchestrator import Orchestrator
+    from maglab.llm.base import ModelRouter
+    from maglab.llm.factory import create_llm_backend
+
+    backend = create_llm_backend(config)
+    model_router = (
+        ModelRouter(config.routing.model_dump()) if config.backend.mode == "api" else None
+    )
+    try:
+        return Orchestrator(
+            config=config,
+            backend=backend,
+            model_router=model_router,
+        )
+    except TypeError:
+        return Orchestrator(config=config, backend=backend)
+
+
+def _print_prompt_response(prompt: str) -> None:
+    """Run one non-interactive MagLab turn and print the response."""
+    config = load_config()
+    orchestrator = _build_orchestrator(config)
+    try:
+        console.print(orchestrator.respond(prompt))
+    finally:
+        close = getattr(orchestrator, "close", None)
+        if callable(close):
+            close()
 
 
 # ---------------------------------------------------------------------------
@@ -53,27 +86,7 @@ def _root_callback(
     if ctx.invoked_subcommand is not None:
         return
     if prompt is not None:
-        config = load_config()
-        from maglab.core.orchestrator import Orchestrator
-        from maglab.llm.base import ModelRouter
-        from maglab.llm.factory import create_llm_backend
-
-        backend = create_llm_backend(config)
-        model_router = (
-            ModelRouter(config.routing.model_dump()) if config.backend.mode == "api" else None
-        )
-        try:
-            orchestrator = Orchestrator(
-                config=config,
-                backend=backend,
-                model_router=model_router,
-            )
-        except TypeError:
-            orchestrator = Orchestrator(config=config, backend=backend)
-        try:
-            console.print(orchestrator.respond(prompt))
-        finally:
-            orchestrator.close()
+        _print_prompt_response(prompt)
         return
     # Interactive REPL
     config = load_config()
@@ -85,6 +98,41 @@ def _root_callback(
 # ===========================================================================
 # P0 available commands
 # ===========================================================================
+
+
+@app.command("ask")
+def ask_cmd(
+    query: str = typer.Argument(..., help="Natural-language prompt for one MagLab turn."),
+) -> None:
+    """Run one non-interactive natural-language MagLab turn."""
+    _print_prompt_response(query)
+
+
+@app.command("run")
+def run_cmd(
+    goal: str = typer.Argument(..., help="Autonomous research-loop goal."),
+) -> None:
+    """Start the MagLab research-loop tree search for a goal."""
+    config = load_config()
+    orchestrator = _build_orchestrator(config)
+    try:
+        result = orchestrator.run(goal)
+    finally:
+        close = getattr(orchestrator, "close", None)
+        if callable(close):
+            close()
+
+    table = Table(title="MagLab run")
+    table.add_column("Field", style="cyan")
+    table.add_column("Value")
+    table.add_row("status", result.status)
+    table.add_row("summary", result.summary)
+    if result.datapoints:
+        table.add_row("datapoints", "\n".join(result.datapoints))
+    if result.warnings:
+        table.add_row("warnings", "\n".join(result.warnings))
+    console.print(table)
+
 
 # ---------------------------------------------------------------------------
 # auth

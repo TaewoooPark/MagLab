@@ -380,7 +380,8 @@ class Orchestrator:
         # FIX 1 (CRITICAL-1): apply HonestyGate at the REPL turn boundary.
         # Violations are flagged — the response is NOT suppressed, but the
         # warning is surfaced to the caller so the UI can display it.
-        response_text = self._apply_honesty_gate(response_text)
+        if not _is_internal_error_response(response_text):
+            response_text = self._apply_honesty_gate(response_text)
 
         return response_text
 
@@ -534,14 +535,23 @@ class Orchestrator:
         if self._model_router is not None:
             stage_model = self._model_router.model_for(stage)
 
+        from maglab.llm import tools as tool_registry
+
+        tool_defs = [tool_def.to_openai_dict() for tool_def in tool_registry.get_registered_tools()]
+
         for _ in range(self._max_tool_iterations):
             t0 = time.monotonic()
             try:
                 # Pass stage_model as the `model` kwarg so the backend can
                 # override its default; backends that ignore the kwarg are unaffected.
-                response = self._backend.complete(msg_objects, max_tokens=4096, model=stage_model)
+                response = self._backend.complete(
+                    msg_objects,
+                    max_tokens=4096,
+                    model=stage_model,
+                    tools=tool_defs or None,
+                )
             except Exception as exc:  # noqa: BLE001
-                log.warning("Backend call error: %s", exc)
+                log.debug("Backend call error: %s", exc)
                 return f"[Error] Backend call failed: {exc}"
 
             elapsed = time.monotonic() - t0
@@ -608,10 +618,10 @@ class Orchestrator:
 
     def _execute_tool(self, name: str, arguments: dict[str, Any]) -> str:
         """Execute a tool and return the result string."""
-        from maglab.llm import tools as tool_registry  # deferred import
-
         t0 = time.monotonic()
         try:
+            from maglab.llm import tools as tool_registry  # deferred import
+
             result = tool_registry.call_tool(name, arguments)
             self._budget.record_tool(
                 label=name,
@@ -933,3 +943,14 @@ def _try_parse_json(text: str) -> dict[str, Any] | None:
         except json.JSONDecodeError:
             pass
     return None
+
+
+def _is_internal_error_response(text: str) -> bool:
+    """Return True for harness/backend errors that are not scientific claims."""
+    prefixes = (
+        "[Error] Backend call failed:",
+        "[Orchestrator] Backend is not configured.",
+        "[Orchestrator] Budget exceeded",
+        "[Warning] Tool loop reached maximum iterations.",
+    )
+    return text.startswith(prefixes)

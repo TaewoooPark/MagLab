@@ -29,6 +29,8 @@ from typing import Any
 
 import platformdirs
 
+from maglab.core.storage import connect_writable_sqlite
+
 log = logging.getLogger(__name__)
 
 _APP = "maglab"
@@ -103,10 +105,14 @@ class SessionMemory:
         session_id: str | None = None,
         db_path: Path | None = None,
     ) -> None:
-        self._db_path = db_path or _sessions_db_path()
-        self._conn = sqlite3.connect(str(self._db_path))
-        self._conn.row_factory = sqlite3.Row
-        _ensure_session_schema(self._conn)
+        primary_path = db_path or _sessions_db_path()
+        self._conn, self._db_path = connect_writable_sqlite(
+            primary_path,
+            fallback_filename="sessions.db",
+            ensure_schema=_ensure_session_schema,
+            row_factory=sqlite3.Row,
+            allow_fallback=db_path is None,
+        )
         self._session_id = session_id or str(uuid.uuid4())
         self._ensure_session()
 

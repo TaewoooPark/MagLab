@@ -25,6 +25,7 @@ from typing import Any
 import platformdirs
 
 from maglab.config import load_config
+from maglab.core.storage import connect_writable_sqlite
 
 _APP = "maglab"
 
@@ -186,10 +187,14 @@ class BudgetTracker:
         cfg = load_config()
         self._max_usd = cfg.budget.max_usd_per_session
         self._session_id = session_id or str(uuid.uuid4())
-        self._db_path = db_path or _default_db_path()
         self._listeners = budget_listeners or []
-        self._conn = sqlite3.connect(str(self._db_path))
-        _ensure_schema(self._conn)
+        primary_path = db_path or _default_db_path()
+        self._conn, self._db_path = connect_writable_sqlite(
+            primary_path,
+            fallback_filename="budget.db",
+            ensure_schema=_ensure_schema,
+            allow_fallback=db_path is None,
+        )
         # In-memory accumulator for fast reads without DB I/O
         self._session_steps: list[Step] = []
 

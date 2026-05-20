@@ -20,6 +20,8 @@ from typing import Any
 
 import platformdirs
 
+from maglab.core.storage import connect_writable_sqlite
+
 _APP = "maglab"
 
 
@@ -114,10 +116,14 @@ class CheckpointStore:
     """
 
     def __init__(self, db_path: Path | None = None) -> None:
-        self._db_path = db_path or _default_db_path()
-        self._conn = sqlite3.connect(str(self._db_path))
-        self._conn.row_factory = sqlite3.Row
-        _ensure_schema(self._conn)
+        primary_path = db_path or _default_db_path()
+        self._conn, self._db_path = connect_writable_sqlite(
+            primary_path,
+            fallback_filename="checkpoint.db",
+            ensure_schema=_ensure_schema,
+            row_factory=sqlite3.Row,
+            allow_fallback=db_path is None,
+        )
 
     # ------------------------------------------------------------------
     # Save & update

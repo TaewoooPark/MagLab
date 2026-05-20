@@ -81,6 +81,55 @@ def test_prompt_invocation_calls_orchestrator() -> None:
 
 
 @pytest.mark.smoke
+def test_ask_command_calls_orchestrator() -> None:
+    class _FakeOrchestrator:
+        def __init__(self, config: Config, backend: object | None = None) -> None:
+            self.config = config
+            self.backend = backend
+
+        def respond(self, prompt: str) -> str:
+            return f"asked: {prompt}"
+
+        def close(self) -> None:
+            return None
+
+    with (
+        patch("maglab.cli.load_config", return_value=Config()),
+        patch("maglab.core.orchestrator.Orchestrator", _FakeOrchestrator),
+    ):
+        result = runner.invoke(app, ["ask", "compare CoFeB and YIG"])
+
+    assert result.exit_code == 0, result.output
+    assert "asked: compare CoFeB and YIG" in result.output
+
+
+@pytest.mark.smoke
+def test_run_command_starts_research_loop() -> None:
+    from maglab.core.orchestrator import OrchestratorResult
+
+    class _FakeOrchestrator:
+        def __init__(self, config: Config, backend: object | None = None) -> None:
+            self.config = config
+            self.backend = backend
+
+        def run(self, goal: str) -> OrchestratorResult:
+            return OrchestratorResult(status="partial", summary=f"running: {goal}")
+
+        def close(self) -> None:
+            return None
+
+    with (
+        patch("maglab.cli.load_config", return_value=Config()),
+        patch("maglab.core.orchestrator.Orchestrator", _FakeOrchestrator),
+    ):
+        result = runner.invoke(app, ["run", "optimize skyrmion racetrack stack"])
+
+    assert result.exit_code == 0, result.output
+    assert "partial" in result.output
+    assert "running: optimize skyrmion racetrack stack" in result.output
+
+
+@pytest.mark.smoke
 def test_auth_status_uses_configured_backend_without_network(tmp_path: Path) -> None:
     cfg_file = tmp_path / "config.toml"
     cfg = Config.model_validate(
