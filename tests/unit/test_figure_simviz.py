@@ -44,8 +44,13 @@ def _pv_available() -> bool:
 
 
 def _skip_real_pyvista_3d() -> bool:
-    """Skip real VTK off-screen rendering where it is known to be unstable."""
-    return os.environ.get("CI") == "true" or os.environ.get("MAGLAB_SKIP_PYVISTA_3D") == "1"
+    """Skip real VTK off-screen rendering unless explicitly requested.
+
+    PyVista/VTK can segfault the interpreter on local headless macOS runners
+    before Python can raise an exception. Resource-management behavior is
+    covered by the mock Plotter tests below; the real renderer smoke is opt-in.
+    """
+    return os.environ.get("MAGLAB_ENABLE_PYVISTA_3D") != "1"
 
 
 def _mpl_available() -> bool:

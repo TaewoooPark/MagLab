@@ -59,7 +59,9 @@ def test_connect_direct_provider_slash_updates_routing(tmp_path: Path) -> None:
     assert cfg.backend.mode == "api"
     assert cfg.backend.api.provider == "qwen"
     assert cfg.backend.api.model == "qwen3.5-plus"
-    assert cfg.routing.plan == "dashscope/qwen3.6-max-preview"
+    assert cfg.routing.plan == "dashscope/qwen3.5-plus"
+    assert cfg.routing.build == "dashscope/qwen3.5-plus"
+    assert cfg.routing.summarize == "dashscope/qwen3.5-plus"
     mock_store.assert_called_once_with("qwen", "dash-key")
 
 

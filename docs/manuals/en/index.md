@@ -10,6 +10,7 @@ ends with commands you can run.
 
 | Area | Use it when you need to... |
 |---|---|
+| [Quickstart and operating manual](quickstart-operations.md) | Install MagLab globally, open a research folder, connect an LLM backend, and run the first reproducible workflow. |
 | [Literature intelligence](literature.md) | Search papers, extract keywords, build an evidence matrix, inspect authors, journal metrics, and citation graphs. |
 | [Materials and physics](materials-physics.md) | Query magnetic materials, build stacks, compute physics formulae, convert units, and run plausibility checks. |
 | [Simulation](simulation.md) | Prepare micromagnetic, DFT, atomistic, and multiscale simulation workflows. |
@@ -23,10 +24,11 @@ ends with commands you can run.
 
 ## Recommended Reading Order
 
-1. Start with [Materials and physics](materials-physics.md) to understand the deterministic core.
-2. Read the guide closest to your current research task.
-3. Use [Orchestration](orchestration.md) once you want MagLab to coordinate multiple tools.
-4. Use [Authoring and communications](authoring-comms.md) only after you have verified results.
+1. Start with [Quickstart and operating manual](quickstart-operations.md) to install the global CLI and understand the folder model.
+2. Read [Materials and physics](materials-physics.md) to understand the deterministic core.
+3. Read the guide closest to your current research task.
+4. Use [Orchestration](orchestration.md) once you want MagLab to coordinate multiple tools.
+5. Use [Authoring and communications](authoring-comms.md) only after you have verified results.
 
 ## Installation Reminder
 

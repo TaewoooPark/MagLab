@@ -695,6 +695,45 @@ class TestDelegatedCLIBackend:
         assert result.metadata["parse_mode"] == "codex_jsonl"
         assert result.metadata["thread_id"] == "019e4418-156b-7203-bb5a-04a614196fbf"
 
+    def test_codex_jsonl_command_event_maps_to_trace(self) -> None:
+        """Codex command/tool transport events expose file references for MagLab trace UI."""
+        from maglab.llm.backends.delegated_cli import DelegatedCLIBackend
+
+        backend = DelegatedCLIBackend(cli="codex", model="")
+        event = {
+            "type": "item.started",
+            "item": {
+                "type": "command_execution",
+                "command": "python maglab/llm/tools.py README.md",
+            },
+        }
+
+        trace = backend._codex_trace_event(event)
+
+        assert trace is not None
+        assert trace["kind"] == "tool_start"
+        assert trace["tool"] == "codex:command_execution"
+        assert trace["source"] == "maglab/llm/tools.py"
+        assert "README.md" in trace["references"]
+
+    def test_codex_jsonl_trace_line_emits_to_sink(self) -> None:
+        """Delegated Codex trace events are forwarded to the interactive renderer sink."""
+        from maglab.llm.backends.delegated_cli import DelegatedCLIBackend
+
+        events: list[dict[str, object]] = []
+        backend = DelegatedCLIBackend(cli="codex", model="", event_sink=events.append)
+        line = (
+            '{"type":"item.completed","item":{"type":"command_execution",'
+            '"command":"python maglab/llm/tools.py README.md"}}'
+        )
+
+        backend._emit_codex_trace_line(line)
+
+        assert events
+        assert events[0]["kind"] == "tool_done"
+        assert events[0]["tool"] == "codex:command_execution"
+        assert "README.md" in events[0]["references"]
+
     def test_codex_jsonl_error_event_surfaces_cleanly(self) -> None:
         """A Codex error event is raised without returning raw JSONL as an answer."""
         from maglab.llm.backends.delegated_cli import DelegatedCLIBackend
@@ -735,6 +774,22 @@ class TestDelegatedCLIBackend:
             patch("shutil.which", return_value="/usr/local/bin/codex"),
             patch("subprocess.run", return_value=mock_proc),
             pytest.raises(RuntimeError, match="usage limit reached"),
+        ):
+            backend.complete(messages)
+
+    def test_codex_turn_failed_nested_error_surfaces_cleanly(self) -> None:
+        """Codex turn.failed events can carry nested error dictionaries."""
+        from maglab.llm.backends.delegated_cli import DelegatedCLIBackend
+
+        stdout = '{"type":"turn.failed","error":{"message":"model quota exhausted"}}'
+        backend = DelegatedCLIBackend(cli="codex", model="")
+        messages = [Message(role=Role.USER, content="ping")]
+        mock_proc = self._make_mock_proc(stdout, returncode=1, stderr="transport stderr")
+
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/codex"),
+            patch("subprocess.run", return_value=mock_proc),
+            pytest.raises(RuntimeError, match="model quota exhausted"),
         ):
             backend.complete(messages)
 

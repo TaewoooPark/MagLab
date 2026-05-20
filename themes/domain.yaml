@@ -11,3 +11,8 @@ palette:
 gradient:
   start: "#38bdf8"
   end: "#f43f5e"
+logo:
+  fill: "█"
+  shade: "▓"
+  motif: "solid"
+  ornament: "✦"

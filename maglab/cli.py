@@ -1,9 +1,8 @@
 """maglab CLI application — Typer app + Appendix A subcommand tree.
 
-P0 available commands: auth · physics · mat · theme · skill · cost · mcp · agents ·
-                       config · doctor · version · info.
-P1 available commands: sim (micro·validate·plot·job) · figure (spec·render·compose·export).
-Subsequent Phase commands are registered as honest stubs (exit 0, prints Phase number).
+The root command wires the interactive REPL, backend authentication, workspace
+inspection, physics/material helpers, simulation, figure generation, analysis,
+instrument workflows, authoring, presentation, gateway, MCP, and doctor checks.
 
 Running with no arguments → ``maglab.repl.run_repl(config)`` (interactive REPL).
 """
@@ -11,6 +10,7 @@ Running with no arguments → ``maglab.repl.run_repl(config)`` (interactive REPL
 from __future__ import annotations
 
 import json
+import os
 import sys
 from typing import Any
 
@@ -21,9 +21,6 @@ from rich.table import Table
 from maglab import __version__
 from maglab.commands import p0_project, p2_analysis, p4_ralph, p5_literature, p6_authoring
 from maglab.config import Config, load_config
-from maglab.figure.runtime import ensure_matplotlib_runtime_env
-
-ensure_matplotlib_runtime_env()
 
 # ---------------------------------------------------------------------------
 # App & console
@@ -43,18 +40,22 @@ def _feature_status(values: dict[str, bool]) -> str:
     """Render a compact ok/missing count for doctor tables."""
     if not values:
         return "n/a"
-    ok = sum(1 for value in values.values() if value)
-    total = len(values)
-    return "ok" if ok == total else f"{ok}/{total}"
+    missing = [key for key, value in values.items() if not value]
+    if not missing:
+        return "ok"
+    visible = ", ".join(missing[:3])
+    if len(missing) > 3:
+        visible += f", +{len(missing) - 3}"
+    return visible
 
 
-def _build_orchestrator(config: Config) -> Any:
+def _build_orchestrator(config: Config, *, event_sink: Any | None = None) -> Any:
     """Create an orchestrator for one CLI invocation."""
     from maglab.core.orchestrator import Orchestrator
     from maglab.llm.base import ModelRouter
     from maglab.llm.factory import create_llm_backend
 
-    backend = create_llm_backend(config)
+    backend = create_llm_backend(config, event_sink=event_sink)
     model_router = (
         ModelRouter(config.routing.model_dump()) if config.backend.mode == "api" else None
     )
@@ -63,18 +64,38 @@ def _build_orchestrator(config: Config) -> Any:
             config=config,
             backend=backend,
             model_router=model_router,
+            event_sink=event_sink,
         )
     except TypeError:
         return Orchestrator(config=config, backend=backend)
 
 
+def _prompt_trace_renderer() -> Any | None:
+    """Return a live trace renderer for interactive one-shot LLM turns."""
+    if not sys.stdout.isatty() and not bool(os.environ.get("MAGLAB_TRACE")):
+        return None
+    try:
+        from maglab.ui.render import ReplTraceRenderer
+
+        return ReplTraceRenderer(console=console)
+    except Exception:
+        return None
+
+
 def _print_prompt_response(prompt: str) -> None:
     """Run one non-interactive MagLab turn and print the response."""
     config = load_config()
-    orchestrator = _build_orchestrator(config)
+    trace_renderer = _prompt_trace_renderer()
+    orchestrator = _build_orchestrator(
+        config,
+        event_sink=getattr(trace_renderer, "emit", None),
+    )
     try:
         console.print(orchestrator.respond(prompt))
     finally:
+        close_trace = getattr(trace_renderer, "close", None)
+        if callable(close_trace):
+            close_trace()
         close = getattr(orchestrator, "close", None)
         if callable(close):
             close()
@@ -1256,12 +1277,14 @@ def doctor_cmd(
     feature_table = Table(title="Feature readiness")
     feature_table.add_column("Feature", style="cyan")
     feature_table.add_column("Python")
+    feature_table.add_column("Optional Python")
     feature_table.add_column("External")
     feature_table.add_column("Slash")
     for item in report["features"]:
         feature_table.add_row(
             item["key"],
             _feature_status(item["python"]),
+            _feature_status(item["optional_python"]),
             _feature_status(item["external"]),
             item["slash"],
         )
@@ -1570,9 +1593,19 @@ def workspace_tree(
             for path in context.key_paths[:12]:
                 console.print(f"  {path}")
     entries = context.entries
+    if summary and context.key_paths:
+        key_path_set = {path.rstrip("/") for path in context.key_paths}
+        entries = [entry for entry in entries if entry.rstrip("/") not in key_path_set]
     if not entries:
-        console.print("[dim]No visible files.[/]")
+        console.print(
+            "[dim]No additional visible files.[/]" if summary else "[dim]No visible files.[/]"
+        )
         return
+    if summary:
+        label = "Additional visible entries"
+        if context.truncated:
+            label += " (truncated)"
+        console.print(f"[bold]{label}[/]")
     for entry in entries:
         console.print(f"  {entry}")
 

@@ -22,7 +22,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console
@@ -928,12 +928,22 @@ def present_slides(
 
     if dry_run:
         _write_human_review_marker(out_dir)
+        out_file = out_dir / f"slides.{_slide_extension(fmt)}"
         _write_dry_run_slides(
-            out_dir / f"slides.{_slide_extension(fmt)}",
+            out_file,
             results=results,
             fmt=fmt,
             template=template,
             n_slides=resolved_n_slides,
+        )
+        _write_presentation_design_brief(
+            out_dir,
+            kind="slides",
+            fmt=fmt,
+            template=template,
+            output_file=out_file,
+            n_slides=resolved_n_slides,
+            results=results,
         )
         console.print(f"[green]Dry-run complete.[/] Output: [bold]{out_dir}[/]")
         console.print(
@@ -988,6 +998,15 @@ def present_slides(
         _write_pptx_deck(deck, out_file)
 
     _write_human_review_marker(out_dir)
+    _write_presentation_design_brief(
+        out_dir,
+        kind="slides",
+        fmt=fmt,
+        template=template,
+        output_file=out_file,
+        n_slides=len(deck.slides),
+        results=results,
+    )
 
     console.print(f"[green]Slides drafted:[/] [bold]{out_file}[/]  ({len(deck.slides)} slides)")
     console.print(
@@ -1046,13 +1065,22 @@ def present_poster(
 
     if dry_run:
         _write_human_review_marker(out_dir)
-        _write_dry_run_poster(
+        poster_path = _write_dry_run_poster(
             out_dir,
             results=results,
             size=resolved_size,
             fmt=fmt,
             template=template,
             title=title or "[FILL: poster title]",
+        )
+        _write_presentation_design_brief(
+            out_dir,
+            kind="poster",
+            fmt=fmt,
+            template=template,
+            size=resolved_size,
+            output_file=poster_path,
+            results=results,
         )
         console.print(f"[green]Dry-run complete.[/] Output: [bold]{out_dir}[/]")
         console.print(
@@ -1089,6 +1117,15 @@ def present_poster(
             raise typer.Exit(1) from exc
 
     _write_human_review_marker(out_dir)
+    _write_presentation_design_brief(
+        out_dir,
+        kind="poster",
+        fmt=fmt,
+        template=template,
+        size=resolved_size,
+        output_file=poster.path,
+        results=results,
+    )
 
     profile_msg = f", template={template}" if template else ""
     console.print(
@@ -1294,7 +1331,7 @@ def _write_dry_run_poster(
     fmt: str,
     template: str | None,
     title: str,
-) -> None:
+) -> Path:
     """Write a format-valid poster skeleton without any LLM call."""
     from maglab.authoring.data_vault import DataVault
     from maglab.authoring.present.poster_drafter import PosterDrafter
@@ -1315,6 +1352,89 @@ def _write_dry_run_poster(
             f"<!-- {marker} -->\n" if poster.path.suffix.lower() == ".svg" else f"% {marker}\n"
         )
         poster.path.write_text(text.rstrip() + "\n" + comment, encoding="utf-8")
+    return poster.path
+
+
+def _write_presentation_design_brief(
+    directory: Path,
+    *,
+    kind: str,
+    fmt: str,
+    template: str | None,
+    output_file: Path,
+    results: str,
+    size: str | None = None,
+    n_slides: int | None = None,
+) -> Path:
+    """Write source-backed design references beside a generated presentation artifact."""
+    profile = _presentation_profile_for_brief(kind=kind, template=template, size=size)
+    lines = [
+        "# MagLab Presentation Design Brief",
+        "",
+        "This file records the template profile, source files, public references, and review",
+        "checks used for the adjacent MagLab presentation draft.",
+        "",
+        "## Artifact",
+        "",
+        f"- Kind: {kind}",
+        f"- Format: {fmt}",
+        f"- Output: {output_file.name}",
+    ]
+    if size:
+        lines.append(f"- Size: {size}")
+    if n_slides is not None:
+        lines.append(f"- Target slides: {n_slides}")
+    lines.extend(
+        [
+            f"- Requested template: {template or '[auto]'}",
+            "",
+            "## Template Profile",
+            "",
+        ]
+    )
+    if profile is None:
+        lines.extend(
+            [
+                "- No catalog profile was resolved for this request.",
+                "- Run `maglab present templates --detail` to inspect available profiles.",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                f"- Name: {profile.name}",
+                f"- Use case: {profile.use_case}",
+                f"- Notes: {profile.notes}",
+                "",
+                "## Constraints",
+                "",
+            ]
+        )
+        lines.extend(f"- {item}" for item in profile.constraints)
+        lines.extend(["", "## Installed Source Files", ""])
+        lines.extend(f"- {path}" for path in profile.source_paths)
+        lines.extend(["", "## Public References", ""])
+        lines.extend(f"- {url}" for url in profile.reference_urls)
+    lines.extend(
+        [
+            "",
+            "## Human Review Checklist",
+            "",
+            "- Replace every `[FILL]` field before presentation or submission.",
+            "- Verify every number has units, uncertainty where relevant, and a DataPoint or file source.",
+            "- Verify every figure path, caption, axis label, and physics convention.",
+            "- Confirm venue size, timing, and file format requirements against the latest venue instructions.",
+            "- Keep AI tool usage out of authorship; authors remain responsible for all content.",
+            "",
+            "## Researcher Input Snapshot",
+            "",
+            _brief_snapshot(results),
+            "",
+        ]
+    )
+    path = directory / "DESIGN_BRIEF.md"
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
 
 
 def _dry_run_slide_specs(results: str, n_slides: int) -> list[SimpleNamespace]:
@@ -1449,6 +1569,41 @@ def _dry_run_svg_body(_system: str, _user: str) -> str:
         '<text x="240" y="2400" font-size="52" font-family="Arial">Takeaway</text>\n'
         '<text x="240" y="2500" font-size="34" font-family="Arial">[FILL: one provenance-backed claim]</text>'
     )
+
+
+def _presentation_profile_for_brief(
+    *, kind: str, template: str | None, size: str | None
+) -> Any | None:
+    """Resolve the most relevant catalog profile for a design brief."""
+    try:
+        from maglab.authoring.present.catalog import get_presentation_template
+    except ImportError:  # pragma: no cover - catalog is bundled
+        return None
+
+    requested = (template or "").strip()
+    if requested and requested.lower() != "default":
+        try:
+            return get_presentation_template(requested)
+        except ValueError:
+            return None
+
+    if kind == "poster":
+        token = (size or "").strip().lower().replace(" ", "").replace("_", "-")
+        if token in {"96x48in", "96in-x-48in"}:
+            return get_presentation_template("aps-march-poster")
+        if token in {"a0", ""}:
+            return get_presentation_template("a0-poster")
+    return None
+
+
+def _brief_snapshot(text: str, *, limit: int = 900) -> str:
+    """Return a compact fenced snapshot of researcher-provided input."""
+    compact = " ".join((text or "").strip().split())
+    if not compact:
+        compact = "[empty]"
+    if len(compact) > limit:
+        compact = compact[: limit - 3].rstrip() + "..."
+    return f"```text\n{compact}\n```"
 
 
 def _latex_escape_text(text: str) -> str:

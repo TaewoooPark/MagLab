@@ -86,6 +86,30 @@ def test_skill_create_command_writes_workspace_skill() -> None:
     assert exists
 
 
+def test_workspace_tree_summary_deduplicates_high_signal_paths() -> None:
+    with runner.isolated_filesystem():
+        Path("MAGLAB.md").write_text("# Project\n", encoding="utf-8")
+        Path("README.md").write_text("# Demo\n", encoding="utf-8")
+        Path("pyproject.toml").write_text("[project]\nname = 'demo'\n", encoding="utf-8")
+        Path("plan").mkdir()
+        Path("src").mkdir()
+        Path("src/run.py").write_text("print('ok')\n", encoding="utf-8")
+        Path(".maglab").mkdir()
+        Path(".maglab/runtime.db").write_text("hidden\n", encoding="utf-8")
+
+        result = runner.invoke(
+            app,
+            ["workspace", "tree", "--summary", "--max-depth", "2", "--max", "20"],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert result.output.count("README.md") == 1
+    assert result.output.count("pyproject.toml") == 1
+    assert "Additional visible entries" in result.output
+    assert "src/run.py" in result.output
+    assert ".maglab" not in result.output
+
+
 def test_figure_primitive_ingest_command_writes_catalog_package() -> None:
     with runner.isolated_filesystem():
         source = Path("hall.svg")

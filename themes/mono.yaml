@@ -11,3 +11,8 @@ palette:
 gradient:
   start: "#ffffff"
   end: "#888888"
+logo:
+  fill: "▧"
+  shade: "▨"
+  motif: "hatch"
+  ornament: "◆"

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from maglab import config as config_mod
 from maglab.config import Config
-from maglab.llm.providers import get_provider_profile, normalize_provider
+from maglab.llm.providers import build_litellm_model, get_provider_profile, normalize_provider
 
 _DELEGATED_TOOLS = {"codex", "claude", "gemini"}
 
@@ -51,9 +51,10 @@ def configure_api_backend(
     config.backend.api.provider = provider
     config.backend.api.model = model.strip() if model and model.strip() else profile.default_model
     config.backend.api.base_url = base_url.strip() if base_url and base_url.strip() else None
+    selected_route = build_litellm_model(provider, config.backend.api.model) if model else None
     for stage, stage_model in profile.routing.items():
         if hasattr(config.routing, stage):
-            setattr(config.routing, stage, stage_model)
+            setattr(config.routing, stage, selected_route or stage_model)
     return config_mod.save_config(config, path)
 
 

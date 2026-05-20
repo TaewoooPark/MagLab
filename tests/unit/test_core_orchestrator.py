@@ -20,7 +20,7 @@ from maglab.core.orchestrator import (
     ResearchTree,
     _try_parse_json,
 )
-from maglab.llm.base import LLMResponse, ModelRouter, PipelineStage, UsageStats
+from maglab.llm.base import LLMResponse, ModelRouter, PipelineStage, ToolCall, UsageStats
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -389,6 +389,48 @@ class TestOrchestratorRespond:
         assert len(tool_messages) == 1
         assert tool_messages[0].tool_call_id == "tool-1"
         assert "exchange_length" in str(tool_messages[0].content)
+
+    def test_trace_events_surface_llm_tool_source_and_references(
+        self,
+        budget: BudgetTracker,
+        checkpoint: CheckpointStore,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Interactive sinks receive live model/tool/file trace events."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+
+        tool_resp = LLMResponse(
+            content=None,
+            tool_calls=[
+                ToolCall(id="tc-1", name="workspace_read_file", arguments={"path": "README.md"})
+            ],
+            usage=UsageStats(prompt_tokens=3, completion_tokens=1),
+            model="test-model",
+        )
+        final_resp = LLMResponse(content="Read README.md.", tool_calls=[], usage=UsageStats())
+        backend = MagicMock()
+        backend.complete.side_effect = [tool_resp, final_resp]
+        events: list[dict] = []
+        orch = Orchestrator(
+            backend=backend,
+            budget_tracker=budget,
+            checkpoint_store=checkpoint,
+            event_sink=events.append,
+        )
+
+        response = orch.respond("Read README")
+
+        assert "Read README" in response
+        kinds = [event["kind"] for event in events]
+        assert "llm_start" in kinds
+        assert "llm_done" in kinds
+        assert "tool_start" in kinds
+        assert "tool_done" in kinds
+        tool_start = next(event for event in events if event["kind"] == "tool_start")
+        assert tool_start["source"].endswith("maglab/llm/tools.py")
+        assert "README.md" in tool_start["references"]
 
 
 # ---------------------------------------------------------------------------

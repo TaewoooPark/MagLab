@@ -23,10 +23,15 @@ def test_doctor_reports_active_workspace(
     assert report["workspace"]["maglab_md"] == str(tmp_path / "MAGLAB.md")
     assert "data.csv" in report["workspace"]["visible_entries"]
     assert report["features"][0]["key"] == "llm"
+    assert "optional_python" in report["features"][0]
     assert "backend" in report
     assert "ux_contract" in report
     keys = {item["key"] for item in report["ux_contract"]}
     assert {"first-run", "models", "gpu-ssh-cpu", "language", "physics-integrity"} <= keys
+    for item in report["ux_contract"]:
+        assert item["reason"]
+        assert item["source"]
+        assert item["next_action"]
     assert "recommendations" in report
 
 
@@ -88,6 +93,8 @@ def test_doctor_model_connection_is_partial_without_live_smoke(
     ux = {item["key"]: item for item in report["ux_contract"]}
     assert ux["models"]["status"] == "partial"
     assert "smoke not run" in ux["models"]["evidence"]
+    assert "doctor --smoke" in ux["models"]["next_action"]
+    assert ux["models"]["source"] == "registration"
 
 
 def test_doctor_recommendations_use_backend_action_for_failed_smoke(

@@ -56,9 +56,11 @@ A0 SVG/PDF poster, A0 beamerposter LaTeX source를 포함합니다. `--detail`�
 붙이면 각 profile의 설치된 source file과 public reference URL이 함께 출력됩니다.
 
 `--dry-run`도 형식이 맞는 skeleton을 씁니다. Beamer/Marp/PPTX deck,
-SVG/beamerposter poster layout, `HUMAN_REVIEW_REQUIRED.txt`를 만들지만 LLM은
-호출하지 않습니다. 모든 `[FILL]` 필드는 발표나 제출 전에 검증된 내용으로
-교체해야 합니다.
+SVG/beamerposter poster layout, `HUMAN_REVIEW_REQUIRED.txt`,
+`DESIGN_BRIEF.md`를 만들지만 LLM은 호출하지 않습니다. Design brief에는
+선택된 template profile, 설치된 source file, public reference URL, review
+checklist가 산출물 옆에 기록됩니다. 모든 `[FILL]` 필드는 발표나 제출 전에
+검증된 내용으로 교체해야 합니다.
 
 ## 추천 입력 패키지
 

@@ -6,14 +6,16 @@ one import path for backend construction and status.
 
 from __future__ import annotations
 
+from typing import Any
+
 from maglab.config import Config
 from maglab.llm.backends.factory import BackendStatus, backend_label, create_backend
 from maglab.llm.base import LLMBackend, Message, Role
 
 
-def create_llm_backend(config: Config) -> LLMBackend:
+def create_llm_backend(config: Config, *, event_sink: Any | None = None) -> LLMBackend:
     """Create the configured LLM backend."""
-    return create_backend(config)
+    return create_backend(config, event_sink=event_sink)
 
 
 def backend_status(config: Config) -> BackendStatus:

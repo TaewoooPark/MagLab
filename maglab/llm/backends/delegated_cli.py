@@ -9,10 +9,14 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import shutil
 import subprocess
+import threading
 import time
 from collections.abc import Iterator
+from contextlib import suppress
+from queue import Empty, Queue
 from typing import Any
 
 from maglab.llm.base import (
@@ -38,6 +42,14 @@ _CLI_NON_INTERACTIVE_FLAGS: dict[str, list[str]] = {
     "codex": ["exec", "--json"],
     "gemini": ["--format", "json", "--non-interactive"],
 }
+
+_PATH_RE = re.compile(
+    r"(?<![\w@])(?:"
+    r"(?:\.{1,2}/|/)[^\s'\"`<>|;&]+"
+    r"|[A-Za-z0-9_.-]+/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+"
+    r"|[A-Za-z0-9_.-]+\.(?:py|md|json|toml|yaml|yml|csv|tsv|txt|tex|svg|pdf)"
+    r")"
+)
 
 
 def _int_value(value: object) -> int:
@@ -79,6 +91,67 @@ def _extract_text_from_cli_item(item: dict[str, Any]) -> str:
     return ""
 
 
+def _extract_codex_error_message(event: dict[str, Any]) -> str:
+    """Return a user-facing Codex JSONL error message from an event."""
+    message = event.get("message")
+    if isinstance(message, str) and message.strip():
+        return message.strip()
+
+    raw_error = event.get("error")
+    if isinstance(raw_error, str) and raw_error.strip():
+        return raw_error.strip()
+    if isinstance(raw_error, dict):
+        nested_message = (
+            raw_error.get("message") or raw_error.get("detail") or raw_error.get("error")
+        )
+        if isinstance(nested_message, str) and nested_message.strip():
+            return nested_message.strip()
+
+    return "unknown Codex error"
+
+
+def _walk_strings(value: Any) -> Iterator[str]:
+    """Yield string leaves from nested JSON-like transport payloads."""
+    if isinstance(value, str):
+        yield value
+        return
+    if isinstance(value, dict):
+        for nested in value.values():
+            yield from _walk_strings(nested)
+        return
+    if isinstance(value, list | tuple):
+        for nested in value:
+            yield from _walk_strings(nested)
+
+
+def _extract_path_mentions(value: Any, *, max_paths: int = 8) -> list[str]:
+    """Extract compact file/path mentions from delegated CLI JSON events."""
+    found: list[str] = []
+    for text in _walk_strings(value):
+        for match in _PATH_RE.findall(text):
+            cleaned = match.rstrip(".,:;) ]}")
+            if cleaned and cleaned not in found:
+                found.append(cleaned)
+                if len(found) >= max_paths:
+                    return found
+    return found
+
+
+def _infer_command_source(value: Any, refs: list[str]) -> str:
+    """Return the most useful executable/source hint for a delegated tool event."""
+    for key in ("command", "cmd", "name", "tool", "type"):
+        if isinstance(value, dict) and isinstance(value.get(key), str) and value[key].strip():
+            command = value[key].strip()
+            for token in command.split():
+                if token.endswith(".py") or token.startswith("maglab/"):
+                    return token
+            return command.split()[0]
+    for ref in refs:
+        if ref.endswith(".py"):
+            return ref
+    return "delegated-cli"
+
+
 class DelegatedCLIBackend(LLMBackend):
     """Delegated backend based on official CLI subprocesses.
 
@@ -99,11 +172,13 @@ class DelegatedCLIBackend(LLMBackend):
         model: str | None = "claude-opus-4-7",
         timeout: float = 120.0,
         extra_flags: list[str] | None = None,
+        event_sink: Any | None = None,
     ) -> None:
         self.cli = cli
         self.default_model = model or ""
         self.timeout = timeout
         self.extra_flags: list[str] = extra_flags or []
+        self._event_sink = event_sink
 
     def _find_executable(self) -> str:
         """Locate the CLI executable path.
@@ -298,9 +373,8 @@ class DelegatedCLIBackend(LLMBackend):
                     usage.total_tokens = prompt_tokens + completion_tokens
                 continue
 
-            if event_type == "error":
-                message = event.get("message") or event.get("error") or "unknown Codex error"
-                errors.append(str(message))
+            if event_type in {"error", "turn.failed"}:
+                errors.append(_extract_codex_error_message(event))
                 continue
 
             if event_type != "item.completed":
@@ -332,6 +406,143 @@ class DelegatedCLIBackend(LLMBackend):
             model=model_str,
         )
 
+    def _emit_trace(self, kind: str, **payload: Any) -> None:
+        """Emit a best-effort delegated CLI trace event."""
+        if self._event_sink is None:
+            return
+        event = {"kind": kind, **payload}
+        try:
+            self._event_sink(event)
+        except Exception:  # pragma: no cover - UI telemetry must not break LLM calls
+            log.debug("Delegated CLI trace sink failed", exc_info=True)
+
+    def _codex_trace_event(self, event: dict[str, Any]) -> dict[str, Any] | None:
+        """Map a Codex JSONL transport event to a MagLab trace event."""
+        event_type = str(event.get("type") or "")
+        item = event.get("item")
+        payload = item if isinstance(item, dict) else event
+        item_type = str(payload.get("type") or event_type)
+        if item_type in {"agent_message", "reasoning", "message"}:
+            return None
+
+        looks_like_tool = any(
+            token in f"{event_type} {item_type}".lower()
+            for token in ("tool", "command", "exec", "shell", "function", "patch")
+        ) or any(key in payload for key in ("command", "cmd", "name", "tool"))
+        if not looks_like_tool:
+            return None
+
+        refs = _extract_path_mentions(payload)
+        source = _infer_command_source(payload, refs)
+        name = str(
+            payload.get("name")
+            or payload.get("tool")
+            or payload.get("type")
+            or event_type
+            or "delegated_cli"
+        )
+        kind = (
+            "tool_start"
+            if event_type.endswith(".started") or event_type.endswith("started")
+            else "tool_done"
+        )
+        return {
+            "kind": kind,
+            "tool": f"{self.cli}:{name}",
+            "source": source,
+            "references": refs,
+        }
+
+    def _emit_codex_trace_line(self, line: str) -> None:
+        """Emit trace data for one Codex JSONL line if it carries tool activity."""
+        if self._event_sink is None:
+            return
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            return
+        if not isinstance(event, dict):
+            return
+        trace_event = self._codex_trace_event(event)
+        if trace_event is None:
+            return
+        kind = str(trace_event.pop("kind"))
+        self._emit_trace(kind, **trace_event)
+
+    def _complete_codex_with_live_trace(
+        self,
+        cmd: list[str],
+        model_str: str,
+    ) -> tuple[str, str, int]:
+        """Run Codex while forwarding JSONL tool events to the UI trace sink."""
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
+        except FileNotFoundError:
+            raise
+
+        stdout_queue: Queue[str] = Queue()
+        stderr_queue: Queue[str] = Queue()
+
+        def _reader(pipe: Any, queue: Queue[str]) -> None:
+            if pipe is None:
+                return
+            try:
+                for chunk in iter(pipe.readline, ""):
+                    queue.put(chunk)
+            finally:
+                with suppress(Exception):
+                    pipe.close()
+
+        stdout_thread = threading.Thread(
+            target=_reader, args=(proc.stdout, stdout_queue), daemon=True
+        )
+        stderr_thread = threading.Thread(
+            target=_reader, args=(proc.stderr, stderr_queue), daemon=True
+        )
+        stdout_thread.start()
+        stderr_thread.start()
+
+        stdout_parts: list[str] = []
+        stderr_parts: list[str] = []
+        started = time.monotonic()
+
+        while proc.poll() is None or not stdout_queue.empty() or not stderr_queue.empty():
+            if time.monotonic() - started > self.timeout:
+                proc.kill()
+                stdout_thread.join(timeout=0.5)
+                stderr_thread.join(timeout=0.5)
+                raise TimeoutError(f"CLI '{self.cli}' did not complete within {self.timeout} s.")
+
+            drained = False
+            try:
+                line = stdout_queue.get(timeout=0.05)
+                stdout_parts.append(line)
+                self._emit_codex_trace_line(line)
+                drained = True
+            except Empty:
+                pass
+
+            while True:
+                try:
+                    stderr_parts.append(stderr_queue.get_nowait())
+                    drained = True
+                except Empty:
+                    break
+
+            if not drained:
+                time.sleep(0.02)
+
+        stdout_thread.join(timeout=0.5)
+        stderr_thread.join(timeout=0.5)
+
+        return "".join(stdout_parts), "".join(stderr_parts), int(proc.returncode or 0)
+
     def complete(
         self,
         messages: list[Message],
@@ -352,13 +563,19 @@ class DelegatedCLIBackend(LLMBackend):
 
         t0 = time.monotonic()
         try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout,
-                check=False,
-            )
+            if self.cli == "codex" and self._event_sink is not None:
+                stdout, stderr, returncode = self._complete_codex_with_live_trace(cmd, model_str)
+            else:
+                proc = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout,
+                    check=False,
+                )
+                stdout = proc.stdout
+                stderr = proc.stderr
+                returncode = proc.returncode
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError(
                 f"CLI '{self.cli}' did not complete within {self.timeout} s."
@@ -366,20 +583,18 @@ class DelegatedCLIBackend(LLMBackend):
         except FileNotFoundError:
             raise
 
-        if proc.returncode != 0:
-            stderr = proc.stderr.strip()
-            stdout = proc.stdout.strip()
-            if self.cli == "codex" and stdout:
+        if returncode != 0:
+            clean_stderr = stderr.strip()
+            clean_stdout = stdout.strip()
+            if self.cli == "codex" and clean_stdout:
                 try:
-                    self._parse_codex_jsonl_stdout(stdout, model_str)
+                    self._parse_codex_jsonl_stdout(clean_stdout, model_str)
                 except RuntimeError as exc:
-                    raise RuntimeError(
-                        f"CLI '{self.cli}' exit code {proc.returncode}: {exc}"
-                    ) from exc
-            detail = stderr or stdout or "no error output"
-            raise RuntimeError(f"CLI '{self.cli}' exit code {proc.returncode}: {detail[:200]}")
+                    raise RuntimeError(f"CLI '{self.cli}' exit code {returncode}: {exc}") from exc
+            detail = clean_stderr or clean_stdout or "no error output"
+            raise RuntimeError(f"CLI '{self.cli}' exit code {returncode}: {detail[:200]}")
 
-        result = self._parse_stdout(proc.stdout, model_str)
+        result = self._parse_stdout(stdout, model_str)
         result.usage.latency_sec = time.monotonic() - t0
         return result
 

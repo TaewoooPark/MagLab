@@ -44,6 +44,34 @@ lineage, and review workflows. The point is not to replace the scientist. The
 point is to make the scientist's research loop faster, more organized, and more
 reproducible.
 
+## Why AI for Science Needs a Harness
+
+AI for Science matters because modern research is no longer limited only by
+ideas. It is also limited by coordination overhead: too many papers to audit,
+too many file formats, too many unit conventions, too many simulation backends,
+too many figure revisions, and too much undocumented context living in lab
+notebooks, scripts, and memory. A useful scientific AI system therefore cannot
+be just a chatbot. It needs a controlled environment where language models can
+ask for deterministic tools, receive structured results, preserve provenance,
+and expose enough of the process for a scientist to inspect it.
+
+MagLab takes that position seriously. It treats the LLM as an orchestration
+layer, not as the source of scientific truth. Numerical values should come from
+formula modules, data files, fitters, simulations, literature records, or
+explicit user input. Figures should be vector artifacts tied to data and
+provenance, not generated raster guesses. Manuscripts, posters, and emails
+should start from verified results and remain marked for human review. This is
+what makes AI for Science operational: the model helps the research loop move,
+while the harness keeps the loop inspectable.
+
+For magnetism and spintronics, this is especially important. A typical project
+crosses material stacks, magnetic units, transport geometries, micromagnetic
+assumptions, solver-specific files, fitted effect models, and publication
+figures. Small mistakes are easy: mixing CGS and SI, reporting a fit parameter
+outside a physical range, forgetting how a figure was generated, or citing a
+paper that does not support the claim. MagLab is built around those failure
+modes.
+
 ## What It Helps With
 
 | Research bottleneck | MagLab support |
@@ -157,6 +185,7 @@ maglab manual figures --lang ko
 | Area | English | Korean |
 |---|---|---|
 | Manual index | [docs/manuals/en/index.md](docs/manuals/en/index.md) | [docs/manuals/ko/index.md](docs/manuals/ko/index.md) |
+| Quickstart and operating manual | [English](docs/manuals/en/quickstart-operations.md) | [한국어](docs/manuals/ko/quickstart-operations.md) |
 | Literature intelligence | [English](docs/manuals/en/literature.md) | [한국어](docs/manuals/ko/literature.md) |
 | Materials and physics | [English](docs/manuals/en/materials-physics.md) | [한국어](docs/manuals/ko/materials-physics.md) |
 | Simulation | [English](docs/manuals/en/simulation.md) | [한국어](docs/manuals/ko/simulation.md) |
@@ -167,6 +196,43 @@ maglab manual figures --lang ko
 | Review and anomaly explanation | [English](docs/manuals/en/review-explain.md) | [한국어](docs/manuals/ko/review-explain.md) |
 | Authoring and communications | [English](docs/manuals/en/authoring-comms.md) | [한국어](docs/manuals/ko/authoring-comms.md) |
 | Orchestration, agents, MCP, gateway | [English](docs/manuals/en/orchestration.md) | [한국어](docs/manuals/ko/orchestration.md) |
+
+## Practical Operating Manual
+
+Use MagLab in layers. Start with deterministic commands, then add model
+orchestration only when the folder, dependencies, and provenance path are clear.
+
+| Situation | First commands | What to check before trusting output |
+|---|---|---|
+| Fresh clone or global install | `maglab install doctor` -> `maglab doctor` -> `maglab setup all` | Python version, installed extras, global command path, missing optional solvers. |
+| Opening a new research folder | `maglab workspace init` -> `maglab workspace brief` -> `maglab workspace tree --summary` | `MAGLAB.md`, visible project files, ignored/private paths, generated output directory. |
+| Connecting a model | `maglab auth codex` or `maglab auth <provider>` -> `maglab auth status` -> `maglab doctor --smoke` | Whether the backend returns the sentinel, where credentials are stored, selected model. |
+| No GPU available | `maglab sim doctor --backend auto --explain` -> `maglab sim pipeline --backend mock` | Mock outputs are workflow artifacts, not physical solver results. Use CPU for small real runs. |
+| Local GPU available | `maglab sim doctor --backend local-gpu` | `mumax3`, `nvidia-smi`, mesh size, small validated test job before spending time. |
+| SSH GPU or cluster | `maglab sim doctor --backend ssh-gpu --host <host> --user <user>` | No connection is opened unless `--probe-ssh` is added; verify SSH keys and remote modules first. |
+| Measurement CSV ready | `maglab analyze load data.csv` -> `maglab analyze model <effect>` -> `maglab fit --effect <effect> data.csv` | Required columns, geometry assumptions, parameter bounds, residuals, provenance IDs. |
+| Figure needed | `maglab figure spec` -> `maglab figure render ... --datapoints ledger.json` | DataPoint binding, axis labels, units, journal width, vector output. |
+| Poster or slides needed | `maglab present templates --detail` -> `maglab present slides|poster ...` | `DESIGN_BRIEF.md`, `[FILL]` fields, figure sources, venue size/timing rules. |
+| Writing or rebuttal | `maglab write ... --dry-run` or `maglab comms revision ...` | `HUMAN REVIEW REQUIRED`, citation existence, claim support, no unsupported numbers. |
+
+Inside the REPL, the same flow is available through slash commands:
+
+```text
+/help quick
+/workspace brief
+/doctor
+/setup all
+/connect codex
+/connect openai
+/sim doctor --explain
+/manual ko quickstart-operations
+```
+
+During LLM calls, MagLab prints a compact activity trace: model stage, elapsed
+time, stop instruction, and tool/file references when they are visible to the
+harness. Hidden model reasoning is not printed. The useful observable signal is
+what was run, which Python module mediated it, and which workspace files were
+referenced or touched.
 
 ## Example Research Loops
 
@@ -333,19 +399,20 @@ uv pip install -e ".[dev]"             # ruff, mypy, pytest, pre-commit
 For normal research use, prefer the all-in-one `.[research]` extra. Then run
 `maglab install doctor` to check Python, PATH, global app paths, and installed
 research extras; run `maglab doctor` for a first-run readiness report and
-`maglab setup all` to see feature-specific setup checks, terminal setup commands, and the
-matching REPL slash commands. Inside the MagLab REPL, use `/setup`,
+`maglab setup all` to see feature-specific setup checks, optional remote
+packages, terminal setup commands, and the matching REPL slash commands. Inside
+the MagLab REPL, use `/setup`,
 `/setup <feature>`, or direct commands such as `/setup-llm`,
 `/setup-literature`, `/setup-simulation`, `/setup-figure`,
 `/setup-instrument`, `/setup-authoring`, `/setup-review`, `/setup-gateway`, and
 `/setup-mcp`. Existing working dependencies and commands are treated as ready;
 the setup and doctor views only tell you what still needs attention.
 
-Some simulation engines require external binaries or external Python packages
-that must be installed separately: OOMMF, MuMax3, magnum.np, VAMPIRE, VASP,
-Quantum ESPRESSO, or HPC/GPU execution environments. MagLab can still generate
-inputs, validate specs, run mock paths, and parse prepared outputs without
-owning those solver installations.
+Some simulation engines require external binaries or remote-execution packages
+that must be installed separately: OOMMF, MuMax3, VAMPIRE, VASP, Quantum
+ESPRESSO, HPC/GPU execution environments, and `paramiko` for Python-native SSH.
+MagLab can still generate inputs, validate specs, run mock paths, and parse
+prepared outputs without owning those solver installations.
 
 ## Development
 
@@ -366,6 +433,29 @@ is not used for physics, fitting, citation, or numerical correctness.
 - [harness.manifest.json](harness.manifest.json): subagents, workflows, and model routing
 - [Manuals](docs/manuals/en/index.md): feature-by-feature operating guide
 - [한국어 매뉴얼](docs/manuals/ko/index.md): 기능별 한국어 사용 설명서
+- [Repository metadata](docs/repository-metadata.md): GitHub description, topics, and social-preview copy
+
+## Repository Metadata
+
+Suggested GitHub description:
+
+> AI for Science harness for magnetism and spintronics research: literature,
+> physics, simulation, fitting, figures, instruments, authoring, and provenance
+> in one CLI.
+
+Suggested GitHub topics:
+
+```text
+ai-for-science, magnetism, spintronics, micromagnetics, materials-science,
+scientific-computing, research-automation, llm-agents, cli, provenance,
+simulation, data-analysis, scientific-figures, instruments, open-science
+```
+
+Suggested thumbnail/social preview description:
+
+> MagLab turns the magnetism and spintronics research lifecycle into a
+> verifiable CLI workflow: LLM orchestration wrapped around deterministic tools,
+> provenance, simulation, fitting, figures, instruments, and scientific writing.
 
 ## License
 

@@ -59,9 +59,11 @@ source. Use `--detail` to print the installed source file and public reference
 URLs behind each profile.
 
 `--dry-run` still writes format-valid skeletons: Beamer/Marp/PPTX decks,
-SVG/beamerposter poster layouts, and `HUMAN_REVIEW_REQUIRED.txt`. It does not
-call an LLM, and every `[FILL]` field must be replaced with verified content
-before presentation or submission.
+SVG/beamerposter poster layouts, `HUMAN_REVIEW_REQUIRED.txt`, and
+`DESIGN_BRIEF.md`. The design brief records the selected template profile,
+installed source files, public reference URLs, and review checklist beside the
+artifact. It does not call an LLM, and every `[FILL]` field must be replaced
+with verified content before presentation or submission.
 
 ## Recommended Input Pack
 

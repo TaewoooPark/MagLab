@@ -48,6 +48,16 @@ class Gradient:
     end: str = "#f43f5e"
 
 
+@dataclass
+class LogoStyle:
+    """Theme-specific wordmark texture and ornament choices."""
+
+    fill: str = "█"
+    shade: str = "▓"
+    motif: str = "solid"
+    ornament: str = "✦"
+
+
 # ---------------------------------------------------------------------------
 # Theme model
 # ---------------------------------------------------------------------------
@@ -67,6 +77,7 @@ class Theme:
     mode: str = "dark"
     palette: Palette = field(default_factory=Palette)
     gradient: Gradient = field(default_factory=Gradient)
+    logo: LogoStyle = field(default_factory=LogoStyle)
 
     # Bundled theme directory (relative to the package root)
     _BUNDLE_DIR: ClassVar[Path] = Path(__file__).parent.parent.parent / "themes"
@@ -124,6 +135,7 @@ class Theme:
 
         palette_data = data.get("palette", {})
         gradient_data = data.get("gradient", {})
+        logo_data = data.get("logo", {})
 
         return cls(
             name=data.get("name", name),
@@ -139,6 +151,12 @@ class Theme:
             gradient=Gradient(
                 start=gradient_data.get("start", "#38bdf8"),
                 end=gradient_data.get("end", "#f43f5e"),
+            ),
+            logo=LogoStyle(
+                fill=logo_data.get("fill", "█"),
+                shade=logo_data.get("shade", "▓"),
+                motif=logo_data.get("motif", "solid"),
+                ornament=logo_data.get("ornament", "✦"),
             ),
         )
 

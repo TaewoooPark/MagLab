@@ -23,12 +23,17 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
+import time
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 from rich.box import MINIMAL, ROUNDED
 from rich.console import Console
+from rich.live import Live
+from rich.markup import escape
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
@@ -41,6 +46,8 @@ from rich.progress import (
 from rich.syntax import Syntax
 from rich.text import Text
 from rich.tree import Tree
+
+from maglab.ui.spinner import PRECESSION_FRAMES, STATIC_SYMBOL, _no_animation
 
 if TYPE_CHECKING:
     from rich.live import Live
@@ -260,6 +267,159 @@ def tool_call_panel(
         tree.add(f"[bold {color}]result:[/] {result}")
 
     con.print(Panel(tree, box=ROUNDED, border_style=color))
+
+
+def _compact_refs(refs: Iterable[str], *, max_refs: int = 5) -> str:
+    """Return a compact display string for reference paths."""
+    items = [escape(str(ref)) for ref in refs if str(ref).strip()]
+    if not items:
+        return ""
+    visible = items[:max_refs]
+    suffix = f"  [dim]+{len(items) - max_refs} more[/]" if len(items) > max_refs else ""
+    return " · ".join(f"[dim]{item}[/]" for item in visible) + suffix
+
+
+def trace_event_line(
+    event: dict[str, Any],
+    *,
+    console: Console | None = None,
+) -> None:
+    """Render one real-time LLM/tool trace event.
+
+    The trace is intentionally compact so researchers can see which model,
+    Python tool file, and workspace artifacts were touched without losing the
+    conversational flow.
+    """
+    con = console or _console
+    kind = str(event.get("kind", ""))
+    if kind == "llm_start":
+        model = escape(str(event.get("model") or "default"))
+        stage = escape(str(event.get("stage") or "default"))
+        tool_count = event.get("tool_count", 0)
+        con.print(
+            f"\n[dim]────[/] 🧠 [bold cyan]LLM[/] stage={stage} model={model} tools={tool_count}"
+        )
+        return
+    if kind == "llm_done":
+        elapsed = float(event.get("elapsed_sec") or 0.0)
+        tool_calls = int(event.get("tool_calls") or 0)
+        tokens = int(event.get("prompt_tokens") or 0) + int(event.get("completion_tokens") or 0)
+        con.print(
+            f"[dim]     [/][green]✓[/] answer frame received · {elapsed:.2f}s · "
+            f"{tool_calls} tool call(s) · {tokens} token(s)"
+        )
+        return
+    if kind == "llm_error":
+        con.print(f"[red]✗ LLM error:[/] {escape(str(event.get('error') or 'unknown'))}")
+        return
+    if kind in {"tool_start", "tool_done", "tool_blocked"}:
+        tool = escape(str(event.get("tool") or "unknown_tool"))
+        source = escape(str(event.get("source") or "unknown source"))
+        refs = _compact_refs(event.get("references") or [])
+        if kind == "tool_start":
+            con.print(f"[dim]  ├─[/] 🔧 [bold]{tool}[/]  [dim]py:[/] {source}")
+            if refs:
+                con.print(f"[dim]  │   📄 refs:[/] {refs}")
+            return
+        if kind == "tool_done":
+            con.print(f"[dim]  └─[/] ✅ [green]{tool} complete[/]")
+            if refs:
+                con.print(f"[dim]      📄 touched:[/] {refs}")
+            return
+        reason = escape(str(event.get("reason") or "blocked"))
+        con.print(f"[dim]  └─[/] ⛔ [yellow]{tool} blocked[/]  [dim]{reason}[/]")
+        return
+
+
+class ReplTraceRenderer:
+    """Stateful real-time renderer for REPL LLM/tool activity."""
+
+    _FRAMES = tuple(PRECESSION_FRAMES)
+
+    def __init__(self, *, console: Console | None = None) -> None:
+        self._console = console or _console
+        self._live: Live | None = None
+        self._thread: threading.Thread | None = None
+        self._stop = threading.Event()
+        self._started = 0.0
+        self._started_label = ""
+        self._message = ""
+
+    def emit(self, event: dict[str, Any]) -> None:
+        """Render one orchestrator trace event."""
+        kind = str(event.get("kind", ""))
+        if kind == "llm_start":
+            model = escape(str(event.get("model") or "default"))
+            stage = escape(str(event.get("stage") or "default"))
+            tool_count = int(event.get("tool_count") or 0)
+            self._start_activity(
+                f"LLM working · stage={stage} · model={model} · tools={tool_count}"
+            )
+            return
+        if kind == "tool_start":
+            tool = escape(str(event.get("tool") or "unknown_tool"))
+            source = escape(str(event.get("source") or "unknown source"))
+            refs = _compact_refs(event.get("references") or [], max_refs=3)
+            detail = f"tool running · {tool} · py:{source}"
+            if refs:
+                detail += f" · refs:{refs}"
+            self._start_activity(detail)
+            return
+        if kind in {"llm_done", "llm_error", "tool_done", "tool_blocked"}:
+            self._stop_activity()
+        trace_event_line(event, console=self._console)
+
+    def close(self) -> None:
+        """Stop any active spinner."""
+        self._stop_activity()
+
+    def _start_activity(self, message: str) -> None:
+        self._stop_activity()
+        if not self._console.is_terminal or _no_animation():
+            started = datetime.now().strftime("%H:%M:%S")
+            self._console.print(
+                f"\n[dim]────[/] {STATIC_SYMBOL} {message} · started {started} · stop Ctrl+C"
+            )
+            return
+        self._message = message
+        self._started = time.monotonic()
+        self._started_label = datetime.now().strftime("%H:%M:%S")
+        self._stop = threading.Event()
+        self._live = Live(
+            self._activity_line(0),
+            console=self._console,
+            refresh_per_second=8,
+            transient=True,
+        )
+        self._live.__enter__()
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+        self._thread.start()
+
+    def _stop_activity(self) -> None:
+        if self._thread is not None:
+            self._stop.set()
+            self._thread.join(timeout=0.5)
+            self._thread = None
+        if self._live is not None:
+            self._live.__exit__(None, None, None)
+            self._live = None
+
+    def _spin(self) -> None:
+        idx = 0
+        while not self._stop.wait(0.12):
+            live = self._live
+            if live is None:
+                return
+            idx += 1
+            live.update(self._activity_line(idx))
+
+    def _activity_line(self, frame_idx: int) -> str:
+        frame = self._FRAMES[frame_idx % len(self._FRAMES)]
+        elapsed = time.monotonic() - self._started if self._started else 0.0
+        return (
+            f"[cyan]{frame}[/] [bold]{self._message}[/]  "
+            f"[dim]started {self._started_label} · elapsed {elapsed:0.1f}s · stop Ctrl+C[/]"
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ def test_connect_completion_tree_includes_model_choices() -> None:
     assert "gpt-5.3-codex" in connect["codex"]
     assert "claude-opus-4-7" in connect["anthropic"]
     assert "dashscope/qwen3.6-plus" in connect["qwen"]
+    assert "gemini/gemini-3.1-pro-preview" in connect["api"]["gemini"]
     assert "gemini/gemini-3.5-flash" in connect["api"]["gemini"]
 
 
@@ -64,3 +65,46 @@ def test_quick_help_renders_first_run_commands() -> None:
     assert "/install doctor" in text
     assert "/workspace brief" in text
     assert "/help all" in text
+
+
+def test_area_help_covers_public_research_surfaces() -> None:
+    from rich.console import Console
+
+    from maglab.commands.tree import render_area_help
+
+    expected = {
+        "review": "/review",
+        "instrument": "/instr scaffold",
+        "setup": "/install doctor",
+        "physics": "/physics compute",
+        "present": "/present templates",
+        "authoring": "/write",
+        "gateway": "/gateway setup",
+    }
+    for area, marker in expected.items():
+        console = Console(record=True, width=140)
+        assert render_area_help(area, console) is True
+        assert marker in console.export_text()
+
+
+def test_help_completion_includes_public_area_names() -> None:
+    help_tree = SLASH_COMMANDS["/help"]
+
+    for area in {
+        "install",
+        "setup",
+        "auth",
+        "physics",
+        "materials",
+        "analysis",
+        "writing",
+        "authoring",
+        "review",
+        "lab",
+        "instrument",
+        "automation",
+        "present",
+        "poster",
+        "deck",
+    }:
+        assert area in help_tree

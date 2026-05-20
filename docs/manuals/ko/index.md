@@ -10,6 +10,7 @@
 
 | 영역 | 필요한 경우 |
 |---|---|
+| [빠른 시작과 실제 운용](quickstart-operations.md) | MagLab을 전역 CLI로 설치하고, 연구 폴더를 열고, LLM backend를 연결하고, 첫 재현 가능 workflow를 실행할 때. |
 | [문헌 인텔리전스](literature.md) | 논문 검색, 키워드 추출, evidence matrix 생성, 저자/저널/인용 그래프 확인이 필요할 때. |
 | [물질과 물리](materials-physics.md) | 자성 물질 조회, 스택 구성, 물리 공식 계산, 단위 변환, plausibility check가 필요할 때. |
 | [시뮬레이션](simulation.md) | micromagnetic, DFT, atomistic, multiscale simulation workflow를 준비할 때. |
@@ -23,10 +24,11 @@
 
 ## 추천 읽기 순서
 
-1. [물질과 물리](materials-physics.md)에서 deterministic core를 먼저 확인합니다.
-2. 지금 당장 필요한 연구 작업에 해당하는 문서를 읽습니다.
-3. 여러 도구를 묶고 싶을 때 [오케스트레이션](orchestration.md)을 읽습니다.
-4. 검증된 결과가 준비된 뒤 [논문 작성과 커뮤니케이션](authoring-comms.md)을 사용합니다.
+1. [빠른 시작과 실제 운용](quickstart-operations.md)에서 전역 설치와 폴더 모델을 먼저 확인합니다.
+2. [물질과 물리](materials-physics.md)에서 deterministic core를 이해합니다.
+3. 지금 당장 필요한 연구 작업에 해당하는 문서를 읽습니다.
+4. 여러 도구를 묶고 싶을 때 [오케스트레이션](orchestration.md)을 읽습니다.
+5. 검증된 결과가 준비된 뒤 [논문 작성과 커뮤니케이션](authoring-comms.md)을 사용합니다.
 
 ## 설치 요약
 

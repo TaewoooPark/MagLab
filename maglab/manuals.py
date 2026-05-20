@@ -20,8 +20,8 @@ def _manual_roots() -> tuple[Path, ...]:
     """Candidate locations for bundled manuals in source trees and wheels."""
     package_root = Path(__file__).resolve().parents[1]
     return (
-        Path.cwd() / "docs" / "manuals",
         package_root / "docs" / "manuals",
+        Path.cwd() / "docs" / "manuals",
     )
 
 
@@ -83,6 +83,10 @@ def resolve_manual(topic: str, lang: str = "en") -> ManualEntry:
         "planning": "lab-planning",
         "materials": "materials-physics",
         "physics": "materials-physics",
+        "quickstart": "quickstart-operations",
+        "start": "quickstart-operations",
+        "install": "quickstart-operations",
+        "operations": "quickstart-operations",
         "review": "review-explain",
         "explain": "review-explain",
         "sim": "simulation",

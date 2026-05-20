@@ -7,6 +7,7 @@ LLM backend implementations. It deliberately does not own credentials.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from maglab.config import Config
 from maglab.llm.base import LLMBackend
@@ -23,7 +24,7 @@ class BackendStatus:
     action: str = ""
 
 
-def create_backend(config: Config) -> LLMBackend:
+def create_backend(config: Config, *, event_sink: Any | None = None) -> LLMBackend:
     """Create the configured backend instance.
 
     Raises:
@@ -48,6 +49,7 @@ def create_backend(config: Config) -> LLMBackend:
             model=delegated.model,
             timeout=delegated.timeout,
             extra_flags=list(delegated.extra_flags),
+            event_sink=event_sink,
         )
     if mode == "local":
         from maglab.llm.backends.local import LocalBackend

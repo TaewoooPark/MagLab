@@ -14,6 +14,11 @@ uv pip install -e ".[sim]"
 OOMMF, MuMax3, magnum.np, VAMPIRE, VASP, Quantum ESPRESSO, HPC/GPU 실행 도구는
 별도 설치가 필요할 수 있습니다.
 
+`maglab setup simulation`과 `maglab install doctor`는 core Python package와
+remote execution용 optional Python package를 분리해서 보여줍니다.
+`paramiko`가 없으면 Python-native SSH 실행만 막히며, mock mode, local CPU
+점검, local solver spec 생성은 막지 않습니다.
+
 ## 명령
 
 ```sh
@@ -57,9 +62,10 @@ GPU, SSH GPU, SSH HPC를 한 표로 분리해서 보여줍니다. 여러 실행 
   `magnumnp` 같은 CPU engine을 감지하는지 확인합니다.
 - Local GPU: MuMax3와 NVIDIA driver를 설치한 뒤 `mumax3`, `nvidia-smi`가
   모두 ready인지 확인합니다.
-- SSH GPU/HPC: `--host`, `--user`를 넣고, terminal에서 SSH key가 동작하는
-  것이 확인된 뒤에만 `--probe-ssh`를 붙입니다. 기본 doctor 명령은 원격
-  연결을 열지 않습니다.
+- SSH GPU/HPC: optional Python package 행에서 `paramiko`가 준비됐는지
+  확인하고, `--host`, `--user`를 넣습니다. terminal에서 SSH key가 동작하는
+  것이 확인된 뒤에만 `--probe-ssh`를 붙입니다. 기본 doctor 명령은 원격 연결을
+  열지 않습니다.
 
 ### 설정 흐름
 
@@ -92,6 +98,7 @@ maglab sim doctor --backend local-gpu
 **SSH GPU / HPC**
 
 ```sh
+pipx inject maglab "maglab[sim]"   # Python-native SSH용 paramiko 포함
 maglab sim doctor --backend ssh-gpu --host gpu.cluster.edu --user alice
 ssh alice@gpu.cluster.edu
 maglab sim doctor --backend ssh-gpu --host gpu.cluster.edu --user alice --probe-ssh

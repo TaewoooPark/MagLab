@@ -38,6 +38,7 @@ class FeatureSetup:
     extra: str
     slash: str
     imports: tuple[str, ...] = ()
+    optional_imports: tuple[str, ...] = ()
     binaries: tuple[str, ...] = ()
     setup_commands: tuple[str, ...] = ()
     notes: tuple[str, ...] = ()
@@ -94,6 +95,7 @@ FEATURES: dict[str, FeatureSetup] = {
         extra="sim",
         slash="/setup-simulation",
         imports=("discretisedfield", "micromagneticmodel", "oommfc", "magnumnp"),
+        optional_imports=("paramiko",),
         binaries=("mumax3", "oommf", "nvidia-smi", "ssh", "rsync", "sbatch"),
         setup_commands=(
             "maglab sim doctor",
@@ -104,7 +106,7 @@ FEATURES: dict[str, FeatureSetup] = {
         ),
         notes=(
             "Python simulation libraries install through the research extra.",
-            "Paramiko is bundled for SSH workflows but does not block mock or local CPU readiness.",
+            "Paramiko is included in the sim/research extras for SSH workflows; missing Paramiko only blocks Python-native remote execution, not mock or local CPU readiness.",
             "External solvers such as MuMax3/OOMMF still need system installation when not using mock mode.",
             "Use sim doctor before real GPU or cluster time; SSH is only probed when --probe-ssh is explicit.",
         ),
@@ -220,6 +222,20 @@ def _status_line(items: Iterable[str], checker: Callable[[str], bool]) -> list[s
     return lines
 
 
+def _compact_status(items: Iterable[str], checker: Callable[[str], bool]) -> str:
+    """Return a compact readiness label for setup summary tables."""
+    values = list(items)
+    if not values:
+        return "n/a"
+    missing = [item for item in values if not checker(item)]
+    if not missing:
+        return "ready"
+    visible = ", ".join(missing[:3])
+    if len(missing) > 3:
+        visible += f", +{len(missing) - 3}"
+    return visible
+
+
 def _maglab_command_probe(maglab_cmd: str | None, expected_version: str) -> dict[str, object]:
     """Probe the PATH command without mutating installation state."""
     if maglab_cmd is None:
@@ -285,6 +301,8 @@ def build_install_doctor_report() -> dict[str, object]:
     feature_rows: list[dict[str, object]] = []
     for feature in FEATURES.values():
         missing_python = [name for name in feature.imports if not _module_ok(name)]
+        optional_python = {name: _module_ok(name) for name in feature.optional_imports}
+        missing_optional_python = [name for name, ok in optional_python.items() if not ok]
         missing_external = [name for name in feature.binaries if not _binary_ok(name)]
         feature_rows.append(
             {
@@ -293,7 +311,10 @@ def build_install_doctor_report() -> dict[str, object]:
                 "slash": feature.slash,
                 "python_ready": not missing_python,
                 "external_ready": not missing_external,
+                "optional_python_ready": not missing_optional_python,
+                "optional_python": optional_python,
                 "missing_python": missing_python,
+                "missing_optional_python": missing_optional_python,
                 "missing_external": missing_external,
                 "install_command": f'pipx inject maglab "maglab[{feature.extra}]"',
                 "setup_command": f"maglab setup {feature.key}",
@@ -315,6 +336,11 @@ def build_install_doctor_report() -> dict[str, object]:
         next_actions.append("Install pipx or uv before using the global tool install path.")
     if any(not row["python_ready"] for row in feature_rows):
         next_actions.append(f"Install all research extras at once: {RECOMMENDED_INSTALL}")
+    if any(row["missing_optional_python"] for row in feature_rows):
+        next_actions.append(
+            "Optional Python packages are missing for advanced paths; run "
+            "`maglab setup <feature>` for the relevant feature before SSH or remote workflows."
+        )
     if any(row["missing_external"] for row in feature_rows):
         next_actions.append(
             "Run `maglab setup <feature>` for solver, gateway, and TeX setup hints."
@@ -411,16 +437,29 @@ def render_install_doctor(console: Console | None = None) -> dict[str, object]:
     feature_table = Table(title="Research extra coverage")
     feature_table.add_column("Feature", style="cyan")
     feature_table.add_column("Python")
+    feature_table.add_column("Optional Python")
     feature_table.add_column("External")
     feature_table.add_column("Next")
     for row in cast(list[dict[str, Any]], report["features"]):
         missing_python = row["missing_python"]
+        optional_python = row["optional_python"]
+        missing_optional_python = row["missing_optional_python"]
         missing_external = row["missing_external"]
         assert isinstance(missing_python, list)
+        assert isinstance(optional_python, dict)
+        assert isinstance(missing_optional_python, list)
         assert isinstance(missing_external, list)
+        optional_cell = "n/a"
+        if optional_python:
+            optional_cell = (
+                "ready"
+                if row["optional_python_ready"]
+                else ", ".join(map(str, missing_optional_python))
+            )
         feature_table.add_row(
             str(row["key"]),
             "ready" if row["python_ready"] else ", ".join(map(str, missing_python)),
+            optional_cell,
             "ready" if row["external_ready"] else ", ".join(map(str, missing_external)),
             str(row["slash"]),
         )
@@ -468,6 +507,11 @@ def render_setup(feature_name: str | None = None, *, console: Console | None = N
         con.print("  Python packages:")
         for line in import_status:
             con.print(f"    {line}")
+    optional_import_status = _status_line(feature.optional_imports, _module_ok)
+    if optional_import_status:
+        con.print("  Optional Python packages:")
+        for line in optional_import_status:
+            con.print(f"    {line}")
     binary_status = _status_line(feature.binaries, _binary_ok)
     if binary_status:
         con.print("  External tools:")
@@ -490,7 +534,16 @@ def render_feature_table(console: Console | None = None) -> None:
     table.add_column("Feature", style="cyan")
     table.add_column("Extra")
     table.add_column("Slash")
-    table.add_column("Purpose")
+    table.add_column("Python")
+    table.add_column("Optional")
+    table.add_column("External")
     for feature in FEATURES.values():
-        table.add_row(feature.key, feature.extra, feature.slash, feature.title)
+        table.add_row(
+            feature.key,
+            feature.extra,
+            feature.slash,
+            _compact_status(feature.imports, _module_ok),
+            _compact_status(feature.optional_imports, _module_ok),
+            _compact_status(feature.binaries, _binary_ok),
+        )
     con.print(table)

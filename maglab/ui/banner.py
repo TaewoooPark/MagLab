@@ -34,6 +34,54 @@ _SUBTITLE = "magnetism · spintronics research copilot"
 _FONT_FULL = "ansi_shadow"
 _FONT_MID = "slant"
 
+_PIXEL_GLYPHS: dict[str, tuple[str, ...]] = {
+    "M": (
+        "█   █",
+        "██ ██",
+        "█ █ █",
+        "█   █",
+        "█   █",
+        "█   █",
+        "█   █",
+    ),
+    "A": (
+        " ███ ",
+        "█   █",
+        "█   █",
+        "█████",
+        "█   █",
+        "█   █",
+        "█   █",
+    ),
+    "G": (
+        " ████",
+        "█    ",
+        "█    ",
+        "█ ███",
+        "█   █",
+        "█   █",
+        " ███ ",
+    ),
+    "L": (
+        "█    ",
+        "█    ",
+        "█    ",
+        "█    ",
+        "█    ",
+        "█    ",
+        "█████",
+    ),
+    "B": (
+        "████ ",
+        "█   █",
+        "█   █",
+        "████ ",
+        "█   █",
+        "█   █",
+        "████ ",
+    ),
+}
+
 
 # ---------------------------------------------------------------------------
 # Accessibility / environment checks
@@ -183,6 +231,34 @@ def _render_figlet(font: str) -> str:
     return text.rstrip()
 
 
+def _texture_char(fill: str, shade: str, motif: str, row: int, col: int) -> str:
+    """Return the visible character for one filled pixel."""
+    if motif in {"hatch", "diagonal"}:
+        return fill if (row + col) % 2 == 0 else shade
+    if motif in {"soft", "dither"}:
+        return fill if row % 2 == 0 else shade
+    return fill
+
+
+def _render_pixel_wordmark(theme: Theme) -> str:
+    """Render MAGLAB as a filled or hatched pixel wordmark."""
+    fill = theme.logo.fill or "█"
+    shade = theme.logo.shade or fill
+    motif = theme.logo.motif or "solid"
+    rows: list[str] = []
+    for row_idx in range(7):
+        parts: list[str] = []
+        for letter in _WORDMARK_FULL:
+            glyph_row = _PIXEL_GLYPHS[letter][row_idx]
+            textured = "".join(
+                _texture_char(fill, shade, motif, row_idx, col_idx) if ch != " " else " "
+                for col_idx, ch in enumerate(glyph_row)
+            )
+            parts.append(textured)
+        rows.append("  ".join(parts).rstrip())
+    return "\n".join(rows)
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -212,18 +288,18 @@ def render(theme: Theme | None = None, width: int | None = None) -> None:
     # Detect width
     cols = width if width is not None else shutil.get_terminal_size(fallback=(80, 24)).columns
 
-    font = _pick_font(cols)
-
     # Load theme
     if theme is None:
         from maglab.ui.theme import Theme
 
         theme = Theme.load()
 
+    font = None if cols >= 60 else _pick_font(cols)
+
     # Colour-less environment (NO_COLOR)
     if _is_no_color():
         if font is None:
-            console.print(_WORDMARK_SHORT)
+            console.print(_render_pixel_wordmark(theme) if cols >= 60 else _WORDMARK_SHORT)
         else:
             block = _render_figlet(font)
             console.print(block)
@@ -234,7 +310,11 @@ def render(theme: Theme | None = None, width: int | None = None) -> None:
     start_hex = theme.gradient.start or "#38bdf8"
     end_hex = theme.gradient.end or "#f43f5e"
 
-    if font is None:
+    if cols >= 60:
+        block = _render_pixel_wordmark(theme)
+        gradient_text = _apply_gradient_multiline(block, start_hex, end_hex)
+        console.print(gradient_text)
+    elif font is None:
         # Short wordmark (< 60 columns)
         gradient_text = _apply_gradient(_WORDMARK_SHORT, start_hex, end_hex)
         console.print(gradient_text)

@@ -872,6 +872,26 @@ class TestPresentSlides:
         assert result.exit_code == 0, result.output
         assert "n_slides=10" in (out_dir / "slides.tex").read_text(encoding="utf-8")
 
+    def test_slides_dry_run_writes_design_brief_with_references(self, tmp_path: Path) -> None:
+        out_dir = tmp_path / "slides_brief"
+        result = runner.invoke(
+            present_app,
+            [
+                "slides",
+                "Verified APS oral results.",
+                "--template",
+                "aps-12min",
+                "--dry-run",
+                "--output-dir",
+                str(out_dir),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        brief = (out_dir / "DESIGN_BRIEF.md").read_text(encoding="utf-8")
+        assert "aps-12min" in brief
+        assert "Public References" in brief
+        assert "aps.org" in brief
+
     def test_slides_invalid_format_exits_1(self, tmp_path: Path) -> None:
         # Non-dry-run with invalid format — note: currently can only test
         # invalid format after imports succeed; rely on dry-run path.
@@ -993,6 +1013,26 @@ class TestPresentPoster:
         )
         assert result.exit_code == 0, result.output
         assert "size=96x48in" in (out_dir / "poster.svg").read_text(encoding="utf-8")
+
+    def test_poster_dry_run_writes_design_brief_with_references(self, tmp_path: Path) -> None:
+        out_dir = tmp_path / "poster_brief"
+        result = runner.invoke(
+            present_app,
+            [
+                "poster",
+                "Verified APS poster results.",
+                "--template",
+                "aps-march-poster",
+                "--dry-run",
+                "--output-dir",
+                str(out_dir),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        brief = (out_dir / "DESIGN_BRIEF.md").read_text(encoding="utf-8")
+        assert "aps-march-poster" in brief
+        assert "96 x 48" in brief
+        assert "aps.org" in brief
 
 
 # ---------------------------------------------------------------------------

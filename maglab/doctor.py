@@ -32,6 +32,7 @@ class FeatureDoctor:
     extra: str
     slash: str
     python: dict[str, bool]
+    optional_python: dict[str, bool]
     external: dict[str, bool]
     notes: tuple[str, ...]
 
@@ -50,9 +51,19 @@ class FeatureDoctor:
         return all(self.external.values()) if self.external else True
 
     @property
+    def optional_python_ready(self) -> bool:
+        """True when optional Python imports for advanced paths are importable."""
+        return all(self.optional_python.values()) if self.optional_python else True
+
+    @property
     def missing_python(self) -> list[str]:
         """Return missing Python import names."""
         return [name for name, ok in self.python.items() if not ok]
+
+    @property
+    def missing_optional_python(self) -> list[str]:
+        """Return missing optional Python import names."""
+        return [name for name, ok in self.optional_python.items() if not ok]
 
     @property
     def missing_external(self) -> list[str]:
@@ -67,10 +78,13 @@ class FeatureDoctor:
             "extra": self.extra,
             "slash": self.slash,
             "python_ready": self.python_ready,
+            "optional_python_ready": self.optional_python_ready,
             "external_ready": self.external_ready,
             "python": self.python,
+            "optional_python": self.optional_python,
             "external": self.external,
             "missing_python": self.missing_python,
+            "missing_optional_python": self.missing_optional_python,
             "missing_external": self.missing_external,
             "notes": list(self.notes),
         }
@@ -85,6 +99,9 @@ class UXDoctor:
     status: str
     evidence: str
     command: str
+    reason: str = ""
+    source: str = ""
+    next_action: str = ""
 
     def to_dict(self) -> dict[str, str]:
         """Serialize the UX check."""
@@ -94,6 +111,9 @@ class UXDoctor:
             "status": self.status,
             "evidence": self.evidence,
             "command": self.command,
+            "reason": self.reason or self.evidence,
+            "source": self.source or "static registration",
+            "next_action": self.next_action or self.command,
         }
 
 
@@ -113,6 +133,7 @@ def _doctor_feature(key: str) -> FeatureDoctor:
         extra=feature.extra,
         slash=feature.slash,
         python={name: _module_ok(name) for name in feature.imports},
+        optional_python={name: _module_ok(name) for name in feature.optional_imports},
         external={name: _binary_ok(name) for name in feature.binaries},
         notes=feature.notes,
     )
@@ -174,6 +195,10 @@ def _ux_contract_report(
             command=(
                 "maglab workspace brief · maglab workspace tree --summary · maglab workspace init"
             ),
+            source="workspace_info + bounded workspace tree",
+            next_action=(
+                "Run `maglab workspace brief`; add `maglab workspace init` if MAGLAB.md is missing."
+            ),
         ),
         UXDoctor(
             key="llm-files",
@@ -185,6 +210,8 @@ def _ux_contract_report(
             ),
             evidence="workspace_tree/read_file/search tools are registered and scoped to cwd",
             command="maglab ask '<natural-language task>'",
+            source="LLM tool registry",
+            next_action="Ask a workspace-scoped question or run `/workspace brief` first.",
         ),
         UXDoctor(
             key="models",
@@ -192,6 +219,17 @@ def _ux_contract_report(
             status=model_status,
             evidence=model_evidence,
             command="maglab doctor --smoke · /connect codex · /connect openai · maglab auth status",
+            reason=(
+                "Backend executable/credential check passed, but live one-shot smoke was not run."
+                if backend_ok and not backend_smoked
+                else model_evidence
+            ),
+            source=str(backend.get("verification", "registration")),
+            next_action=(
+                "Run `maglab doctor --smoke` before relying on live LLM answers."
+                if backend_ok and not backend_smoked
+                else str(backend.get("action") or "Run `maglab auth status`.")
+            ),
         ),
         UXDoctor(
             key="gpu-ssh-cpu",
@@ -199,6 +237,8 @@ def _ux_contract_report(
             status=sim_status,
             evidence=sim_evidence,
             command="maglab sim doctor --backend auto|local-gpu|ssh-gpu|ssh-hpc",
+            source="simulation environment decision tree",
+            next_action="Run `maglab sim doctor --explain` for path-by-path setup guidance.",
         ),
         UXDoctor(
             key="figures",
@@ -339,6 +379,14 @@ def run_doctor(
         recommendations.append(
             f"Install the full research bundle: `{RECOMMENDED_INSTALL}`. "
             f"Missing Python extras in: {', '.join(missing_python_features)}."
+        )
+
+    missing_optional_python_features = [f.key for f in features if f.missing_optional_python]
+    if missing_optional_python_features:
+        recommendations.append(
+            "Optional Python packages for advanced paths are missing in: "
+            f"{', '.join(missing_optional_python_features)}. "
+            "Install the relevant extra before using SSH, gateway, or remote workflows."
         )
 
     if any(f.missing_external for f in features):

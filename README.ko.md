@@ -43,6 +43,32 @@ MagLab은 자성 및 스핀트로닉스 연구자가 AI for Science를 실제 �
 모듈이 수행합니다. 연구자를 대체하려는 도구가 아니라, 연구자의 루프를 더
 빠르고 구조적이며 재현 가능하게 만드는 도구입니다.
 
+## AI for Science에 하네스가 필요한 이유
+
+AI for Science가 중요한 이유는 현대 연구의 병목이 더 이상 아이디어 부족에만
+있지 않기 때문입니다. 실제 연구 현장에서는 읽어야 할 논문이 너무 많고,
+파일 형식과 단위 관습이 제각각이며, 시뮬레이션 backend는 분산되어 있고,
+그림 수정과 논문 작성에는 반복적인 문맥 정리가 필요합니다. 실험 조건과
+판단 근거는 연구노트, 스크립트, 장비 로그, 개인 기억 속에 흩어져 있습니다.
+따라서 과학에 유용한 AI는 단순한 챗봇이어서는 부족합니다. 언어 모델이
+검증 가능한 도구를 호출하고, 구조화된 결과를 받고, provenance를 남기며,
+연구자가 과정을 추적할 수 있는 제어된 실행 환경이 필요합니다.
+
+MagLab은 LLM을 과학적 사실의 출처가 아니라 오케스트레이션 계층으로 둡니다.
+숫자는 공식 모듈, 데이터 파일, 피팅기, 시뮬레이션, 문헌 record, 또는 사용자의
+명시적 입력에서 나와야 합니다. 그림은 데이터와 연결된 vector artifact여야
+하고, 논문/포스터/메일 초안은 검증된 결과를 바탕으로 만들어지되 인간 검토가
+필수임을 계속 표시해야 합니다. 이것이 MagLab이 생각하는 실용적인 AI for
+Science입니다. 모델은 연구 루프를 빠르게 돌리고, 하네스는 그 루프를 나중에
+검토할 수 있게 유지합니다.
+
+자성 및 스핀트로닉스에서는 이런 구조가 특히 중요합니다. 하나의 프로젝트 안에
+material stack, 자기 단위, transport geometry, micromagnetic assumption,
+solver-specific file, fitted effect model, 논문용 figure가 함께 존재합니다.
+CGS와 SI가 섞이거나, 피팅 파라미터가 물리 범위를 벗어나거나, 그림 생성 경로를
+잊거나, 인용한 논문이 실제 claim을 지지하지 않는 일이 쉽게 생깁니다. MagLab은
+이 실패 모드들을 중심으로 설계되어 있습니다.
+
 ## MagLab이 줄이는 연구 병목
 
 | 연구 병목 | MagLab이 지원하는 것 |
@@ -156,6 +182,7 @@ maglab manual figures --lang ko
 | 영역 | English | 한국어 |
 |---|---|---|
 | 매뉴얼 인덱스 | [docs/manuals/en/index.md](docs/manuals/en/index.md) | [docs/manuals/ko/index.md](docs/manuals/ko/index.md) |
+| 빠른 시작과 실제 운용 | [English](docs/manuals/en/quickstart-operations.md) | [한국어](docs/manuals/ko/quickstart-operations.md) |
 | 문헌 인텔리전스 | [English](docs/manuals/en/literature.md) | [한국어](docs/manuals/ko/literature.md) |
 | 물질과 물리 | [English](docs/manuals/en/materials-physics.md) | [한국어](docs/manuals/ko/materials-physics.md) |
 | 시뮬레이션 | [English](docs/manuals/en/simulation.md) | [한국어](docs/manuals/ko/simulation.md) |
@@ -166,6 +193,44 @@ maglab manual figures --lang ko
 | 리뷰와 이상 현상 설명 | [English](docs/manuals/en/review-explain.md) | [한국어](docs/manuals/ko/review-explain.md) |
 | 논문 작성과 커뮤니케이션 | [English](docs/manuals/en/authoring-comms.md) | [한국어](docs/manuals/ko/authoring-comms.md) |
 | 오케스트레이션, agent, MCP, gateway | [English](docs/manuals/en/orchestration.md) | [한국어](docs/manuals/ko/orchestration.md) |
+
+## 실제 운용 매뉴얼
+
+MagLab은 계층적으로 사용하는 것이 안전합니다. 먼저 deterministic command로
+폴더, 데이터, 단위, 물리 범위, 외부 의존성을 확인하고, 그 다음 자연어
+오케스트레이션을 붙이는 방식이 가장 안정적입니다.
+
+| 상황 | 먼저 실행할 명령 | 결과를 신뢰하기 전 확인할 것 |
+|---|---|---|
+| fresh clone 또는 전역 설치 | `maglab install doctor` -> `maglab doctor` -> `maglab setup all` | Python 버전, 설치된 extra, 전역 command path, 빠진 optional solver. |
+| 새 연구 폴더 열기 | `maglab workspace init` -> `maglab workspace brief` -> `maglab workspace tree --summary` | `MAGLAB.md`, 보이는 프로젝트 파일, private/ignored path, generated output 위치. |
+| 모델 연결 | `maglab auth codex` 또는 `maglab auth <provider>` -> `maglab auth status` -> `maglab doctor --smoke` | backend sentinel 응답, credential 저장 위치, 선택된 model. |
+| GPU가 없는 노트북 | `maglab sim doctor --backend auto --explain` -> `maglab sim pipeline --backend mock` | mock output은 workflow artifact이며 실제 물리 solver 결과가 아님. |
+| 로컬 GPU 사용 | `maglab sim doctor --backend local-gpu` | `mumax3`, `nvidia-smi`, mesh size, 작은 test job으로 먼저 검증. |
+| SSH GPU 또는 cluster | `maglab sim doctor --backend ssh-gpu --host <host> --user <user>` | `--probe-ssh` 없이는 remote 접속하지 않음. SSH key와 remote module을 먼저 확인. |
+| 측정 CSV 분석 | `maglab analyze load data.csv` -> `maglab analyze model <effect>` -> `maglab fit --effect <effect> data.csv` | column, geometry assumption, parameter bound, residual, provenance ID. |
+| 논문용 그림 | `maglab figure spec` -> `maglab figure render ... --datapoints ledger.json` | DataPoint binding, axis label, unit, journal width, vector output. |
+| 포스터/발표 자료 | `maglab present templates --detail` -> `maglab present slides|poster ...` | `DESIGN_BRIEF.md`, `[FILL]` field, figure source, venue size/timing rule. |
+| 논문 작성 또는 rebuttal | `maglab write ... --dry-run` 또는 `maglab comms revision ...` | `HUMAN REVIEW REQUIRED`, citation existence, claim support, unsupported number 없음. |
+
+REPL 안에서도 같은 흐름을 slash command로 실행합니다.
+
+```text
+/help quick
+/workspace brief
+/doctor
+/setup all
+/connect codex
+/connect openai
+/sim doctor --explain
+/manual ko quickstart-operations
+```
+
+LLM 호출 중에는 MagLab이 compact activity trace를 출력합니다. 현재 단계, 경과
+시간, 중지 방법, 하네스가 볼 수 있는 tool/file reference가 표시됩니다. 모델의
+숨겨진 reasoning은 출력하지 않습니다. 연구자에게 중요한 관측 신호는 어떤 도구가
+실행되었는지, 어떤 Python 모듈이 중재했는지, 어떤 workspace 파일을 참조하거나
+수정했는지입니다.
 
 ## 예시 연구 루프
 
@@ -324,18 +389,20 @@ uv pip install -e ".[dev]"             # ruff, mypy, pytest, pre-commit
 
 일반 연구용 설치에서는 `.[research]` extra를 권장합니다. 설치 후
 `maglab install doctor`로 Python, PATH, 전역 앱 경로, research extra 상태를
-확인하고, `maglab setup all`을 실행하면 각 기능의 준비 상태, 터미널 설정 명령, 대응되는
-REPL slash command를 한 번에 볼 수 있습니다. MagLab REPL 안에서는 `/setup`,
+확인하고, `maglab setup all`을 실행하면 각 기능의 준비 상태, optional remote
+package, 터미널 설정 명령, 대응되는 REPL slash command를 한 번에 볼 수 있습니다.
+MagLab REPL 안에서는 `/setup`,
 `/setup <feature>`, 또는 `/setup-llm`, `/setup-literature`,
 `/setup-simulation`, `/setup-figure`, `/setup-instrument`,
 `/setup-authoring`, `/setup-review`, `/setup-gateway`, `/setup-mcp`를 사용할 수
 있습니다. 이미 준비된 dependency나 외부 명령은 그대로 통과시키고, 부족한 부분만
 터미널에서 알려줍니다.
 
-일부 시뮬레이션 엔진은 별도 외부 바이너리나 실행 환경이 필요합니다. 예를 들면
-OOMMF, MuMax3, magnum.np, VAMPIRE, VASP, Quantum ESPRESSO, HPC/GPU 환경입니다.
-MagLab은 이런 solver를 직접 소유하지 않아도 입력 생성, spec 검증, mock path,
-준비된 출력 파싱을 수행할 수 있습니다.
+일부 시뮬레이션 엔진은 별도 외부 바이너리나 remote execution package가
+필요합니다. 예를 들면 OOMMF, MuMax3, VAMPIRE, VASP, Quantum ESPRESSO,
+HPC/GPU 환경, Python-native SSH용 `paramiko`입니다. MagLab은 이런 solver를
+직접 소유하지 않아도 입력 생성, spec 검증, mock path, 준비된 출력 파싱을
+수행할 수 있습니다.
 
 ## 개발
 
@@ -356,6 +423,29 @@ LLM-as-judge를 사용하지 않습니다.
 - [harness.manifest.json](harness.manifest.json): subagent, workflow, model routing
 - [Manuals](docs/manuals/en/index.md): feature-by-feature operating guide
 - [한국어 매뉴얼](docs/manuals/ko/index.md): 기능별 한국어 사용 설명서
+- [Repository metadata](docs/repository-metadata.md): GitHub description, topic, social preview 문구
+
+## 저장소 메타데이터
+
+권장 GitHub 설명문:
+
+> AI for Science harness for magnetism and spintronics research: literature,
+> physics, simulation, fitting, figures, instruments, authoring, and provenance
+> in one CLI.
+
+권장 GitHub topic:
+
+```text
+ai-for-science, magnetism, spintronics, micromagnetics, materials-science,
+scientific-computing, research-automation, llm-agents, cli, provenance,
+simulation, data-analysis, scientific-figures, instruments, open-science
+```
+
+권장 thumbnail/social preview 설명문:
+
+> MagLab turns the magnetism and spintronics research lifecycle into a
+> verifiable CLI workflow: LLM orchestration wrapped around deterministic tools,
+> provenance, simulation, fitting, figures, instruments, and scientific writing.
 
 ## 라이선스
 

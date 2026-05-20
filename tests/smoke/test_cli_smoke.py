@@ -60,6 +60,9 @@ def test_install_doctor_json_reports_preflight() -> None:
     assert "python" in payload
     assert "workspace" in payload
     assert "features" in payload
+    simulation = next(item for item in payload["features"] if item["key"] == "simulation")
+    assert "optional_python" in simulation
+    assert "paramiko" in simulation["optional_python"]
 
 
 @pytest.mark.smoke
@@ -178,6 +181,7 @@ def test_doctor_json_reports_workspace_and_features() -> None:
     assert "workspace" in report
     assert "backend" in report
     assert "features" in report
+    assert "optional_python" in report["features"][0]
     assert "ux_contract" in report
 
 
@@ -185,6 +189,7 @@ def test_doctor_json_reports_workspace_and_features() -> None:
 def test_doctor_prints_plan_ux_contract() -> None:
     result = runner.invoke(app, ["doctor", "--no-sim"])
     assert result.exit_code == 0, result.output
+    assert "Optional Python" in result.output
     assert "Plan UX contract" in result.output
     assert "First folder read" in result.output
     assert "Language support" in result.output

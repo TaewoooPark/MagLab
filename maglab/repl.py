@@ -80,7 +80,10 @@ def _session_panel(config: Config, backend: object | None) -> None:
         f"  [dim]cwd[/]       {cwd}\n"
         f"  [dim]theme[/]     {theme_name}\n"
         f"  [dim]skills[/]    {skill_count} loaded          "
-        f"[dim]gateway[/]   off"
+        f"[dim]gateway[/]   off\n\n"
+        "  [dim]next[/]      /doctor · /workspace brief · /connect status\n"
+        "  [dim]manual[/]    /manual ko orchestration · /sim doctor\n"
+        '  [dim]ask[/]       "Read README and suggest first run steps"'
     )
     con.print(Panel(content, title="session", box=ROUNDED))
 
@@ -491,15 +494,21 @@ def run_repl(config: Config) -> None:
     # --- 2. Session panel ---
     backend: object | None = None
     orchestrator: object | None = None
+    trace_renderer: object | None = None
 
     try:
         from maglab.core.orchestrator import Orchestrator
         from maglab.llm.base import ModelRouter
         from maglab.llm.factory import backend_status, create_llm_backend
+        from maglab.ui.render import ReplTraceRenderer
 
+        trace_renderer = ReplTraceRenderer(console=con)
         status = backend_status(config)
         if status.ok:
-            backend = create_llm_backend(config)
+            backend = create_llm_backend(
+                config,
+                event_sink=getattr(trace_renderer, "emit", None),
+            )
         else:
             con.print(f"[yellow]Backend not ready:[/] {status.detail}")
             if status.action:
@@ -510,6 +519,7 @@ def run_repl(config: Config) -> None:
             model_router=(
                 ModelRouter(config.routing.model_dump()) if config.backend.mode == "api" else None
             ),
+            event_sink=getattr(trace_renderer, "emit", None),
         )
     except Exception as exc:
         con.print(f"[yellow]Backend setup failed:[/] {exc}")
@@ -599,3 +609,6 @@ def run_repl(config: Config) -> None:
         _close = getattr(orchestrator, "close", None)
         if callable(_close):
             _close()
+        _close_trace = getattr(trace_renderer, "close", None)
+        if callable(_close_trace):
+            _close_trace()

@@ -18,8 +18,10 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
@@ -34,6 +36,8 @@ from maglab.core.memory import ResearchPool, SessionMemory
 from maglab.core.verify import Verifier, VerifyStatus
 
 log = logging.getLogger(__name__)
+
+TraceSink = Callable[[dict[str, Any]], None]
 
 # ---------------------------------------------------------------------------
 # Public contract data structures
@@ -320,6 +324,7 @@ class Orchestrator:
         model_router: Any | None = None,
         gateway_runner: Any | None = None,
         manifest_path: Any | None = None,
+        event_sink: TraceSink | None = None,
     ) -> None:
         self._config = config or load_config()
         self._backend = backend
@@ -339,6 +344,7 @@ class Orchestrator:
         self._gateway_runner = gateway_runner
         # FIX 3: load harness manifest (graceful no-op if absent)
         self._manifest: Manifest = load_manifest(manifest_path)
+        self._event_sink = event_sink
 
     # ------------------------------------------------------------------
     # REPL single turn
@@ -541,6 +547,12 @@ class Orchestrator:
 
         for _ in range(self._max_tool_iterations):
             t0 = time.monotonic()
+            self._emit_trace(
+                "llm_start",
+                stage=stage,
+                model=stage_model or getattr(self._backend, "default_model", None),
+                tool_count=len(tool_defs),
+            )
             try:
                 # Pass stage_model as the `model` kwarg so the backend can
                 # override its default; backends that ignore the kwarg are unaffected.
@@ -552,6 +564,7 @@ class Orchestrator:
                 )
             except Exception as exc:  # noqa: BLE001
                 log.debug("Backend call error: %s", exc)
+                self._emit_trace("llm_error", stage=stage, error=str(exc))
                 return f"[Error] Backend call failed: {exc}"
 
             elapsed = time.monotonic() - t0
@@ -564,6 +577,15 @@ class Orchestrator:
                     usd_cost=response.usage.estimated_cost_usd or 0.0,
                     wall_time=elapsed,
                 )
+            self._emit_trace(
+                "llm_done",
+                stage=stage,
+                model=response.model,
+                elapsed_sec=elapsed,
+                tool_calls=len(response.tool_calls),
+                prompt_tokens=response.usage.prompt_tokens if response.usage else 0,
+                completion_tokens=response.usage.completion_tokens if response.usage else 0,
+            )
 
             # Return text if no tool calls
             if not response.tool_calls:
@@ -572,10 +594,23 @@ class Orchestrator:
             # Process tool calls
             tool_results = []
             for tc in response.tool_calls:
+                self._emit_trace(
+                    "tool_start",
+                    tool=tc.name,
+                    args=tc.arguments,
+                    source=_tool_source_path(tc.name),
+                    references=_extract_reference_paths(tc.arguments),
+                )
                 tool_call = ToolCall(name=tc.name, args=tc.arguments)
                 allowed, reason = self._hooks.is_allowed(tool_call)
                 if not allowed:
                     log.warning("Hook blocked: %s — %s", tc.name, reason)
+                    self._emit_trace(
+                        "tool_blocked",
+                        tool=tc.name,
+                        reason=reason,
+                        source=_tool_source_path(tc.name),
+                    )
                     tool_results.append(
                         {
                             "tool_call_id": tc.id,
@@ -588,6 +623,13 @@ class Orchestrator:
                     continue
 
                 result_content = self._execute_tool(tc.name, tc.arguments)
+                self._emit_trace(
+                    "tool_done",
+                    tool=tc.name,
+                    source=_tool_source_path(tc.name),
+                    references=_extract_reference_paths(tc.arguments, result_content),
+                    result_preview=result_content[:180],
+                )
                 tool_results.append(
                     {
                         "tool_call_id": tc.id,
@@ -635,6 +677,16 @@ class Orchestrator:
         except Exception as exc:  # noqa: BLE001
             log.warning("Tool execution error (%s): %s", name, exc)
             return f"[Error] Tool execution failed: {exc}"
+
+    def _emit_trace(self, kind: str, **payload: Any) -> None:
+        """Emit a best-effort UI trace event for interactive terminals."""
+        if self._event_sink is None:
+            return
+        event = {"kind": kind, **payload}
+        try:
+            self._event_sink(event)
+        except Exception:  # noqa: BLE001
+            log.debug("Trace sink failed for event %s", kind, exc_info=True)
 
     # ------------------------------------------------------------------
     # Internal: node processing
@@ -923,6 +975,120 @@ class Orchestrator:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+_REFERENCE_KEYS = {
+    "path",
+    "file",
+    "filename",
+    "root",
+    "output",
+    "output_dir",
+    "work_dir",
+    "manifest",
+    "manual_path",
+    "manuscript",
+    "notes",
+    "data",
+    "spec",
+    "spec_json",
+    "figure_spec",
+}
+_REFERENCE_SUFFIXES = {
+    ".bib",
+    ".csv",
+    ".dat",
+    ".h5",
+    ".hdf5",
+    ".ipynb",
+    ".json",
+    ".md",
+    ".npz",
+    ".npy",
+    ".ovf",
+    ".pdf",
+    ".png",
+    ".py",
+    ".svg",
+    ".tex",
+    ".txt",
+    ".yaml",
+    ".yml",
+}
+
+
+def _tool_source_path(name: str) -> str:
+    """Return the Python source file that implements a registered LLM tool."""
+    import inspect
+
+    try:
+        from maglab.llm import tools as tool_registry
+
+        entry = getattr(tool_registry, "_REGISTRY", {}).get(name)
+        if not entry:
+            return ""
+        fn = inspect.unwrap(entry[0])
+        source = inspect.getsourcefile(fn)
+    except Exception:  # noqa: BLE001
+        return ""
+    if not source:
+        return ""
+    path = Path(source).resolve()
+    try:
+        return path.relative_to(Path.cwd().resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def _looks_like_reference(value: str) -> bool:
+    """Return True for compact strings that look like workspace/file references."""
+    if not value or "\n" in value or len(value) > 260:
+        return False
+    if "://" in value:
+        return False
+    path = Path(value)
+    return "/" in value or path.suffix.lower() in _REFERENCE_SUFFIXES or path.exists()
+
+
+def _extract_reference_paths(*objects: Any, limit: int = 12) -> list[str]:
+    """Extract likely file/workspace references from tool arguments/results."""
+    refs: list[str] = []
+
+    def add_ref(value: str) -> None:
+        value = value.strip()
+        if _looks_like_reference(value) and value not in refs:
+            refs.append(value)
+
+    def walk(value: Any, key: str = "") -> None:
+        if len(refs) >= limit:
+            return
+        normalized_key = key.lower()
+        if isinstance(value, str):
+            if normalized_key in _REFERENCE_KEYS or _looks_like_reference(value):
+                add_ref(value)
+            return
+        if isinstance(value, Path):
+            add_ref(value.as_posix())
+            return
+        if isinstance(value, dict):
+            for child_key, child_value in value.items():
+                walk(child_value, str(child_key))
+            return
+        if isinstance(value, list | tuple):
+            for item in value:
+                walk(item, key)
+
+    for obj in objects:
+        if isinstance(obj, str):
+            try:
+                parsed = json.loads(obj)
+            except json.JSONDecodeError:
+                walk(obj)
+            else:
+                walk(parsed)
+        else:
+            walk(obj)
+    return refs[:limit]
 
 
 def _try_parse_json(text: str) -> dict[str, Any] | None:

@@ -14,6 +14,11 @@ uv pip install -e ".[sim]"
 External solvers may still need separate installation: OOMMF, MuMax3, magnum.np,
 VAMPIRE, VASP, Quantum ESPRESSO, or HPC/GPU execution tools.
 
+`maglab setup simulation` and `maglab install doctor` separate core Python
+packages from optional remote-execution packages. Missing `paramiko` only blocks
+Python-native SSH execution; it does not block mock mode, local CPU checks, or
+local solver-spec generation.
+
 ## Commands
 
 ```sh
@@ -56,9 +61,9 @@ Use these paths depending on where the compute will run:
   doctor reports a CPU engine such as `magnumnp`.
 - Local GPU: install MuMax3 and NVIDIA drivers, then confirm both `mumax3` and
   `nvidia-smi` are reported ready.
-- SSH GPU or HPC: pass `--host` and `--user`; add `--probe-ssh` only after SSH
-  keys work from the terminal. The default command does not open a remote
-  connection.
+- SSH GPU or HPC: confirm `paramiko` in the optional Python package row, pass
+  `--host` and `--user`, and add `--probe-ssh` only after SSH keys work from
+  the terminal. The default command does not open a remote connection.
 
 ### Setup flows
 
@@ -91,6 +96,7 @@ maglab sim doctor --backend local-gpu
 **SSH GPU / HPC**
 
 ```sh
+pipx inject maglab "maglab[sim]"   # includes paramiko for Python-native SSH
 maglab sim doctor --backend ssh-gpu --host gpu.cluster.edu --user alice
 ssh alice@gpu.cluster.edu
 maglab sim doctor --backend ssh-gpu --host gpu.cluster.edu --user alice --probe-ssh
