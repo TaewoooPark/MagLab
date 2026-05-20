@@ -70,7 +70,7 @@ all = [
   "bibtexparser>=2.0.0b9", "pylatex", "python-pptx", "python-docx",
   "slack-bolt", "python-telegram-bot", "discord.py",
 ]
-dev = ["ruff", "mypy", "pytest", "pytest-cov", "pre-commit"]
+dev = ["ruff", "mypy", "pytest", "pytest-asyncio", "pytest-cov", "pre-commit"]
 
 [project.scripts]
 maglab = "maglab.__main__:main"
