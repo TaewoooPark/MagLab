@@ -81,17 +81,16 @@ API_PROVIDER_PROFILES: dict[str, ProviderProfile] = {
         model_prefix="xai/",
         maglab_env_var="MAGLAB_GROK_API_KEY",
         litellm_env_var="XAI_API_KEY",
-        default_model="xai/grok-4.20",
-        routing=_routing(
-            "xai/grok-4.20", "xai/grok-4.3-latest", "xai/grok-4.20-non-reasoning-latest"
-        ),
+        default_model="xai/grok-4.3",
+        routing=_routing("xai/grok-4.3", "xai/grok-4.3-latest", "xai/grok-4.3"),
         prompt_file="grok.md",
         models=(
+            "xai/grok-4.3",
+            "xai/grok-4.3-latest",
             "xai/grok-4.20",
             "xai/grok-4.20-reasoning-latest",
             "xai/grok-4.20-non-reasoning-latest",
             "xai/grok-4.20-multi-agent",
-            "xai/grok-4.3-latest",
         ),
         direct_env_vars=("XAI_API_KEY", "GROK_API_KEY"),
         aliases=("xai",),

@@ -374,7 +374,7 @@ def test_auth_grok_saves_api_config_without_network(tmp_path: Path) -> None:
         patch("maglab.llm.auth.store_api_key", side_effect=AssertionError("secret prompt")),
         patch("litellm.completion", side_effect=AssertionError("network call")),
     ):
-        result = runner.invoke(app, ["auth", "grok", "--model", "grok-4.20", "--no-store-key"])
+        result = runner.invoke(app, ["auth", "grok", "--model", "grok-4.3", "--no-store-key"])
 
     assert result.exit_code == 0, result.output
     mock_config_path.assert_called_once_with()
@@ -383,5 +383,5 @@ def test_auth_grok_saves_api_config_without_network(tmp_path: Path) -> None:
     assert isinstance(saved_config, Config)
     assert saved_config.backend.mode == "api"
     assert saved_config.backend.api.provider == "grok"
-    assert saved_config.backend.api.model == "grok-4.20"
-    assert saved_config.routing.plan == "xai/grok-4.20"
+    assert saved_config.backend.api.model == "grok-4.3"
+    assert saved_config.routing.plan == "xai/grok-4.3"

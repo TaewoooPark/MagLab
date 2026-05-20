@@ -137,7 +137,7 @@ class TestAPIBackend:
 
         from maglab.llm.backends.api import APIBackend
 
-        backend = APIBackend(provider="grok", model="grok-4.20")
+        backend = APIBackend(provider="grok", model="grok-4.3")
         messages = [Message(role=Role.USER, content="hi")]
         mock_resp = self._make_mock_litellm_response()
         captured_env: dict[str, str | None] = {}
@@ -156,7 +156,7 @@ class TestAPIBackend:
                 backend.complete(messages)
 
             call_kwargs = mock_litellm.call_args[1]
-            assert call_kwargs["model"] == "xai/grok-4.20"
+            assert call_kwargs["model"] == "xai/grok-4.3"
             assert captured_env["XAI_API_KEY"] == "xai-key"
             assert os.environ.get("XAI_API_KEY") is None
         finally:
