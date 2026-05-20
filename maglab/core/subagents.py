@@ -360,7 +360,7 @@ class SubagentRunner:
         """Convert a model tier string to an actual model identifier."""
         tier_map: dict[str, str] = {
             "opus": "claude-opus-4-7",
-            "sonnet": "claude-sonnet-4-5",
+            "sonnet": "claude-sonnet-4-6",
             "haiku": "claude-haiku-4-5",
             "inherit": "",
         }

@@ -61,15 +61,26 @@ reproducible.
 
 ## Start Here
 
-Install the core package first. Add optional extras only for the subsystems you
-need.
+Install MagLab as a global terminal program with the recommended research
+bundle. The bundle pulls in every MagLab research feature so the terminal can
+guide you through any remaining provider, solver, instrument, or gateway setup.
 
 ```sh
-uv venv --python 3.12
-source .venv/bin/activate
+git clone https://github.com/TaewoooPark/MagLab.git
+cd MagLab
+pipx install --editable ".[research]"
+maglab setup all
+```
 
-uv pip install -e .
-uv pip install -e ".[llm,literature,sim,figure,instr,authoring]"
+After that, open any research folder and run `maglab`. MagLab keeps global
+config/data/cache in your user app directories, but reads and writes project
+artifacts relative to the folder where you launched it.
+
+```sh
+cd ~/research/my_spintronics_project
+maglab workspace init
+maglab workspace status
+maglab
 ```
 
 Run deterministic tools without an LLM key:
@@ -82,14 +93,25 @@ maglab analyze model stfmr
 maglab figure primitives list
 ```
 
-Register an LLM provider when you want natural-language orchestration, drafting,
-review, or agent workflows:
+Connect an LLM backend when you want natural-language orchestration, drafting,
+review, or agent workflows. Codex is supported through the official authenticated
+Codex CLI; MagLab does not store Codex OAuth tokens. Direct API providers are
+also supported for Anthropic, Grok, DeepSeek, Qwen, Kimi, Gemini, and OpenAI.
 
 ```sh
-maglab auth set anthropic sk-ant-...
-maglab auth test anthropic
+maglab auth codex
+maglab auth anthropic
+maglab auth qwen
+maglab auth status
 maglab
 ```
+
+Inside the REPL, use `/help` to see the full slash-command tree. Use
+`/connect codex`, `/connect <provider>`, `/connect api <provider>`, or
+`/connect ollama` to switch backends. API-key commands always use hidden
+terminal input; `maglab auth set <provider>` remains available for explicit key
+storage and scripting. Use `/reset config` to restore the previous config backup
+or `/reset defaults` to return MagLab to a clean default config.
 
 One-shot mode is useful in scripts and CI:
 
@@ -164,7 +186,7 @@ maglab present slides "Key results and figures from the SOT study" --format beam
 maglab                    interactive research agent
 maglab -p "QUERY"         non-interactive one-shot query
 
-auth      set · list · test
+auth      codex · claude · gemini-cli · ollama · anthropic · grok · deepseek · qwen · kimi · gemini · openai · set · list · status · test
 physics   compute · units · oracle
 mat       list · show · build
 sim       micro · validate · plot · job · dft · atomistic · pipeline
@@ -188,7 +210,9 @@ mcp       list · serve · add · enable · disable
 agents    list · show
 skill     list
 cost
-config
+config    show · path · restore · reset
+install
+workspace status · init · tree
 theme     list · set
 version · info
 ```
@@ -249,6 +273,7 @@ Python 3.11 to 3.13 is supported.
 
 ```sh
 uv pip install -e .                    # core
+uv pip install -e ".[research]"        # recommended: all research features
 uv pip install -e ".[llm]"             # LLM backends
 uv pip install -e ".[mcp]"             # MCP server and client
 uv pip install -e ".[sim]"             # simulation stack
@@ -260,6 +285,15 @@ uv pip install -e ".[authoring]"       # papers, slides, posters, docs
 uv pip install -e ".[gateway]"         # messaging gateway
 uv pip install -e ".[dev]"             # ruff, mypy, pytest, pre-commit
 ```
+
+For normal research use, prefer the all-in-one `.[research]` extra. Then run
+`maglab setup all` to see feature readiness, terminal setup checks, and the
+matching REPL slash commands. Inside the MagLab REPL, use `/setup`,
+`/setup <feature>`, or direct commands such as `/setup-llm`,
+`/setup-literature`, `/setup-simulation`, `/setup-figure`,
+`/setup-instrument`, `/setup-authoring`, `/setup-review`, `/setup-gateway`, and
+`/setup-mcp`. Existing working dependencies and commands are treated as ready;
+the setup view only tells you what still needs attention.
 
 Some simulation engines require external binaries or external Python packages
 that must be installed separately: OOMMF, MuMax3, magnum.np, VAMPIRE, VASP,

@@ -14,6 +14,13 @@ import os
 import stat
 from pathlib import Path
 
+from maglab.llm.providers import (
+    api_provider_keys,
+    build_litellm_model,
+    get_provider_profile,
+    normalize_provider,
+)
+
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -23,12 +30,11 @@ log = logging.getLogger(__name__)
 _SERVICE_NAME = "maglab"
 _AUTH_JSON_PATH = Path.home() / ".config" / "maglab" / "auth.json"
 
-# Provider name → env var name mapping
+# Provider name → MagLab env var name mapping. Kept as a module constant for
+# compatibility with older code/tests, but sourced from the central profile
+# registry.
 _PROVIDER_ENV: dict[str, str] = {
-    "anthropic": "MAGLAB_ANTHROPIC_API_KEY",
-    "openai": "MAGLAB_OPENAI_API_KEY",
-    "google": "MAGLAB_GOOGLE_API_KEY",
-    "openai-compatible": "MAGLAB_OPENAI_COMPATIBLE_API_KEY",
+    key: get_provider_profile(key).maglab_env_var for key in api_provider_keys()
 }
 
 
@@ -166,23 +172,29 @@ def get_api_key(provider: str) -> str | None:
     OAuth tokens are not returned — only API keys are handled (§7.2).
 
     Args:
-        provider: Provider name (``"anthropic"`` · ``"openai"`` · ``"google"`` ·
-                  ``"openai-compatible"``).
+        provider: Provider name or alias.
 
     Returns:
         API key string, or None if not found.
     """
-    # Priority 1: environment variable
-    env_var = _PROVIDER_ENV.get(provider)
-    if env_var:
-        val = os.environ.get(env_var)
-        if val:
-            return val
-    # Also support direct env var pattern (e.g. ANTHROPIC_API_KEY)
-    direct_env = f"{provider.upper().replace('-', '_')}_API_KEY"
-    val = os.environ.get(direct_env)
+    provider = normalize_provider(provider)
+    profile = get_provider_profile(provider)
+
+    # Priority 1: MagLab-scoped env var
+    val = os.environ.get(profile.maglab_env_var)
     if val:
         return val
+
+    # Also support provider-native env vars used by LiteLLM/vendor CLIs.
+    direct_envs = (
+        *profile.direct_env_vars,
+        profile.litellm_env_var,
+        f"{provider.upper().replace('-', '_')}_API_KEY",
+    )
+    for direct_env in dict.fromkeys(direct_envs):
+        val = os.environ.get(direct_env)
+        if val:
+            return val
 
     # Priority 2: keyring
     val = _keyring_get(provider)
@@ -208,6 +220,8 @@ def store_api_key(provider: str, api_key: str) -> str:
     Raises:
         RuntimeError: When all storage methods fail.
     """
+    provider = normalize_provider(provider)
+    get_provider_profile(provider)
     if _keyring_available() and _keyring_set(provider, api_key):
         log.info("API key stored in keyring (provider=%s).", provider)
         return "keyring"
@@ -228,6 +242,8 @@ def delete_api_key(provider: str) -> bool:
     Returns:
         True if at least one deletion succeeded.
     """
+    provider = normalize_provider(provider)
+    get_provider_profile(provider)
     deleted_keyring = _keyring_delete(provider)
     deleted_json = _auth_json_delete(provider)
     return deleted_keyring or deleted_json
@@ -240,7 +256,7 @@ def list_providers() -> list[str]:
         List of provider names for which an API key was found.
     """
     found: list[str] = []
-    for provider in _PROVIDER_ENV:
+    for provider in api_provider_keys():
         if get_api_key(provider) is not None:
             found.append(provider)
     return found
@@ -256,6 +272,7 @@ def verify_connection(provider: str, model: str | None = None) -> dict[str, obje
     Returns:
         ``{"ok": bool, "provider": str, "model": str, "error": str|None}``
     """
+    provider = normalize_provider(provider)
     api_key = get_api_key(provider)
     if not api_key:
         return {
@@ -265,25 +282,19 @@ def verify_connection(provider: str, model: str | None = None) -> dict[str, obje
             "error": f"API key not found (provider={provider}).",
         }
 
-    # Default model per provider
-    _default_models: dict[str, str] = {
-        "anthropic": "claude-haiku-4-5",
-        "openai": "gpt-4o-mini",
-        "google": "gemini-1.5-flash",
-        "openai-compatible": "gpt-4o-mini",
-    }
-    test_model = model or _default_models.get(provider, "gpt-4o-mini")
+    profile = get_provider_profile(provider)
+    test_model = model or profile.default_model
 
     try:
         import litellm  # type: ignore[import-untyped]
 
         # Temporarily inject the API key as an env var (litellm reads env vars)
-        env_var = _PROVIDER_ENV.get(provider, f"{provider.upper()}_API_KEY")
+        env_var = profile.litellm_env_var
         original = os.environ.get(env_var)
         os.environ[env_var] = api_key
         try:
             resp = litellm.completion(
-                model=test_model,
+                model=build_litellm_model(provider, test_model),
                 messages=[{"role": "user", "content": "ping"}],
                 max_tokens=5,
             )

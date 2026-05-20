@@ -1,0 +1,14 @@
+# Local Ollama backend — free, offline, lab-secure environment. No credentials required.
+
+[backend]
+mode = "local"
+
+[backend.local]
+host = "http://localhost:11434"
+model = "llama3.1"
+
+[autonomy]
+mode = "copilot"
+
+[ui]
+theme = "moke"

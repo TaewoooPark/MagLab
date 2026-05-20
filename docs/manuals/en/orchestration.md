@@ -18,14 +18,34 @@ tools, notebooks, literature workflows, analysis, and authoring.
 ## Credentials and Configuration
 
 ```sh
-maglab auth set anthropic sk-ant-...
+maglab auth codex
+maglab auth anthropic
+maglab auth grok
+maglab auth deepseek
+maglab auth qwen
+maglab auth kimi
+maglab auth gemini
+maglab auth openai
 maglab auth list
 maglab auth test anthropic
+maglab auth status
 maglab config
 maglab cost
 maglab theme list
 maglab theme set mono
 ```
+
+For Codex, authenticate with the official Codex CLI first. Then run
+`maglab auth codex` or use `/connect codex` inside the REPL. MagLab stores only
+the backend selection in `config.toml`; Codex OAuth tokens stay with the
+official CLI.
+
+For direct API providers, run the provider command and enter the key through
+hidden terminal input. The REPL equivalents are `/connect anthropic`,
+`/connect grok`, `/connect deepseek`, `/connect qwen`, `/connect kimi`,
+`/connect gemini`, and `/connect openai`. Each provider loads a MagLab runtime
+profile so the model is told that it is operating as the MagLab research
+orchestration agent, with provider-specific planning and verification guidance.
 
 ## Subagents and Skills
 

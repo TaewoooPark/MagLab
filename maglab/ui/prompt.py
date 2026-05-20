@@ -29,40 +29,82 @@ if TYPE_CHECKING:
 # Slash command list
 # ---------------------------------------------------------------------------
 
+
+def _leaf(values: tuple[str, ...] | list[str]) -> dict[str, None]:
+    """Return a NestedCompleter leaf mapping."""
+    return dict.fromkeys(values)
+
+
+def _provider_model_tree(provider: str) -> dict[str, None]:
+    """Return model completion leaves for a direct API provider."""
+    try:
+        from maglab.llm.providers import model_choices
+
+        return _leaf(model_choices(provider))
+    except Exception:
+        return {}
+
+
+def _api_provider_tree() -> dict[str, dict[str, None]]:
+    """Return provider -> model completion tree for /connect api."""
+    try:
+        from maglab.llm.providers import api_provider_keys
+
+        return {provider: _provider_model_tree(provider) for provider in api_provider_keys()}
+    except Exception:
+        return {}
+
+
+def _delegated_model_tree(tool: str) -> dict[str, None]:
+    """Return model completion leaves for delegated CLI tools."""
+    try:
+        from maglab.llm.providers import delegated_model_choices
+
+        return _leaf(delegated_model_choices(tool))
+    except Exception:
+        return {}
+
+
+def _slash_commands() -> dict[str, Any]:
+    """Build the slash completion tree, including dynamic model choices."""
+    from maglab.commands.tree import base_slash_commands
+
+    commands = base_slash_commands()
+    commands["/auth"].update(
+        {
+            "anthropic": _provider_model_tree("anthropic"),
+            "grok": _provider_model_tree("grok"),
+            "deepseek": _provider_model_tree("deepseek"),
+            "qwen": _provider_model_tree("qwen"),
+            "kimi": _provider_model_tree("kimi"),
+            "gemini": _provider_model_tree("gemini"),
+            "openai": _provider_model_tree("openai"),
+            "codex": _delegated_model_tree("codex"),
+            "claude": _delegated_model_tree("claude"),
+            "gemini-cli": _delegated_model_tree("gemini"),
+        }
+    )
+    commands["/connect"].update(
+        {
+            "codex": _delegated_model_tree("codex"),
+            "claude": _delegated_model_tree("claude"),
+            "gemini-cli": _delegated_model_tree("gemini"),
+            "anthropic": _provider_model_tree("anthropic"),
+            "grok": _provider_model_tree("grok"),
+            "deepseek": _provider_model_tree("deepseek"),
+            "qwen": _provider_model_tree("qwen"),
+            "kimi": _provider_model_tree("kimi"),
+            "gemini": _provider_model_tree("gemini"),
+            "openai": _provider_model_tree("openai"),
+            "openai-compatible": _provider_model_tree("openai-compatible"),
+            "api": _api_provider_tree(),
+        }
+    )
+    return commands
+
+
 #: Top-level slash commands (NestedCompleter tree)
-SLASH_COMMANDS: dict[str, Any] = {
-    "/help": None,
-    "/theme": {
-        "domain": None,
-        "mono": None,
-        "moke": None,
-        "light": None,
-    },
-    "/skill": {
-        "list": None,
-        "info": None,
-    },
-    "/physics": {
-        "oracle": None,
-        "compute": None,
-        "units": None,
-        "material": None,
-    },
-    "/cost": None,
-    "/config": None,
-    "/auth": {
-        "list": None,
-        "test": None,
-    },
-    "/mcp": {
-        "list": None,
-        "serve": None,
-    },
-    "/clear": None,
-    "/quit": None,
-    "/exit": None,
-    "/verbose": None,
-}
+SLASH_COMMANDS: dict[str, Any] = _slash_commands()
 
 #: Prompt glyph
 PROMPT_GLYPH = "⇡"
@@ -79,6 +121,84 @@ _HISTORY_PATH = Path.home() / ".maglab" / "history"
 def _default_toolbar() -> str:
     """Return the default bottom_toolbar text."""
     return " maglab  |  /help  |  Meta+Enter multiline  |  Ctrl+R history"
+
+
+def _prompt_choice(
+    title: str,
+    choices: tuple[str, ...],
+    *,
+    default: str | None,
+    explicit_value: str | None,
+    allow_blank: bool,
+) -> str | None:
+    """Prompt for a model using a prompt_toolkit completion menu."""
+    if explicit_value is not None or not sys.stdin.isatty():
+        return explicit_value
+    if not choices:
+        return explicit_value
+    try:
+        from prompt_toolkit import PromptSession
+        from prompt_toolkit.application.current import get_app
+        from prompt_toolkit.completion import WordCompleter
+        from prompt_toolkit.formatted_text import HTML
+    except Exception:
+        return explicit_value
+
+    completer = WordCompleter(list(choices), ignore_case=True, sentence=True)
+    session = PromptSession(completer=completer, complete_while_typing=True)
+
+    def _show_completions() -> None:
+        try:
+            get_app().current_buffer.start_completion(select_first=False)
+        except Exception:
+            return
+
+    suffix = " (blank = official CLI default)" if allow_blank else ""
+    value = session.prompt(
+        HTML(f"<ansicyan>{title} model{suffix}</ansicyan> "),
+        default=default or "",
+        pre_run=_show_completions,
+    )
+    selected = value.strip()
+    if selected:
+        return selected
+    if allow_blank:
+        return None
+    return default
+
+
+def prompt_model_choice(provider: str, explicit_model: str | None = None) -> str | None:
+    """Prompt for a direct API provider model, showing supported choices first."""
+    try:
+        from maglab.llm.providers import get_provider_profile, model_choices
+
+        profile = get_provider_profile(provider)
+        return _prompt_choice(
+            profile.title,
+            model_choices(provider),
+            default=profile.default_model,
+            explicit_value=explicit_model,
+            allow_blank=False,
+        )
+    except Exception:
+        return explicit_model
+
+
+def prompt_delegated_model_choice(tool: str, explicit_model: str | None = None) -> str | None:
+    """Prompt for an optional delegated CLI model."""
+    try:
+        from maglab.llm.providers import delegated_model_choices
+
+        choices = delegated_model_choices(tool)
+        return _prompt_choice(
+            tool,
+            choices,
+            default=None,
+            explicit_value=explicit_model,
+            allow_blank=True,
+        )
+    except Exception:
+        return explicit_model
 
 
 # ---------------------------------------------------------------------------

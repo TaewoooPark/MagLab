@@ -141,8 +141,8 @@ class PipelineStage(StrEnum):
 # Stage → default model mapping (hardcoded defaults used when config.toml is absent)
 _DEFAULT_ROUTING: dict[PipelineStage, str] = {
     PipelineStage.PLAN: "claude-opus-4-7",
-    PipelineStage.BUILD: "claude-haiku-4-5",
-    PipelineStage.SUMMARIZE: "claude-haiku-4-5",
+    PipelineStage.BUILD: "claude-sonnet-4-6",
+    PipelineStage.SUMMARIZE: "claude-haiku-4-5-20251001",
     PipelineStage.VISION_CRITIC: "claude-opus-4-7",
     PipelineStage.DEFAULT: "claude-opus-4-7",
 }

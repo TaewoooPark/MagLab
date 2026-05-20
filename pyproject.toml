@@ -46,6 +46,30 @@ literature = [
 reviewer = ["rank-bm25"]
 authoring = ["bibtexparser", "pylatex", "python-pptx", "python-docx"]
 gateway = ["slack-bolt", "python-telegram-bot", "discord.py"]
+research = [
+  "litellm", "ollama",
+  "fastmcp", "mcp",
+  "discretisedfield", "micromagneticmodel", "oommfc", "magnumnp",
+  "matplotlib", "scienceplots", "pyvista", "cairosvg",
+  "pyvisa", "pyvisa-sim", "pdfplumber",
+  "pyalex", "semanticscholar", "arxiv", "habanero",
+  "scikit-learn", "keybert", "yake", "lancedb",
+  "rank-bm25",
+  "bibtexparser", "pylatex", "python-pptx", "python-docx",
+  "slack-bolt", "python-telegram-bot", "discord.py",
+]
+all = [
+  "litellm", "ollama",
+  "fastmcp", "mcp",
+  "discretisedfield", "micromagneticmodel", "oommfc", "magnumnp",
+  "matplotlib", "scienceplots", "pyvista", "cairosvg",
+  "pyvisa", "pyvisa-sim", "pdfplumber",
+  "pyalex", "semanticscholar", "arxiv", "habanero",
+  "scikit-learn", "keybert", "yake", "lancedb",
+  "rank-bm25",
+  "bibtexparser", "pylatex", "python-pptx", "python-docx",
+  "slack-bolt", "python-telegram-bot", "discord.py",
+]
 dev = ["ruff", "mypy", "pytest", "pytest-cov", "pre-commit"]
 
 [project.scripts]

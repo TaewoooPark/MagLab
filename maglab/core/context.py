@@ -168,6 +168,10 @@ Current mode: {autonomy_mode}
 
 {maglab_md}
 
+## Active Workspace
+
+{workspace_context}
+
 ## Additional Guidelines
 
 - Trust only the results returned by deterministic tool calls.
@@ -191,10 +195,25 @@ def build_system_prompt(
     """
     cfg = load_config()
     maglab_md = load_maglab_md(maglab_md_path)
+    try:
+        from maglab.workspace import workspace_summary
+
+        workspace_context = workspace_summary()
+    except Exception:
+        workspace_context = "Current workspace root: unavailable"
+    try:
+        from maglab.llm.providers import prompt_for_config
+
+        provider_context = prompt_for_config(cfg)
+    except Exception:
+        provider_context = ""
     prompt = _SYSTEM_PROMPT_TEMPLATE.format(
         autonomy_mode=cfg.autonomy.mode,
         maglab_md=maglab_md,
+        workspace_context=workspace_context,
     )
+    if provider_context:
+        prompt += f"\n## Runtime Provider Profile\n\n{provider_context}\n"
     if extra_context:
         prompt += f"\n## JIT Additional Context\n\n{extra_context}\n"
     return prompt

@@ -34,9 +34,13 @@ ends with commands you can run.
 uv venv --python 3.12
 source .venv/bin/activate
 uv pip install -e .
-uv pip install -e ".[llm,literature,sim,figure,instr,authoring,gateway,mcp]"
+uv pip install -e ".[research]"
+maglab setup all
 ```
 
-Install only the extras you need on a real machine. Simulation backends such as
-OOMMF, MuMax3, magnum.np, VAMPIRE, VASP, and Quantum ESPRESSO may require
-separate installation outside MagLab.
+For a working research machine, the recommended path is the all-in-one
+`.[research]` extra. `maglab setup all` shows what is already ready, what still
+needs terminal setup, and the matching REPL slash commands. Use
+`maglab setup <feature>` or `/setup-<feature>` for targeted setup checks.
+Simulation backends such as OOMMF, MuMax3, magnum.np, VAMPIRE, VASP, and
+Quantum ESPRESSO may require separate installation outside MagLab.

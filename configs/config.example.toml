@@ -7,12 +7,21 @@
 mode = "api"
 
 [backend.api]
-provider = "anthropic"          # anthropic | openai | google | openai-compatible
+provider = "anthropic"          # anthropic | grok | deepseek | qwen | kimi | gemini | openai | openai-compatible
 model = "claude-opus-4-7"
+# base_url = "http://localhost:8000/v1"  # only for openai-compatible endpoints
+# Provider key env vars:
+# MAGLAB_ANTHROPIC_API_KEY, MAGLAB_GROK_API_KEY, MAGLAB_DEEPSEEK_API_KEY,
+# MAGLAB_QWEN_API_KEY, MAGLAB_KIMI_API_KEY, MAGLAB_GEMINI_API_KEY,
+# MAGLAB_OPENAI_API_KEY, MAGLAB_OPENAI_COMPATIBLE_API_KEY
 
 [backend.delegated_cli]
-# Runs officially installed and authenticated codex / claude / gemini as a subprocess backend
-tool = "claude"
+# Runs officially installed and authenticated codex / claude / gemini as a subprocess backend.
+# MagLab never stores subscription OAuth tokens; the official CLI owns auth and token refresh.
+tool = "codex"                  # codex | claude | gemini
+# model = "gpt-5.5"             # optional; omit to use the official CLI default
+timeout = 120.0
+extra_flags = []
 
 [backend.local]
 host = "http://localhost:11434"
@@ -21,7 +30,7 @@ model = "llama3.1"
 [routing]
 # Stage-wise model routing (§7.3) — different model per pipeline stage
 plan = "claude-opus-4-7"
-build = "claude-haiku-4-5-20251001"
+build = "claude-sonnet-4-6"
 summarize = "claude-haiku-4-5-20251001"
 vision_critic = "claude-opus-4-7"
 

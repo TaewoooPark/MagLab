@@ -53,8 +53,27 @@ def _root_callback(
     if ctx.invoked_subcommand is not None:
         return
     if prompt is not None:
-        # Non-interactive one-shot mode — echo only at P0 startup stage
-        console.print(f"[dim]Non-interactive mode:[/] {prompt}")
+        config = load_config()
+        from maglab.core.orchestrator import Orchestrator
+        from maglab.llm.base import ModelRouter
+        from maglab.llm.factory import create_llm_backend
+
+        backend = create_llm_backend(config)
+        model_router = (
+            ModelRouter(config.routing.model_dump()) if config.backend.mode == "api" else None
+        )
+        try:
+            orchestrator = Orchestrator(
+                config=config,
+                backend=backend,
+                model_router=model_router,
+            )
+        except TypeError:
+            orchestrator = Orchestrator(config=config, backend=backend)
+        try:
+            console.print(orchestrator.respond(prompt))
+        finally:
+            orchestrator.close()
         return
     # Interactive REPL
     config = load_config()
@@ -78,13 +97,23 @@ app.add_typer(auth_app)
 @auth_app.command("set")
 def auth_set(
     provider: str = typer.Argument(
-        ..., help="Provider name (anthropic·openai·google·openai-compatible)."
+        ...,
+        help="Provider name (anthropic·grok·deepseek·qwen·kimi·gemini·openai·openai-compatible).",
     ),
-    api_key: str = typer.Argument(..., help="API key string."),
+    api_key: str | None = typer.Argument(None, help="API key string. Omit for hidden input."),
 ) -> None:
     """Store an API key in the keyring or auth.json."""
-    from maglab.llm.auth import store_api_key
+    import getpass
 
+    from maglab.llm.auth import store_api_key
+    from maglab.llm.providers import normalize_provider
+
+    provider = normalize_provider(provider)
+    if api_key is None:
+        api_key = getpass.getpass(f"{provider} API key: ")
+    if not api_key:
+        console.print("[red]No API key provided.[/]")
+        raise typer.Exit(1)
     location = store_api_key(provider, api_key)
     console.print(
         f"[green]✓[/] API key saved — provider=[bold]{provider}[/]  location=[bold]{location}[/]"
@@ -106,12 +135,32 @@ def auth_list() -> None:
 
 @auth_app.command("test")
 def auth_test(
-    provider: str = typer.Argument(..., help="Provider name to test."),
+    provider: str | None = typer.Argument(
+        None,
+        help="Provider name to test. Omit to test the configured backend.",
+    ),
     model: str | None = typer.Option(None, "--model", help="Model identifier to use for the test."),
 ) -> None:
-    """Verify API key validity with a live call."""
-    from maglab.llm.auth import verify_connection
+    """Verify API credentials or configured delegated/local backend readiness."""
+    if provider is None:
+        from maglab import config as config_mod
+        from maglab.llm.factory import test_llm_backend
 
+        config = config_mod.load_config()
+        status = test_llm_backend(config)
+        if status.ok:
+            console.print(f"[green]✓[/] Backend ready — [bold]{status.label}[/]")
+            console.print(f"  {status.detail}")
+            return
+        console.print(f"[red]✗[/] Backend not ready — {status.detail}")
+        if status.action:
+            console.print(status.action)
+        raise typer.Exit(code=1)
+
+    from maglab.llm.auth import verify_connection
+    from maglab.llm.providers import normalize_provider
+
+    provider = normalize_provider(provider)
     with console.status(f"[dim]Testing connection ({provider})…[/]"):
         result = verify_connection(provider, model)
     if result["ok"]:
@@ -121,6 +170,237 @@ def auth_test(
     else:
         console.print(f"[red]✗[/] Connection failed — {result['error']}")
         raise typer.Exit(code=1)
+
+
+@auth_app.command("status")
+def auth_status() -> None:
+    """Show the configured LLM backend status without printing secrets."""
+    from maglab import config as config_mod
+    from maglab.llm.factory import backend_status
+
+    config = config_mod.load_config()
+    status = backend_status(config)
+    marker = "[green]✓[/]" if status.ok else "[red]✗[/]"
+    console.print(f"{marker} [bold]{status.label}[/]")
+    console.print(f"  mode: {status.mode}")
+    console.print(f"  config: {config_mod.config_path()}")
+    console.print(f"  detail: {status.detail}")
+    if status.action:
+        console.print(f"  next: {status.action}")
+
+
+def _configure_api_provider(
+    provider: str,
+    *,
+    model: str | None = None,
+    base_url: str | None = None,
+    store_key: bool = True,
+) -> None:
+    """Configure a direct API provider and optionally capture its key securely."""
+    import getpass
+
+    from maglab import config as config_mod
+    from maglab.llm.auth import get_api_key, store_api_key
+    from maglab.llm.connect import configure_api_backend
+    from maglab.llm.providers import get_provider_profile, normalize_provider
+
+    provider = normalize_provider(provider)
+    profile = get_provider_profile(provider)
+    config = config_mod.load_config()
+    if model is None:
+        from maglab.ui.prompt import prompt_model_choice
+
+        model = prompt_model_choice(provider)
+    saved = configure_api_backend(
+        config,
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        path=config_mod.config_path(),
+    )
+    console.print(
+        f"[green]✓[/] Configured [bold]{profile.title}[/] API backend in [bold]{saved}[/]."
+    )
+
+    if store_key:
+        existing = get_api_key(provider)
+        suffix = "blank to keep existing" if existing else "blank to skip storing"
+        api_key = getpass.getpass(f"{profile.title} API key ({suffix}): ")
+        if api_key:
+            location = store_api_key(provider, api_key)
+            console.print(f"[green]✓[/] API key saved in [bold]{location}[/].")
+
+    console.print(
+        "Restart MagLab to load this backend. "
+        f"Default model: [bold]{config.backend.api.model}[/]"
+    )
+
+
+@auth_app.command("anthropic")
+def auth_anthropic(
+    model: str | None = typer.Option(None, "--model", "-m", help="Anthropic model."),
+    store_key: bool = typer.Option(True, "--store-key/--no-store-key", help="Prompt for API key."),
+) -> None:
+    """Use an Anthropic API key as the MagLab backend."""
+    _configure_api_provider("anthropic", model=model, store_key=store_key)
+
+
+@auth_app.command("grok")
+def auth_grok(
+    model: str | None = typer.Option(None, "--model", "-m", help="xAI/Grok model."),
+    store_key: bool = typer.Option(True, "--store-key/--no-store-key", help="Prompt for API key."),
+) -> None:
+    """Use an xAI/Grok API key as the MagLab backend."""
+    _configure_api_provider("grok", model=model, store_key=store_key)
+
+
+@auth_app.command("deepseek")
+def auth_deepseek(
+    model: str | None = typer.Option(None, "--model", "-m", help="DeepSeek model."),
+    store_key: bool = typer.Option(True, "--store-key/--no-store-key", help="Prompt for API key."),
+) -> None:
+    """Use a DeepSeek API key as the MagLab backend."""
+    _configure_api_provider("deepseek", model=model, store_key=store_key)
+
+
+@auth_app.command("qwen")
+def auth_qwen(
+    model: str | None = typer.Option(None, "--model", "-m", help="Qwen/DashScope model."),
+    store_key: bool = typer.Option(True, "--store-key/--no-store-key", help="Prompt for API key."),
+) -> None:
+    """Use a Qwen/DashScope API key as the MagLab backend."""
+    _configure_api_provider("qwen", model=model, store_key=store_key)
+
+
+@auth_app.command("kimi")
+def auth_kimi(
+    model: str | None = typer.Option(None, "--model", "-m", help="Kimi/Moonshot model."),
+    store_key: bool = typer.Option(True, "--store-key/--no-store-key", help="Prompt for API key."),
+) -> None:
+    """Use a Kimi/Moonshot API key as the MagLab backend."""
+    _configure_api_provider("kimi", model=model, store_key=store_key)
+
+
+@auth_app.command("gemini")
+def auth_gemini(
+    model: str | None = typer.Option(None, "--model", "-m", help="Gemini API model."),
+    store_key: bool = typer.Option(True, "--store-key/--no-store-key", help="Prompt for API key."),
+) -> None:
+    """Use a Gemini API key as the MagLab backend."""
+    _configure_api_provider("gemini", model=model, store_key=store_key)
+
+
+@auth_app.command("openai")
+def auth_openai(
+    model: str | None = typer.Option(None, "--model", "-m", help="OpenAI model."),
+    store_key: bool = typer.Option(True, "--store-key/--no-store-key", help="Prompt for API key."),
+) -> None:
+    """Use an OpenAI API key as the MagLab backend."""
+    _configure_api_provider("openai", model=model, store_key=store_key)
+
+
+@auth_app.command("openai-compatible")
+def auth_openai_compatible(
+    model: str | None = typer.Option(None, "--model", "-m", help="Endpoint model name."),
+    base_url: str = typer.Option(..., "--base-url", help="OpenAI-compatible /v1 endpoint URL."),
+    store_key: bool = typer.Option(True, "--store-key/--no-store-key", help="Prompt for API key."),
+) -> None:
+    """Use an OpenAI-compatible endpoint as the MagLab backend."""
+    _configure_api_provider(
+        "openai-compatible",
+        model=model,
+        base_url=base_url,
+        store_key=store_key,
+    )
+
+
+@auth_app.command("codex")
+def auth_codex(
+    model: str | None = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="Optional Codex model. Omit to use the official CLI default.",
+    ),
+) -> None:
+    """Use the officially authenticated Codex CLI as the MagLab backend."""
+    from maglab import config as config_mod
+    from maglab.llm.connect import configure_delegated_cli
+    from maglab.ui.prompt import prompt_delegated_model_choice
+
+    config = config_mod.load_config()
+    model = prompt_delegated_model_choice("codex", model)
+    saved, exe_status = configure_delegated_cli(
+        config, tool="codex", model=model, path=config_mod.config_path()
+    )
+    console.print(f"[green]✓[/] Configured Codex delegated CLI backend in [bold]{saved}[/].")
+    if exe_status == "missing":
+        console.print(
+            "[yellow]Codex CLI was not found on PATH.[/] Install and authenticate the official "
+            "Codex CLI first, then restart MagLab."
+        )
+    else:
+        console.print(
+            "Codex CLI executable found. If it is not already authenticated, complete the "
+            "official Codex login flow, then restart MagLab."
+        )
+
+
+@auth_app.command("claude")
+def auth_claude(
+    model: str | None = typer.Option(None, "--model", "-m", help="Optional Claude model."),
+) -> None:
+    """Use the officially authenticated Claude CLI as the MagLab backend."""
+    from maglab import config as config_mod
+    from maglab.llm.connect import configure_delegated_cli
+    from maglab.ui.prompt import prompt_delegated_model_choice
+
+    config = config_mod.load_config()
+    model = prompt_delegated_model_choice("claude", model)
+    saved, exe_status = configure_delegated_cli(
+        config, tool="claude", model=model, path=config_mod.config_path()
+    )
+    console.print(f"[green]✓[/] Configured Claude delegated CLI backend in [bold]{saved}[/].")
+    if exe_status == "missing":
+        console.print("[yellow]Claude CLI was not found on PATH.[/] Install/authenticate it, then restart MagLab.")
+    else:
+        console.print("Claude CLI executable found. Restart MagLab to use it.")
+
+
+@auth_app.command("gemini-cli")
+def auth_gemini_cli(
+    model: str | None = typer.Option(None, "--model", "-m", help="Optional Gemini model."),
+) -> None:
+    """Use the officially authenticated Gemini CLI as the MagLab backend."""
+    from maglab import config as config_mod
+    from maglab.llm.connect import configure_delegated_cli
+    from maglab.ui.prompt import prompt_delegated_model_choice
+
+    config = config_mod.load_config()
+    model = prompt_delegated_model_choice("gemini", model)
+    saved, exe_status = configure_delegated_cli(
+        config, tool="gemini", model=model, path=config_mod.config_path()
+    )
+    console.print(f"[green]✓[/] Configured Gemini delegated CLI backend in [bold]{saved}[/].")
+    if exe_status == "missing":
+        console.print("[yellow]Gemini CLI was not found on PATH.[/] Install/authenticate it, then restart MagLab.")
+    else:
+        console.print("Gemini CLI executable found. Restart MagLab to use it.")
+
+
+@auth_app.command("ollama")
+def auth_ollama(
+    model: str = typer.Option("llama3.1", "--model", "-m", help="Ollama model name."),
+    host: str = typer.Option("http://localhost:11434", "--host", help="Ollama server URL."),
+) -> None:
+    """Use a local Ollama model as the MagLab backend."""
+    from maglab import config as config_mod
+    from maglab.llm.connect import configure_local_backend
+
+    config = config_mod.load_config()
+    saved = configure_local_backend(config, model=model, host=host, path=config_mod.config_path())
+    console.print(f"[green]✓[/] Configured Ollama backend in [bold]{saved}[/].")
+    console.print("Start Ollama with `ollama serve`, then restart MagLab.")
 
 
 # ---------------------------------------------------------------------------
@@ -668,13 +948,164 @@ def agents_show(
 # config
 # ---------------------------------------------------------------------------
 
+config_app = typer.Typer(
+    name="config",
+    help="Configuration inspection and rollback.",
+    invoke_without_command=True,
+)
+app.add_typer(config_app)
 
-@app.command("config")
-def config_cmd() -> None:
+
+@config_app.callback(invoke_without_command=True)
+def config_cmd(ctx: typer.Context) -> None:
     """Print the current configuration."""
-
+    if ctx.invoked_subcommand is not None:
+        return
     config = load_config()
     console.print_json(config.model_dump_json(indent=2))
+
+
+@config_app.command("show")
+def config_show() -> None:
+    """Print the current configuration."""
+    config = load_config()
+    console.print_json(config.model_dump_json(indent=2))
+
+
+@config_app.command("path")
+def config_path_cmd() -> None:
+    """Print config and backup paths."""
+    from maglab.config import config_backup_path, config_path
+
+    path = config_path()
+    console.print(f"config: [bold]{path}[/]")
+    console.print(f"backup: [bold]{config_backup_path(path)}[/]")
+
+
+@config_app.command("restore")
+def config_restore_cmd() -> None:
+    """Restore the previous config backup."""
+    from maglab.config import restore_config
+
+    try:
+        path = restore_config()
+    except FileNotFoundError as exc:
+        console.print(f"[yellow]{exc}[/]")
+        raise typer.Exit(1) from exc
+    console.print(f"[green]✓[/] Restored previous MagLab config: [bold]{path}[/]")
+
+
+@config_app.command("reset")
+def config_reset_cmd() -> None:
+    """Reset config to defaults, keeping the previous file as .bak."""
+    from maglab.config import reset_config
+
+    path = reset_config()
+    console.print(f"[green]✓[/] Reset MagLab config to defaults: [bold]{path}[/]")
+
+
+# ---------------------------------------------------------------------------
+# setup
+# ---------------------------------------------------------------------------
+
+
+@app.command("setup")
+def setup_cmd(
+    feature: str = typer.Argument(
+        "all",
+        help="Feature to set up: all·llm·literature·simulation·figure·instrument·authoring·review·gateway·mcp.",
+    ),
+) -> None:
+    """Show terminal setup guidance for MagLab research features."""
+    from maglab.setup import render_setup
+
+    render_setup(feature, console=console)
+
+
+# ---------------------------------------------------------------------------
+# install / workspace
+# ---------------------------------------------------------------------------
+
+
+@app.command("install")
+def install_cmd() -> None:
+    """Print global installation commands."""
+    from rich.markup import escape
+
+    from maglab.setup import PIPX_INSTALL, RECOMMENDED_INSTALL, UV_TOOL_INSTALL
+
+    console.print("[bold]Global MagLab install[/]")
+    console.print(f"  Recommended: [cyan]{escape(RECOMMENDED_INSTALL)}[/]")
+    console.print(f"  uv tool:     [cyan]{escape(UV_TOOL_INSTALL)}[/]")
+    console.print(f"  pipx:        [cyan]{escape(PIPX_INSTALL)}[/]")
+    console.print()
+    console.print(
+        "After installation, open any research folder and run [bold]maglab[/]. "
+        "MagLab will use that folder as the workspace while keeping config/data/cache in global app paths."
+    )
+
+
+workspace_app = typer.Typer(
+    name="workspace",
+    help="Current-folder workspace status and initialization.",
+    invoke_without_command=True,
+)
+app.add_typer(workspace_app)
+
+
+@workspace_app.callback(invoke_without_command=True)
+def workspace_callback(ctx: typer.Context) -> None:
+    """Show workspace status by default."""
+    if ctx.invoked_subcommand is not None:
+        return
+    workspace_status()
+
+
+@workspace_app.command("status")
+def workspace_status() -> None:
+    """Show the active workspace and global MagLab paths."""
+    from maglab.workspace import workspace_info
+
+    info = workspace_info()
+    table = Table(title="MagLab workspace")
+    table.add_column("Scope", style="cyan")
+    table.add_column("Path")
+    table.add_row("workspace root", str(info.root))
+    table.add_row("project state", str(info.local_state_dir))
+    table.add_row("MAGLAB.md", str(info.maglab_md or "(not found)"))
+    table.add_row("global config", str(info.config_dir))
+    table.add_row("global data", str(info.data_dir))
+    table.add_row("global cache", str(info.cache_dir))
+    console.print(table)
+
+
+@workspace_app.command("init")
+def workspace_init() -> None:
+    """Create a local MAGLAB.md marker in the current folder."""
+    from maglab.workspace import init_workspace
+
+    marker, created = init_workspace()
+    if created:
+        console.print(f"[green]✓[/] Created workspace marker: [bold]{marker}[/]")
+    else:
+        console.print(f"[dim]Workspace marker already exists:[/] {marker}")
+
+
+@workspace_app.command("tree")
+def workspace_tree(
+    max_entries: int = typer.Option(80, "--max", "-n", help="Maximum entries to display."),
+) -> None:
+    """Show the files MagLab can see from the current folder."""
+    from maglab.workspace import iter_workspace_entries, workspace_root
+
+    root = workspace_root()
+    console.print(f"[bold]Workspace:[/] {root}")
+    entries = iter_workspace_entries(root, max_entries=max_entries)
+    if not entries:
+        console.print("[dim]No visible files.[/]")
+        return
+    for entry in entries:
+        console.print(f"  {entry}")
 
 
 # ---------------------------------------------------------------------------

@@ -21,6 +21,7 @@ from maglab.llm.base import (
     Message,
     UsageStats,
 )
+from maglab.llm.providers import is_model_compatible
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +48,8 @@ class DelegatedCLIBackend(LLMBackend):
 
     Args:
         cli: CLI name to use (``"claude"``·``"codex"``·``"gemini"``).
-        model: Default model identifier.
+        model: Default model identifier. When omitted/blank, the official CLI
+            decides its own default model.
         timeout: Subprocess timeout in seconds.
         extra_flags: Additional flags to append to the CLI invocation.
     """
@@ -55,7 +57,7 @@ class DelegatedCLIBackend(LLMBackend):
     def __init__(
         self,
         cli: str = "claude",
-        model: str = "claude-opus-4-7",
+        model: str | None = "claude-opus-4-7",
         timeout: float = 120.0,
         extra_flags: list[str] | None = None,
     ) -> None:
@@ -76,10 +78,15 @@ class DelegatedCLIBackend(LLMBackend):
         exe_name = _CLI_EXECUTABLES.get(self.cli, self.cli)
         path = shutil.which(exe_name)
         if path is None:
-            raise FileNotFoundError(
-                f"CLI '{exe_name}' not found on PATH. "
-                f"Please install the official CLI first: https://docs.anthropic.com/cli"
-            )
+            if exe_name == "codex":
+                hint = "Install and authenticate the official Codex CLI, then run `maglab auth codex`."
+            elif exe_name == "claude":
+                hint = "Install and authenticate the official Claude CLI, then run `maglab auth claude`."
+            elif exe_name == "gemini":
+                hint = "Install and authenticate the official Gemini CLI, then run `maglab auth gemini-cli`."
+            else:
+                hint = "Install the official CLI first."
+            raise FileNotFoundError(f"CLI '{exe_name}' not found on PATH. {hint}")
         return path
 
     def _build_prompt(self, messages: list[Message]) -> str:
@@ -96,6 +103,16 @@ class DelegatedCLIBackend(LLMBackend):
             parts.append(f"[{role_label}]\n{content}")
         return "\n\n".join(parts)
 
+    def _resolve_cli_model(self, model: str | None) -> str:
+        """Resolve optional model overrides for delegated CLI commands."""
+        provider_for_cli = {"codex": "openai", "gemini": "gemini", "claude": "anthropic"}.get(
+            self.cli
+        )
+        if provider_for_cli and not is_model_compatible(provider_for_cli, model):
+            model = None
+        resolved = model if model is not None else self.default_model
+        return (resolved or "").strip()
+
     def _build_cmd(
         self,
         prompt: str,
@@ -103,7 +120,7 @@ class DelegatedCLIBackend(LLMBackend):
     ) -> list[str]:
         """Construct the subprocess command list."""
         exe = self._find_executable()
-        resolved_model = self._resolve_model(model)
+        resolved_model = self._resolve_cli_model(model)
         base_flags = _CLI_NON_INTERACTIVE_FLAGS.get(self.cli, [])
 
         cmd: list[str] = [exe]
@@ -111,21 +128,24 @@ class DelegatedCLIBackend(LLMBackend):
         # claude CLI handling
         if self.cli == "claude":
             cmd += base_flags  # --output-format json --print
-            cmd += ["--model", resolved_model]
+            if resolved_model:
+                cmd += ["--model", resolved_model]
             cmd += self.extra_flags
             cmd += [prompt]
 
         # codex CLI handling
         elif self.cli == "codex":
             cmd += base_flags  # exec --json
-            cmd += ["--model", resolved_model]
+            if resolved_model:
+                cmd += ["--model", resolved_model]
             cmd += self.extra_flags
             cmd += [prompt]
 
         # gemini CLI handling
         elif self.cli == "gemini":
             cmd += base_flags  # --format json --non-interactive
-            cmd += ["--model", resolved_model]
+            if resolved_model:
+                cmd += ["--model", resolved_model]
             cmd += self.extra_flags
             cmd += [prompt]
 
@@ -195,7 +215,7 @@ class DelegatedCLIBackend(LLMBackend):
         **kwargs: Any,
     ) -> LLMResponse:
         """Non-streaming completion request via CLI subprocess."""
-        model_str = self._resolve_model(model)
+        model_str = self._resolve_cli_model(model) or f"{self.cli}:default"
         prompt = self._build_prompt(messages)
         cmd = self._build_cmd(prompt, model)
 

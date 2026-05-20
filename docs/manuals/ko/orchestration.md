@@ -18,14 +18,33 @@ analysis, authoring으로 작업을 라우팅하는 데 사용합니다.
 ## Credential과 configuration
 
 ```sh
-maglab auth set anthropic sk-ant-...
+maglab auth codex
+maglab auth anthropic
+maglab auth grok
+maglab auth deepseek
+maglab auth qwen
+maglab auth kimi
+maglab auth gemini
+maglab auth openai
 maglab auth list
 maglab auth test anthropic
+maglab auth status
 maglab config
 maglab cost
 maglab theme list
 maglab theme set mono
 ```
+
+Codex는 먼저 공식 Codex CLI에서 인증합니다. 그 다음 `maglab auth codex`를
+실행하거나 REPL 안에서 `/connect codex`를 사용하세요. MagLab은
+`config.toml`에 backend 선택만 저장하고 Codex OAuth token은 공식 CLI에 남깁니다.
+
+직접 API provider는 provider 명령을 실행한 뒤 터미널 숨김 입력으로 key를
+넣습니다. REPL에서는 `/connect anthropic`, `/connect grok`,
+`/connect deepseek`, `/connect qwen`, `/connect kimi`, `/connect gemini`,
+`/connect openai`를 사용할 수 있습니다. 각 provider는 별도의 MagLab runtime
+profile을 로드하므로, 모델은 자신이 MagLab research orchestration agent로
+동작한다는 전제와 provider별 planning/verification 지침을 함께 받습니다.
 
 ## Subagent와 skill
 

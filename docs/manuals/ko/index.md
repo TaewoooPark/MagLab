@@ -34,9 +34,13 @@
 uv venv --python 3.12
 source .venv/bin/activate
 uv pip install -e .
-uv pip install -e ".[llm,literature,sim,figure,instr,authoring,gateway,mcp]"
+uv pip install -e ".[research]"
+maglab setup all
 ```
 
-실제 장비에서는 필요한 extra만 설치하세요. OOMMF, MuMax3, magnum.np,
-VAMPIRE, VASP, Quantum ESPRESSO 같은 solver는 MagLab 외부에서 별도 설치가
-필요할 수 있습니다.
+실제 연구 장비에서는 전체 research bundle인 `.[research]`를 권장합니다.
+`maglab setup all`은 이미 준비된 기능, 추가 터미널 설정이 필요한 기능, 대응되는
+REPL slash command를 한 번에 보여줍니다. 개별 기능은 `maglab setup <feature>`나
+`/setup-<feature>`로 점검할 수 있습니다. OOMMF, MuMax3, magnum.np, VAMPIRE,
+VASP, Quantum ESPRESSO 같은 solver는 MagLab 외부에서 별도 설치가 필요할 수
+있습니다.

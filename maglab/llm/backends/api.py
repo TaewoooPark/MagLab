@@ -1,4 +1,4 @@
-"""Direct API backend — Anthropic/OpenAI/Google/OpenAI-compatible integration via LiteLLM.
+"""Direct API backend — provider API integration via LiteLLM.
 
 §7.2: BYO-key mode implementation. Credentials are retrieved via ``llm.auth.get_api_key()``,
 following the priority order: env var first → keyring → auth.json.
@@ -20,32 +20,21 @@ from maglab.llm.base import (
     ToolCall,
     UsageStats,
 )
+from maglab.llm.providers import (
+    build_litellm_model,
+    get_provider_profile,
+    is_model_compatible,
+    normalize_provider,
+)
 
 log = logging.getLogger(__name__)
-
-# provider → litellm model prefix mapping
-_PROVIDER_PREFIX: dict[str, str] = {
-    "openai": "",  # no prefix
-    "anthropic": "anthropic/",
-    "google": "gemini/",
-    "openai-compatible": "",
-}
-
-# Environment variable names read by litellm
-_PROVIDER_ENV_KEY: dict[str, str] = {
-    "anthropic": "ANTHROPIC_API_KEY",
-    "openai": "OPENAI_API_KEY",
-    "google": "GEMINI_API_KEY",
-    "openai-compatible": "OPENAI_API_KEY",
-}
 
 
 class APIBackend(LLMBackend):
     """LiteLLM-based direct API backend.
 
     Args:
-        provider: LLM provider (``"anthropic"``·``"openai"``·``"google"``·
-                  ``"openai-compatible"``).
+        provider: LLM provider or alias.
         model: Default model identifier.
         base_url: OpenAI-compatible endpoint URL (used with ``openai-compatible``).
         max_retries: Number of retries on API call failure.
@@ -55,13 +44,14 @@ class APIBackend(LLMBackend):
     def __init__(
         self,
         provider: str = "anthropic",
-        model: str = "claude-opus-4-7",
+        model: str | None = None,
         base_url: str | None = None,
         max_retries: int = 3,
         retry_delay: float = 1.0,
     ) -> None:
-        self.provider = provider
-        self.default_model = model
+        self.provider = normalize_provider(provider)
+        profile = get_provider_profile(self.provider)
+        self.default_model = model or profile.default_model
         self.base_url = base_url
         self.max_retries = max_retries
         self.retry_delay = retry_delay
@@ -79,19 +69,16 @@ class APIBackend(LLMBackend):
         The caller uses this to temporarily inject credentials as a context manager.
         """
         key = self._get_api_key()
-        env_var = _PROVIDER_ENV_KEY.get(self.provider)
+        env_var = get_provider_profile(self.provider).litellm_env_var
         if key and env_var and not os.environ.get(env_var):
             return {env_var: key}
         return {}
 
     def _build_model_str(self, model: str | None) -> str:
         """Construct the model string to pass to litellm."""
-        resolved = self._resolve_model(model)
-        prefix = _PROVIDER_PREFIX.get(self.provider, "")
-        # Do not duplicate the prefix if it is already present
-        if prefix and not resolved.startswith(prefix):
-            return prefix + resolved
-        return resolved
+        candidate = model if is_model_compatible(self.provider, model) else None
+        resolved = self._resolve_model(candidate)
+        return build_litellm_model(self.provider, resolved)
 
     def _call_litellm(
         self,

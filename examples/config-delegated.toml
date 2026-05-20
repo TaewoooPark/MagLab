@@ -1,0 +1,17 @@
+# Delegated CLI backend — runs officially installed and authenticated codex/claude/gemini as a subprocess.
+# Authentication and token renewal are handled by the official tool — MagLab remains the orchestrator (§7.2).
+
+[backend]
+mode = "delegated_cli"
+
+[backend.delegated_cli]
+tool = "codex"      # codex | claude | gemini
+# model = "gpt-5.5" # optional; omit to use the official CLI default
+timeout = 120.0
+extra_flags = []
+
+[autonomy]
+mode = "copilot"
+
+[ui]
+theme = "domain"

@@ -1,0 +1,21 @@
+# Direct API backend — BYO key. Copy to `~/.config/maglab/config.toml`.
+# Set the key via env var `MAGLAB_ANTHROPIC_API_KEY` or `maglab auth set`, not in this file.
+
+[backend]
+mode = "api"
+
+[backend.api]
+provider = "anthropic"
+model = "claude-opus-4-7"
+
+[routing]
+plan = "claude-opus-4-7"
+build = "claude-haiku-4-5-20251001"
+summarize = "claude-haiku-4-5-20251001"
+vision_critic = "claude-opus-4-7"
+
+[autonomy]
+mode = "copilot"
+
+[ui]
+theme = "domain"

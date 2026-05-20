@@ -1159,19 +1159,24 @@ def _call_llm_or_stub(system: str, user: str) -> str:  # pragma: no cover
     Imports the LLM backend lazily so that the module can be loaded without
     any [llm] extras installed.
     """
-    import importlib
-
     try:
-        backends_mod = importlib.import_module("maglab.llm.backends.api")
-        get_fn = getattr(backends_mod, "get_default_backend", None)
-        if get_fn is None:
-            raise RuntimeError("get_default_backend not found in maglab.llm.backends.api")
-        backend = get_fn()
-        return backend.complete(system=system, user=user)  # type: ignore[no-any-return]
+        from maglab.config import load_config
+        from maglab.llm.base import Message, Role
+        from maglab.llm.factory import create_llm_backend
+
+        config = load_config()
+        backend = create_llm_backend(config)
+        result = backend.complete(
+            [
+                Message(role=Role.SYSTEM, content=system),
+                Message(role=Role.USER, content=user),
+            ]
+        )
+        return result.content or ""
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(
             f"LLM call failed: {exc}\n"
-            "Set LLM credentials with: maglab auth set <provider> <api-key>"
+            "Connect a backend with: maglab auth codex | maglab auth <provider> | /connect <provider>"
         ) from exc
 
 

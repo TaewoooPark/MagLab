@@ -60,14 +60,26 @@ MagLab은 자성 및 스핀트로닉스 연구자가 AI for Science를 실제 �
 
 ## 바로 시작하기
 
-먼저 core package를 설치하고, 필요한 subsystem만 optional extra로 추가합니다.
+먼저 MagLab을 전역 터미널 프로그램으로 설치합니다. 권장 research bundle은
+MagLab의 연구 기능 전체를 한 번에 넣고, 남은 provider, solver, instrument,
+gateway 설정은 터미널 안에서 확인하도록 안내합니다.
 
 ```sh
-uv venv --python 3.12
-source .venv/bin/activate
+git clone https://github.com/TaewoooPark/MagLab.git
+cd MagLab
+pipx install --editable ".[research]"
+maglab setup all
+```
 
-uv pip install -e .
-uv pip install -e ".[llm,literature,sim,figure,instr,authoring]"
+이후에는 어떤 연구 폴더에서든 `maglab`을 실행하면 됩니다. MagLab은
+config/data/cache는 전역 사용자 앱 경로에 보관하고, 프로젝트 산출물은 실행한
+폴더를 기준으로 읽고 씁니다.
+
+```sh
+cd ~/research/my_spintronics_project
+maglab workspace init
+maglab workspace status
+maglab
 ```
 
 LLM key 없이 deterministic tool부터 사용할 수 있습니다.
@@ -80,14 +92,25 @@ maglab analyze model stfmr
 maglab figure primitives list
 ```
 
-자연어 오케스트레이션, 초안 작성, 리뷰, agent workflow를 쓰려면 LLM provider를
-등록합니다.
+자연어 오케스트레이션, 초안 작성, 리뷰, agent workflow를 쓰려면 LLM backend를
+연결합니다. Codex는 공식 Codex CLI의 인증 상태를 위임해서 사용하며, MagLab은
+Codex OAuth token을 저장하지 않습니다. 직접 API provider로는 Anthropic, Grok,
+DeepSeek, Qwen, Kimi, Gemini, OpenAI를 지원합니다.
 
 ```sh
-maglab auth set anthropic sk-ant-...
-maglab auth test anthropic
+maglab auth codex
+maglab auth anthropic
+maglab auth qwen
+maglab auth status
 maglab
 ```
+
+REPL 안에서는 `/help`로 전체 slash-command tree를 볼 수 있습니다.
+`/connect codex`, `/connect <provider>`, `/connect api <provider>`,
+`/connect ollama`로 backend를 바꿀 수 있습니다. API-key 명령은 터미널 숨김
+입력을 사용하며, `maglab auth set <provider>`는 명시적 key 저장과 scripting
+용도로 계속 사용할 수 있습니다. `/reset config`는 이전 config backup으로
+복구하고, `/reset defaults`는 깨끗한 기본 config로 되돌립니다.
 
 스크립트나 CI에서는 one-shot 모드를 사용할 수 있습니다.
 
@@ -162,7 +185,7 @@ maglab present slides "Key results and figures from the SOT study" --format beam
 maglab                    interactive research agent
 maglab -p "QUERY"         non-interactive one-shot query
 
-auth      set · list · test
+auth      codex · claude · gemini-cli · ollama · anthropic · grok · deepseek · qwen · kimi · gemini · openai · set · list · status · test
 physics   compute · units · oracle
 mat       list · show · build
 sim       micro · validate · plot · job · dft · atomistic · pipeline
@@ -186,7 +209,9 @@ mcp       list · serve · add · enable · disable
 agents    list · show
 skill     list
 cost
-config
+config    show · path · restore · reset
+install
+workspace status · init · tree
 theme     list · set
 version · info
 ```
@@ -247,6 +272,7 @@ Python 3.11부터 3.13까지 지원합니다.
 
 ```sh
 uv pip install -e .                    # core
+uv pip install -e ".[research]"        # 권장: 모든 연구 기능
 uv pip install -e ".[llm]"             # LLM backends
 uv pip install -e ".[mcp]"             # MCP server and client
 uv pip install -e ".[sim]"             # simulation stack
@@ -258,6 +284,15 @@ uv pip install -e ".[authoring]"       # papers, slides, posters, docs
 uv pip install -e ".[gateway]"         # messaging gateway
 uv pip install -e ".[dev]"             # ruff, mypy, pytest, pre-commit
 ```
+
+일반 연구용 설치에서는 `.[research]` extra를 권장합니다. 설치 후
+`maglab setup all`을 실행하면 각 기능의 준비 상태, 터미널 설정 명령, 대응되는
+REPL slash command를 한 번에 볼 수 있습니다. MagLab REPL 안에서는 `/setup`,
+`/setup <feature>`, 또는 `/setup-llm`, `/setup-literature`,
+`/setup-simulation`, `/setup-figure`, `/setup-instrument`,
+`/setup-authoring`, `/setup-review`, `/setup-gateway`, `/setup-mcp`를 사용할 수
+있습니다. 이미 준비된 dependency나 외부 명령은 그대로 통과시키고, 부족한 부분만
+터미널에서 알려줍니다.
 
 일부 시뮬레이션 엔진은 별도 외부 바이너리나 실행 환경이 필요합니다. 예를 들면
 OOMMF, MuMax3, magnum.np, VAMPIRE, VASP, Quantum ESPRESSO, HPC/GPU 환경입니다.

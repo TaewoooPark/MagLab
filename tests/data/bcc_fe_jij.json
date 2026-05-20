@@ -1,0 +1,37 @@
+{
+  "_comment": "bcc Fe exchange coupling constants — Pajda 2001 Phys. Rev. B 64, 174402",
+  "_source": "M. Pajda et al., Phys. Rev. B 64, 174402 (2001). DOI: 10.1103/PhysRevB.64.174402",
+  "material": "bcc Fe",
+  "lattice_constant_angstrom": 2.87,
+  "spin_moment_muB": 2.22,
+  "exchange_pairs": [
+    {
+      "shell": 1,
+      "n_neighbors": 8,
+      "distance_angstrom": 2.483,
+      "J_meV": 34.3,
+      "J_K": 397.8,
+      "_note": "1NN bcc Fe, Pajda 2001 Table I"
+    },
+    {
+      "shell": 2,
+      "n_neighbors": 6,
+      "distance_angstrom": 2.87,
+      "J_meV": 14.7,
+      "J_K": 170.6,
+      "_note": "2NN bcc Fe, Pajda 2001 Table I"
+    },
+    {
+      "shell": 3,
+      "n_neighbors": 12,
+      "distance_angstrom": 4.055,
+      "J_meV": -1.8,
+      "J_K": -20.9,
+      "_note": "3NN bcc Fe, Pajda 2001 Table I"
+    }
+  ],
+  "T_C_K_experimental": 1043,
+  "_tc_source": "C. Kittel, Introduction to Solid State Physics 8th Ed. (2004), p. 330",
+  "MAE_meV_atom": 0.052,
+  "_mae_source": "S. Bhattacharjee et al., Phys. Rev. B 83, 184401 (2011)"
+}
