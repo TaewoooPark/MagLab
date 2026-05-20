@@ -76,6 +76,39 @@ def test_doctor_json_reports_workspace_and_features() -> None:
     assert "workspace" in report
     assert "backend" in report
     assert "features" in report
+    assert "ux_contract" in report
+
+
+@pytest.mark.smoke
+def test_doctor_prints_plan_ux_contract() -> None:
+    result = runner.invoke(app, ["doctor", "--no-sim"])
+    assert result.exit_code == 0, result.output
+    assert "Plan UX contract" in result.output
+    assert "First folder read" in result.output
+    assert "Language support" in result.output
+
+
+@pytest.mark.smoke
+def test_manual_command_lists_korean_manuals() -> None:
+    result = runner.invoke(app, ["manual", "--lang", "ko"])
+    assert result.exit_code == 0, result.output
+    assert "MagLab manuals (ko)" in result.output
+    assert "figures" in result.output
+
+
+@pytest.mark.smoke
+def test_sim_doctor_preserves_extra_name_markup() -> None:
+    with (
+        patch("maglab.sim.environment._module_ok", return_value=False),
+        patch("maglab.sim.environment._binary_path", return_value=None),
+        patch(
+            "maglab.sim.environment.CPUBackendRouter.available_engines",
+            staticmethod(lambda: []),
+        ),
+    ):
+        result = runner.invoke(app, ["sim", "doctor"])
+    assert result.exit_code == 0, result.output
+    assert "maglab[sim]" in result.output
 
 
 @pytest.mark.smoke

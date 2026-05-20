@@ -24,6 +24,9 @@ def test_doctor_reports_active_workspace(
     assert "data.csv" in report["workspace"]["visible_entries"]
     assert report["features"][0]["key"] == "llm"
     assert "backend" in report
+    assert "ux_contract" in report
+    keys = {item["key"] for item in report["ux_contract"]}
+    assert {"first-run", "models", "gpu-ssh-cpu", "language", "physics-integrity"} <= keys
     assert "recommendations" in report
 
 

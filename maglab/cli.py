@@ -1189,6 +1189,27 @@ def doctor_cmd(
             )
         console.print(sim_table)
 
+    ux_table = Table(title="Plan UX contract")
+    ux_table.add_column("Area", style="cyan")
+    ux_table.add_column("Status")
+    ux_table.add_column("Evidence")
+    ux_table.add_column("Command")
+    for item in report.get("ux_contract", []):
+        status = item["status"]
+        if status == "ready":
+            rendered_status = "[green]ready[/]"
+        elif status == "partial":
+            rendered_status = "[yellow]partial[/]"
+        else:
+            rendered_status = "[red]missing[/]"
+        ux_table.add_row(
+            item["title"],
+            rendered_status,
+            escape(item["evidence"]),
+            escape(item["command"]),
+        )
+    console.print(ux_table)
+
     if report["recommendations"]:
         console.print("[bold]Next actions[/]")
         for rec in report["recommendations"]:
@@ -1216,6 +1237,51 @@ def install_cmd() -> None:
         "After installation, open any research folder and run [bold]maglab[/]. "
         "MagLab will use that folder as the workspace while keeping config/data/cache in global app paths."
     )
+
+
+@app.command("manual")
+def manual_cmd(
+    topic: str | None = typer.Argument(
+        None,
+        help="Manual topic. Omit to list installed manuals.",
+    ),
+    lang: str = typer.Option("en", "--lang", "-l", help="Manual language: en or ko."),
+    show: bool = typer.Option(False, "--show", help="Render the manual page in the terminal."),
+) -> None:
+    """List or display installed MagLab manuals in English or Korean."""
+    from rich.markdown import Markdown
+    from rich.markup import escape
+
+    from maglab.manuals import available_languages, list_manuals, resolve_manual
+
+    if topic is None:
+        entries = list_manuals(lang)
+        table = Table(title=f"MagLab manuals ({lang})")
+        table.add_column("Topic", style="cyan")
+        table.add_column("Title")
+        table.add_column("Path")
+        for entry in entries:
+            table.add_row(entry.topic, entry.title, str(entry.path))
+        console.print(table)
+        console.print(
+            "Use [cyan]maglab manual <topic> --lang "
+            f"{escape(lang)}[/] or [cyan]/manual {escape(lang)} <topic>[/]."
+        )
+        return
+
+    try:
+        entry = resolve_manual(topic, lang=lang)
+    except FileNotFoundError as exc:
+        console.print(f"[red]{escape(str(exc))}[/]")
+        console.print(f"Available languages: {', '.join(available_languages())}")
+        raise typer.Exit(1) from exc
+
+    console.print(f"[bold]{entry.title}[/]")
+    console.print(f"topic: [cyan]{entry.topic}[/]  lang: [cyan]{entry.lang}[/]")
+    console.print(f"path: [dim]{entry.path}[/]")
+    if show:
+        console.print()
+        console.print(Markdown(entry.path.read_text(encoding="utf-8")))
 
 
 workspace_app = typer.Typer(
@@ -1317,6 +1383,8 @@ app.add_typer(sim_app)
 
 def _print_sim_check_table(title: str, rows: list[dict[str, Any]]) -> None:
     """Render a compact simulation environment check table."""
+    from rich.markup import escape
+
     table = Table(title=title, show_lines=False)
     table.add_column("Check", style="cyan")
     table.add_column("Status")
@@ -1327,8 +1395,8 @@ def _print_sim_check_table(title: str, rows: list[dict[str, Any]]) -> None:
         table.add_row(
             str(row.get("name", "")),
             "[green]ready[/]" if ok else "[yellow]missing[/]",
-            str(row.get("detail", "")),
-            str(row.get("action", "")),
+            escape(str(row.get("detail", ""))),
+            escape(str(row.get("action", ""))),
         )
     console.print(table)
 
@@ -1388,8 +1456,10 @@ def sim_doctor(
         _print_sim_check_table("SSH target", report["ssh"])
 
     console.print("[bold]Next commands[/]")
+    from rich.markup import escape
+
     for item in report["recommendations"]:
-        console.print(f"  • {item}")
+        console.print(f"  • {escape(item)}")
 
 
 @sim_app.command("micro")

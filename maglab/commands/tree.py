@@ -38,6 +38,7 @@ _BASE_SLASH_COMMANDS: CommandTree = {
     "/reset": {"config": None, "defaults": None},
     "/workspace": {"status": None, "init": None, "tree": None},
     "/install": None,
+    "/manual": {"en": None, "ko": None},
     "/doctor": None,
     "/setup": dict.fromkeys(FEATURE_KEYS),
     **{f"/setup-{key}": None for key in FEATURE_KEYS if key != "all"},
@@ -186,6 +187,7 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
         "global command plus per-folder workspace",
         (
             HelpEntry("/install", "print global install commands"),
+            HelpEntry("/manual --lang en|ko", "list installed user manuals"),
             HelpEntry("/doctor", "check workspace, backend, package extras, and sim readiness"),
             HelpEntry("/workspace status", "show current folder, config, data, cache paths"),
             HelpEntry("/workspace init", "create a local MAGLAB.md workspace marker"),

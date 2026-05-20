@@ -37,6 +37,7 @@ uv pip install -e .
 uv pip install -e ".[research]"
 maglab doctor
 maglab setup all
+maglab manual --lang ko
 ```
 
 실제 연구 장비에서는 전체 research bundle인 `.[research]`를 권장합니다.
@@ -44,5 +45,10 @@ maglab setup all
 first-run readiness를 보여줍니다. `maglab setup all`은 이미 준비된 기능, 추가
 터미널 설정이 필요한 기능, 대응되는 REPL slash command를 한 번에 보여줍니다.
 개별 기능은 `maglab setup <feature>`나 `/setup-<feature>`로 점검할 수 있습니다.
+
+동일한 매뉴얼은 전역 설치된 CLI에도 포함됩니다. `maglab manual --lang ko`로
+목록을 보고, `maglab manual figures --lang ko`처럼 특정 항목으로 바로 들어갈 수
+있습니다.
+
 OOMMF, MuMax3, magnum.np, VAMPIRE, VASP, Quantum ESPRESSO 같은 solver는 MagLab
 외부에서 별도 설치가 필요할 수 있습니다.

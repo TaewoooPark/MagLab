@@ -197,6 +197,8 @@ def _run_cli_slash(parts: list[str], con: Console) -> None:
     root = parts[0].removeprefix("/")
     if root in {"ask", "run"} and len(parts) > 2:
         args = [root, " ".join(parts[1:])]
+    elif root == "manual" and len(parts) >= 2 and parts[1] in {"en", "ko"}:
+        args = [root, *parts[2:], "--lang", parts[1]]
     else:
         args = [root, *parts[1:]]
     command = get_command(app)

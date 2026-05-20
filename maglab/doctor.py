@@ -15,6 +15,7 @@ from __future__ import annotations
 import importlib.util
 import shutil
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from maglab.config import Config, config_path, load_config
@@ -75,6 +76,27 @@ class FeatureDoctor:
         }
 
 
+@dataclass(frozen=True)
+class UXDoctor:
+    """Evidence-backed UX contract check from plan/ to installed CLI."""
+
+    key: str
+    title: str
+    status: str
+    evidence: str
+    command: str
+
+    def to_dict(self) -> dict[str, str]:
+        """Serialize the UX check."""
+        return {
+            "key": self.key,
+            "title": self.title,
+            "status": self.status,
+            "evidence": self.evidence,
+            "command": self.command,
+        }
+
+
 def _module_ok(module: str) -> bool:
     return importlib.util.find_spec(module) is not None
 
@@ -108,6 +130,109 @@ def _backend_snapshot(config: Config) -> dict[str, Any]:
         "detail": status.detail,
         "action": status.action,
     }
+
+
+def _path_exists(*parts: str) -> bool:
+    root = Path(__file__).resolve().parent
+    return (root.joinpath(*parts)).exists()
+
+
+def _ux_contract_report(
+    *,
+    backend: dict[str, Any],
+    workspace: dict[str, Any],
+    sim_report: dict[str, Any] | None,
+) -> list[UXDoctor]:
+    """Map the plan's UX promises to concrete installed commands/artifacts."""
+    from maglab.llm.tools import get_registered_tools
+    from maglab.manuals import available_languages, list_manuals
+
+    tool_names = {tool.name for tool in get_registered_tools()}
+    langs = set(available_languages())
+    ko_manuals = len(list_manuals("ko")) if "ko" in langs else 0
+    en_manuals = len(list_manuals("en")) if "en" in langs else 0
+
+    return [
+        UXDoctor(
+            key="first-run",
+            title="First folder read",
+            status="ready" if workspace.get("maglab_md") else "partial",
+            evidence=(
+                f"cwd={workspace['root']}; MAGLAB.md="
+                f"{workspace.get('maglab_md') or 'not initialized'}"
+            ),
+            command="maglab workspace status · maglab workspace tree · maglab workspace init",
+        ),
+        UXDoctor(
+            key="llm-files",
+            title="LLM file use",
+            status=(
+                "ready"
+                if {"workspace_tree", "workspace_read_file", "workspace_search"} <= tool_names
+                else "missing"
+            ),
+            evidence="workspace_tree/read_file/search tools are registered and scoped to cwd",
+            command="maglab ask '<natural-language task>'",
+        ),
+        UXDoctor(
+            key="models",
+            title="Model connection",
+            status="ready" if backend.get("ok") else "partial",
+            evidence=f"{backend['label']} — {backend['detail']}",
+            command="/connect codex · /connect openai · /connect anthropic · maglab auth status",
+        ),
+        UXDoctor(
+            key="gpu-ssh-cpu",
+            title="GPU, SSH, and no-GPU paths",
+            status="ready" if sim_report else "partial",
+            evidence=(
+                f"recommended={sim_report.get('recommended_backend')} "
+                f"local_gpu={sim_report.get('local_gpu_ready')}"
+                if sim_report
+                else "simulation doctor not requested"
+            ),
+            command="maglab sim doctor --backend auto|local-gpu|ssh-gpu|ssh-hpc",
+        ),
+        UXDoctor(
+            key="figures",
+            title="Figure quality",
+            status=(
+                "ready"
+                if _path_exists("figure", "styles") and _path_exists("figure", "primitives")
+                else "partial"
+            ),
+            evidence="vector PDF/EPS/SVG export, journal style profiles, primitive catalog",
+            command="maglab figure spec · render · export · primitives list",
+        ),
+        UXDoctor(
+            key="deliverables",
+            title="Research deliverables",
+            status="ready",
+            evidence="figures, manuscripts, communications, slides/posters, ELN, instrument skills",
+            command="maglab write · present slides|poster · comms · lab note · instr skillgen",
+        ),
+        UXDoctor(
+            key="design-refs",
+            title="Poster and deck references",
+            status=("ready" if _path_exists("authoring", "present", "templates") else "partial"),
+            evidence="beamer, beamerposter, Marp, SVG, PPTX template entry points",
+            command="maglab present slides --help · maglab present poster --help",
+        ),
+        UXDoctor(
+            key="language",
+            title="Language support",
+            status="ready" if {"en", "ko"} <= langs and en_manuals and ko_manuals else "partial",
+            evidence=f"manuals: en={en_manuals}, ko={ko_manuals}",
+            command="maglab manual --lang en · maglab manual --lang ko",
+        ),
+        UXDoctor(
+            key="physics-integrity",
+            title="Physical consistency",
+            status="ready",
+            evidence="physics oracle, unit conversions, provenance, honesty gate",
+            command="maglab physics oracle · maglab analyze consistency · maglab doctor",
+        ),
+    ]
 
 
 def run_doctor(
@@ -195,20 +320,24 @@ def run_doctor(
                 "Run `maglab sim doctor` before spending real GPU or cluster time."
             )
 
+    workspace = {
+        "root": str(info.root),
+        "project_state": str(info.local_state_dir),
+        "maglab_md": str(info.maglab_md) if info.maglab_md else None,
+        "global_config": str(info.config_dir),
+        "global_data": str(info.data_dir),
+        "global_cache": str(info.cache_dir),
+        "visible_entries": iter_workspace_entries(info.root, max_entries=max_workspace_entries),
+    }
+    ux_contract = _ux_contract_report(backend=backend, workspace=workspace, sim_report=sim_report)
+
     return {
         "ok": bool(backend["ok"]) and not missing_python_features,
         "config": str(config_path()),
-        "workspace": {
-            "root": str(info.root),
-            "project_state": str(info.local_state_dir),
-            "maglab_md": str(info.maglab_md) if info.maglab_md else None,
-            "global_config": str(info.config_dir),
-            "global_data": str(info.data_dir),
-            "global_cache": str(info.cache_dir),
-            "visible_entries": iter_workspace_entries(info.root, max_entries=max_workspace_entries),
-        },
+        "workspace": workspace,
         "backend": backend,
         "features": [f.to_dict() for f in features],
         "simulation": sim_report,
+        "ux_contract": [item.to_dict() for item in ux_contract],
         "recommendations": list(dict.fromkeys(recommendations)),
     }

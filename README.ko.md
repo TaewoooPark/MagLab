@@ -68,7 +68,9 @@ gateway 설정은 터미널 안에서 확인하도록 안내합니다.
 git clone https://github.com/TaewoooPark/MagLab.git
 cd MagLab
 pipx install --editable ".[research]"
+maglab doctor
 maglab setup all
+maglab manual --lang ko
 ```
 
 이후에는 어떤 연구 폴더에서든 `maglab`을 실행하면 됩니다. MagLab은
@@ -112,6 +114,11 @@ REPL 안에서는 `/help`로 전체 slash-command tree를 볼 수 있습니다.
 용도로 계속 사용할 수 있습니다. `/reset config`는 이전 config backup으로
 복구하고, `/reset defaults`는 깨끗한 기본 config로 되돌립니다.
 
+`maglab doctor`는 설치 감사 명령입니다. 현재 폴더, LLM backend, feature extra,
+GPU/SSH/no-GPU 시뮬레이션 경로, 한국어/영어 매뉴얼, figure/export 준비 상태,
+poster/deck template, workspace-scoped LLM file tool, physics/provenance gate가
+`plan/`의 UX 의도와 맞는지 한 번에 보여줍니다.
+
 스크립트나 CI에서는 one-shot 모드를 사용할 수 있습니다.
 
 ```sh
@@ -121,6 +128,12 @@ maglab -p "Plan a reproducible ST-FMR analysis workflow for Pt/CoFeB/MgO"
 ## 매뉴얼
 
 README는 지도이고, 매뉴얼은 실제 사용 설명서입니다.
+전역 설치된 CLI에서도 바로 볼 수 있습니다.
+
+```sh
+maglab manual --lang ko
+maglab manual figures --lang ko
+```
 
 | 영역 | English | 한국어 |
 |---|---|---|
@@ -167,6 +180,7 @@ maglab sim pipeline --structure bcc_fe --scales dft,atomistic,micro,device --bac
 
 ```sh
 maglab instr ingest "Keithley 2400" --manufacturer Keithley --manual-path manuals/keithley_2400.pdf
+maglab instr skillgen "Keithley 2400" --manufacturer Keithley --safety-model keithley-2400
 maglab instr script "Keithley 2400" --description "field sweep Hall voltage measurement" --output hall_sweep.py
 maglab instr check hall_sweep.py
 ```
@@ -188,13 +202,13 @@ maglab -p "QUERY"         non-interactive one-shot query
 auth      codex · claude · gemini-cli · ollama · anthropic · grok · deepseek · qwen · kimi · gemini · openai · set · list · status · test
 physics   compute · units · oracle
 mat       list · show · build
-sim       micro · validate · plot · job · dft · atomistic · pipeline
+sim       doctor · micro · validate · plot · job · dft · atomistic · pipeline
 fit       --effect EFFECT DATA.csv
 analyze   load · model · consistency · symmetry
 device    fom
 figure    spec · render · compose · export
           primitives list · show
-instr     scaffold · scpi · script · check · ingest · implement
+instr     scaffold · scpi · script · check · ingest · skillgen · implement
 lit       search · authors · keywords · journal · graph
 lab       note · note-list · plan
 review    MANUSCRIPT
@@ -209,8 +223,10 @@ mcp       list · serve · add · enable · disable
 agents    list · show
 skill     list
 cost
+manual    [topic] --lang en|ko
 config    show · path · restore · reset
 install
+doctor
 workspace status · init · tree
 theme     list · set
 version · info

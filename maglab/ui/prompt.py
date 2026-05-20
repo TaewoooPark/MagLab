@@ -65,6 +65,16 @@ def _delegated_model_tree(tool: str) -> dict[str, None]:
         return {}
 
 
+def _manual_tree(lang: str) -> dict[str, None]:
+    """Return manual topic completions for one language."""
+    try:
+        from maglab.manuals import list_manuals
+
+        return _leaf([entry.topic for entry in list_manuals(lang)])
+    except Exception:
+        return {}
+
+
 def _slash_commands() -> dict[str, Any]:
     """Build the slash completion tree, including dynamic model choices."""
     from maglab.commands.tree import base_slash_commands
@@ -100,6 +110,7 @@ def _slash_commands() -> dict[str, Any]:
             "api": _api_provider_tree(),
         }
     )
+    commands["/manual"].update({"en": _manual_tree("en"), "ko": _manual_tree("ko")})
     return commands
 
 

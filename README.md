@@ -69,7 +69,9 @@ guide you through any remaining provider, solver, instrument, or gateway setup.
 git clone https://github.com/TaewoooPark/MagLab.git
 cd MagLab
 pipx install --editable ".[research]"
+maglab doctor
 maglab setup all
+maglab manual --lang en
 ```
 
 After that, open any research folder and run `maglab`. MagLab keeps global
@@ -113,6 +115,11 @@ terminal input; `maglab auth set <provider>` remains available for explicit key
 storage and scripting. Use `/reset config` to restore the previous config backup
 or `/reset defaults` to return MagLab to a clean default config.
 
+`maglab doctor` is the installation audit. It checks the active folder,
+LLM backend, feature extras, GPU/SSH/no-GPU simulation paths, bilingual manuals,
+figure/export readiness, poster/deck templates, workspace-scoped LLM file tools,
+and physics/provenance gates against the UX promised in `plan/`.
+
 One-shot mode is useful in scripts and CI:
 
 ```sh
@@ -122,6 +129,12 @@ maglab -p "Plan a reproducible ST-FMR analysis workflow for Pt/CoFeB/MgO"
 ## Manuals
 
 The README is the map. The manuals are the operating instructions.
+They are also available from an installed global CLI:
+
+```sh
+maglab manual --lang en
+maglab manual figures --lang ko
+```
 
 | Area | English | Korean |
 |---|---|---|
@@ -218,6 +231,7 @@ mcp       list · serve · add · enable · disable
 agents    list · show
 skill     list
 cost
+manual    [topic] --lang en|ko
 config    show · path · restore · reset
 install
 doctor

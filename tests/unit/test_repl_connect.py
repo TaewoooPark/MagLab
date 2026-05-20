@@ -5,8 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+from rich.console import Console
+
 from maglab.config import Config
-from maglab.repl import _handle_slash
+from maglab.repl import _handle_slash, _run_cli_slash
 
 
 def test_connect_codex_slash_saves_delegated_backend(tmp_path: Path) -> None:
@@ -104,6 +106,16 @@ def test_workspace_slash_dispatches_to_cli_command() -> None:
     assert keep_running is True
     args, _ = mock_run.call_args
     assert args[0] == ["/workspace", "status"]
+
+
+def test_manual_slash_accepts_language_first(capsys) -> None:
+    console = Console(force_terminal=False, width=120)
+
+    _run_cli_slash(["/manual", "ko", "figures"], console)
+
+    output = capsys.readouterr().out
+    assert "lang: ko" in output
+    assert "figures" in output
 
 
 def test_reset_defaults_slash_mutates_active_config(tmp_path: Path) -> None:

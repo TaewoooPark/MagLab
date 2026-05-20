@@ -37,6 +37,7 @@ uv pip install -e .
 uv pip install -e ".[research]"
 maglab doctor
 maglab setup all
+maglab manual --lang en
 ```
 
 For a working research machine, the recommended path is the all-in-one
@@ -45,5 +46,10 @@ the active folder, backend, extras, external tools, and simulation stack.
 `maglab setup all` shows what is already ready, what still needs terminal setup,
 and the matching REPL slash commands. Use `maglab setup <feature>` or
 `/setup-<feature>` for targeted setup checks.
+
+The same manuals are bundled into the installed CLI. Use `maglab manual --lang
+en` to list them, or `maglab manual figures --lang ko` to jump directly to a
+Korean topic.
+
 Simulation backends such as OOMMF, MuMax3, magnum.np, VAMPIRE, VASP, and
 Quantum ESPRESSO may require separate installation outside MagLab.
