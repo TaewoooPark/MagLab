@@ -232,14 +232,46 @@ def auth_test(
 
         config = config_mod.load_config()
         status = test_llm_backend(config)
-        if status.ok:
-            console.print(f"[green]✓[/] Backend ready — [bold]{status.label}[/]")
-            console.print(f"  {status.detail}")
-            return
-        console.print(f"[red]✗[/] Backend not ready — {status.detail}")
-        if status.action:
-            console.print(status.action)
-        raise typer.Exit(code=1)
+        _print_backend_test_status(status)
+        return
+
+    delegated_provider = _delegated_provider_arg(provider)
+    if delegated_provider is not None:
+        from maglab.config import Config
+        from maglab.llm.factory import test_llm_backend
+
+        config = Config.model_validate(
+            {
+                "backend": {
+                    "mode": "delegated_cli",
+                    "delegated_cli": {
+                        "tool": delegated_provider,
+                        "model": model,
+                    },
+                }
+            }
+        )
+        status = test_llm_backend(config)
+        _print_backend_test_status(status)
+        return
+
+    if provider.strip().lower().replace("_", "-") in {"ollama", "local"}:
+        from maglab.config import Config
+        from maglab.llm.factory import test_llm_backend
+
+        config = Config.model_validate(
+            {
+                "backend": {
+                    "mode": "local",
+                    "local": {
+                        "model": model or "llama3.1",
+                    },
+                }
+            }
+        )
+        status = test_llm_backend(config)
+        _print_backend_test_status(status)
+        return
 
     from maglab.llm.auth import verify_connection
     from maglab.llm.providers import normalize_provider
@@ -254,6 +286,28 @@ def auth_test(
     else:
         console.print(f"[red]✗[/] Connection failed — {result['error']}")
         raise typer.Exit(code=1)
+
+
+def _delegated_provider_arg(provider: str) -> str | None:
+    """Return delegated CLI tool name for explicit ``auth test`` provider args."""
+    key = provider.strip().lower().replace("_", "-")
+    if key in {"codex", "claude"}:
+        return key
+    if key in {"gemini-cli", "gemini-cli-auth"}:
+        return "gemini"
+    return None
+
+
+def _print_backend_test_status(status: Any) -> None:
+    """Print a delegated/local/configured backend smoke-test result."""
+    if status.ok:
+        console.print(f"[green]✓[/] Backend ready — [bold]{status.label}[/]")
+        console.print(f"  {status.detail}")
+        return
+    console.print(f"[red]✗[/] Backend not ready — {status.detail}")
+    if status.action:
+        console.print(status.action)
+    raise typer.Exit(code=1)
 
 
 @auth_app.command("status")

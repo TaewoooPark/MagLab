@@ -373,6 +373,32 @@ def test_auth_test_without_provider_checks_configured_backend(tmp_path: Path) ->
 
 
 @pytest.mark.smoke
+def test_auth_test_codex_argument_uses_delegated_backend_without_api_lookup() -> None:
+    from maglab.llm.base import LLMResponse
+
+    captured: dict[str, Config] = {}
+    backend = MagicMock()
+    backend.complete.return_value = LLMResponse(content="MAGLAB_OK")
+
+    def _capture_backend(config: Config):
+        captured["config"] = config
+        return backend
+
+    with (
+        patch("maglab.llm.factory.create_llm_backend", side_effect=_capture_backend),
+        patch("maglab.llm.auth.verify_connection", side_effect=AssertionError("API call")),
+    ):
+        result = runner.invoke(app, ["auth", "test", "codex", "--model", "gpt-5.5"])
+
+    assert result.exit_code == 0, result.output
+    assert "Backend ready" in result.output
+    assert captured["config"].backend.mode == "delegated_cli"
+    assert captured["config"].backend.delegated_cli.tool == "codex"
+    assert captured["config"].backend.delegated_cli.model == "gpt-5.5"
+    backend.complete.assert_called_once()
+
+
+@pytest.mark.smoke
 def test_auth_codex_saves_delegated_config_without_cli_call(tmp_path: Path) -> None:
     cfg_file = tmp_path / "config.toml"
     saved: dict[str, object] = {}
