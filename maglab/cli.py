@@ -2323,9 +2323,7 @@ def instr_skillgen(
     table.add_row("manual chunks", str(pkg.chunk_count))
     table.add_row("safety-critical", str(pkg.disable_model_invocation))
     console.print(table)
-    in_workspace_skill_root = pkg.skill_dir.resolve().is_relative_to(
-        workspace_skill_root.resolve()
-    )
+    in_workspace_skill_root = pkg.skill_dir.resolve().is_relative_to(workspace_skill_root.resolve())
     if output_root is None or in_workspace_skill_root:
         console.print(
             "[green]✓[/] Skill is now discoverable in this workspace via `maglab skill list`."
