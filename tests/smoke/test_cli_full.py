@@ -76,6 +76,7 @@ _SUBAPP_HELP_ARGS: list[list[str]] = [
     ["task", "status", "--help"],
     ["task", "scaffold", "--help"],
     ["install", "--help"],
+    ["install", "doctor", "--help"],
     ["doctor", "--help"],
     ["workspace", "--help"],
     ["workspace", "status", "--help"],

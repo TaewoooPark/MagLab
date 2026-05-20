@@ -1316,22 +1316,37 @@ def doctor_cmd(
 # ---------------------------------------------------------------------------
 
 
-@app.command("install")
-def install_cmd() -> None:
+install_app = typer.Typer(
+    name="install",
+    help="Global installation commands and preflight checks.",
+    invoke_without_command=True,
+)
+app.add_typer(install_app)
+
+
+@install_app.callback(invoke_without_command=True)
+def install_cmd(
+    ctx: typer.Context,
+) -> None:
     """Print global installation commands."""
-    from rich.markup import escape
+    if ctx.invoked_subcommand is not None:
+        return
+    from maglab.setup import render_install_commands
 
-    from maglab.setup import PIPX_INSTALL, RECOMMENDED_INSTALL, UV_TOOL_INSTALL
+    render_install_commands(console=console)
 
-    console.print("[bold]Global MagLab install[/]")
-    console.print(f"  Recommended: [cyan]{escape(RECOMMENDED_INSTALL)}[/]")
-    console.print(f"  uv tool:     [cyan]{escape(UV_TOOL_INSTALL)}[/]")
-    console.print(f"  pipx:        [cyan]{escape(PIPX_INSTALL)}[/]")
-    console.print()
-    console.print(
-        "After installation, open any research folder and run [bold]maglab[/]. "
-        "MagLab will use that folder as the workspace while keeping config/data/cache in global app paths."
-    )
+
+@install_app.command("doctor")
+def install_doctor_cmd(
+    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
+) -> None:
+    """Audit the active global command, Python, extras, and workspace paths."""
+    from maglab.setup import build_install_doctor_report, render_install_doctor
+
+    if json_output:
+        typer.echo(json.dumps(build_install_doctor_report(), ensure_ascii=False, indent=2))
+        return
+    render_install_doctor(console=console)
 
 
 @app.command("manual")

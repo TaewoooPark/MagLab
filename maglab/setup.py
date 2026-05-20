@@ -10,9 +10,14 @@ from __future__ import annotations
 
 import importlib.util
 import shutil
+import subprocess
+import sys
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, cast
 
+import platformdirs
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
@@ -212,6 +217,218 @@ def _status_line(items: Iterable[str], checker: Callable[[str], bool]) -> list[s
         marker = "ok" if ok else "missing"
         lines.append(f"{item}: {marker}")
     return lines
+
+
+def _maglab_command_probe(maglab_cmd: str | None, expected_version: str) -> dict[str, object]:
+    """Probe the PATH command without mutating installation state."""
+    if maglab_cmd is None:
+        return {
+            "status": "needs-install",
+            "maglab": None,
+            "version_output": "",
+            "detail": "not found on PATH",
+        }
+    try:
+        proc = subprocess.run(
+            [maglab_cmd, "version"],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {
+            "status": "blocked",
+            "maglab": maglab_cmd,
+            "version_output": "",
+            "detail": f"could not run `maglab version`: {exc}",
+        }
+    output = (proc.stdout or proc.stderr).strip()
+    if proc.returncode != 0:
+        return {
+            "status": "blocked",
+            "maglab": maglab_cmd,
+            "version_output": output,
+            "detail": f"`maglab version` exited {proc.returncode}",
+        }
+    status = "ready" if expected_version in output else "stale"
+    detail = output if output else "no version output"
+    return {
+        "status": status,
+        "maglab": maglab_cmd,
+        "version_output": output,
+        "detail": detail,
+    }
+
+
+def build_install_doctor_report() -> dict[str, object]:
+    """Return a read-only installation preflight report."""
+    from maglab import __version__
+    from maglab.workspace import workspace_info
+
+    current_python = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    python_status = (
+        "ready"
+        if sys.version_info[:2] == (3, 12)
+        else "usable"
+        if sys.version_info[:2] >= (3, 11)
+        else "blocked"
+    )
+    maglab_cmd = shutil.which("maglab")
+    command_probe = _maglab_command_probe(maglab_cmd, __version__)
+    pipx_cmd = shutil.which("pipx")
+    uv_cmd = shutil.which("uv")
+    pip_cmd = shutil.which("pip") or shutil.which("pip3")
+    workspace = workspace_info()
+
+    feature_rows: list[dict[str, object]] = []
+    for feature in FEATURES.values():
+        missing_python = [name for name in feature.imports if not _module_ok(name)]
+        missing_external = [name for name in feature.binaries if not _binary_ok(name)]
+        feature_rows.append(
+            {
+                "key": feature.key,
+                "extra": feature.extra,
+                "slash": feature.slash,
+                "python_ready": not missing_python,
+                "external_ready": not missing_external,
+                "missing_python": missing_python,
+                "missing_external": missing_external,
+                "install_command": f'pipx inject maglab "maglab[{feature.extra}]"',
+                "setup_command": f"maglab setup {feature.key}",
+            }
+        )
+
+    next_actions: list[str] = []
+    if python_status != "ready":
+        next_actions.append("Use Python 3.12 for the known-good global install path.")
+    if command_probe["status"] == "needs-install":
+        next_actions.append(f"Install the global command: {RECOMMENDED_INSTALL}")
+    elif command_probe["status"] == "stale":
+        next_actions.append(f"Refresh the global command: {RECOMMENDED_INSTALL}")
+    elif command_probe["status"] == "blocked":
+        next_actions.append(
+            "Fix the `maglab` executable on PATH, then rerun `maglab install doctor`."
+        )
+    if pipx_cmd is None and uv_cmd is None:
+        next_actions.append("Install pipx or uv before using the global tool install path.")
+    if any(not row["python_ready"] for row in feature_rows):
+        next_actions.append(f"Install all research extras at once: {RECOMMENDED_INSTALL}")
+    if any(row["missing_external"] for row in feature_rows):
+        next_actions.append(
+            "Run `maglab setup <feature>` for solver, gateway, and TeX setup hints."
+        )
+    if not next_actions:
+        next_actions.append("Open any research folder and run `maglab`.")
+
+    return {
+        "version": __version__,
+        "python": {
+            "status": python_status,
+            "version": current_python,
+            "executable": sys.executable,
+            "recommended": "3.12",
+        },
+        "command": command_probe
+        | {
+            "invocation": str(Path(sys.argv[0]).resolve()) if sys.argv else "",
+        },
+        "installers": {
+            "pipx": pipx_cmd,
+            "uv": uv_cmd,
+            "pip": pip_cmd,
+        },
+        "workspace": {
+            "root": str(workspace.root),
+            "project_state": str(workspace.local_state_dir),
+            "global_config": str(platformdirs.user_config_dir("maglab")),
+            "global_data": str(platformdirs.user_data_dir("maglab")),
+            "global_cache": str(platformdirs.user_cache_dir("maglab")),
+            "maglab_md": str(workspace.maglab_md) if workspace.maglab_md else None,
+        },
+        "features": feature_rows,
+        "recommended_install": RECOMMENDED_INSTALL,
+        "next_actions": next_actions,
+    }
+
+
+def render_install_commands(console: Console | None = None) -> None:
+    """Render the global installation command summary."""
+    con = console or Console()
+    con.print("[bold]Global MagLab install[/]")
+    con.print(f"  Recommended: [cyan]{escape(RECOMMENDED_INSTALL)}[/]")
+    con.print(f"  uv tool:     [cyan]{escape(UV_TOOL_INSTALL)}[/]")
+    con.print(f"  pipx:        [cyan]{escape(PIPX_INSTALL)}[/]")
+    con.print()
+    con.print(
+        "After installation, open any research folder and run [bold]maglab[/]. "
+        "MagLab will use that folder as the workspace while keeping config/data/cache in global app paths."
+    )
+    con.print("Run [cyan]maglab install doctor[/] to audit the active installation.")
+
+
+def render_install_doctor(console: Console | None = None) -> dict[str, object]:
+    """Render and return the installation preflight report."""
+    con = console or Console()
+    report = build_install_doctor_report()
+
+    system = report["python"]
+    command = report["command"]
+    workspace = report["workspace"]
+    installers = report["installers"]
+    assert isinstance(system, dict)
+    assert isinstance(command, dict)
+    assert isinstance(workspace, dict)
+    assert isinstance(installers, dict)
+
+    table = Table(title="MagLab install doctor")
+    table.add_column("Area", style="cyan")
+    table.add_column("Status")
+    table.add_column("Detail")
+    table.add_row(
+        "python",
+        str(system["status"]),
+        f"{system['version']} at {system['executable']} (recommended {system['recommended']})",
+    )
+    table.add_row(
+        "maglab command",
+        str(command["status"]),
+        f"{command['maglab'] or 'not found on PATH'} — {command['detail']}",
+    )
+    table.add_row(
+        "installer",
+        "ready" if installers["pipx"] or installers["uv"] else "missing",
+        f"pipx={installers['pipx'] or '-'}  uv={installers['uv'] or '-'}",
+    )
+    table.add_row("workspace", "ready", str(workspace["root"]))
+    table.add_row("global config", "ready", str(workspace["global_config"]))
+    table.add_row(
+        "global data/cache", "ready", f"{workspace['global_data']} · {workspace['global_cache']}"
+    )
+    con.print(table)
+
+    feature_table = Table(title="Research extra coverage")
+    feature_table.add_column("Feature", style="cyan")
+    feature_table.add_column("Python")
+    feature_table.add_column("External")
+    feature_table.add_column("Next")
+    for row in cast(list[dict[str, Any]], report["features"]):
+        missing_python = row["missing_python"]
+        missing_external = row["missing_external"]
+        assert isinstance(missing_python, list)
+        assert isinstance(missing_external, list)
+        feature_table.add_row(
+            str(row["key"]),
+            "ready" if row["python_ready"] else ", ".join(map(str, missing_python)),
+            "ready" if row["external_ready"] else ", ".join(map(str, missing_external)),
+            str(row["slash"]),
+        )
+    con.print(feature_table)
+
+    con.print("[bold]Next actions[/]")
+    for action in cast(list[str], report["next_actions"]):
+        con.print(f"  - {escape(action)}")
+    return report
 
 
 def render_setup(feature_name: str | None = None, *, console: Console | None = None) -> None:

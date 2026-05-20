@@ -27,6 +27,7 @@ def test_slash_completion_tree_registers_research_surface() -> None:
     assert "/reset" in SLASH_COMMANDS
 
     assert {"status", "init", "tree", "brief"} <= set(SLASH_COMMANDS["/workspace"])
+    assert "doctor" in SLASH_COMMANDS["/install"]
     assert {"config", "defaults"} <= set(SLASH_COMMANDS["/reset"])
     assert {"list", "create", "install"} <= set(SLASH_COMMANDS["/skill"])
     assert {"inventory"} <= set(SLASH_COMMANDS["/report"])
@@ -59,5 +60,6 @@ def test_quick_help_renders_first_run_commands() -> None:
     text = console.export_text()
 
     assert "/doctor" in text
+    assert "/install doctor" in text
     assert "/workspace brief" in text
     assert "/help all" in text

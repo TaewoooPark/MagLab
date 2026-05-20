@@ -45,6 +45,21 @@ def test_install_command_recommends_global_workspace_usage() -> None:
     assert result.exit_code == 0, result.output
     assert 'pipx install --python python3.12 --editable ".[research]"' in result.output
     assert "open any research folder and run" in result.output
+    assert "maglab install doctor" in result.output
+
+
+@pytest.mark.smoke
+def test_install_doctor_json_reports_preflight() -> None:
+    result = runner.invoke(app, ["install", "doctor", "--json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert (
+        payload["recommended_install"]
+        == 'pipx install --python python3.12 --editable ".[research]"'
+    )
+    assert "python" in payload
+    assert "workspace" in payload
+    assert "features" in payload
 
 
 @pytest.mark.smoke

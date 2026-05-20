@@ -69,6 +69,7 @@ guide you through any remaining provider, solver, instrument, or gateway setup.
 git clone https://github.com/TaewoooPark/MagLab.git
 cd MagLab
 pipx install --python python3.12 --editable ".[research]"
+maglab install doctor
 maglab doctor
 maglab setup all
 maglab manual --lang en
@@ -252,7 +253,7 @@ skill     list
 cost
 manual    [topic] --lang en|ko
 config    show · path · restore · reset
-install
+install   doctor
 doctor
 workspace status · brief · init · tree
 theme     list · set
@@ -329,8 +330,9 @@ uv pip install -e ".[dev]"             # ruff, mypy, pytest, pre-commit
 ```
 
 For normal research use, prefer the all-in-one `.[research]` extra. Then run
-`maglab doctor` for a first-run readiness report and `maglab setup all` to see
-feature-specific setup checks, terminal setup commands, and the
+`maglab install doctor` to check Python, PATH, global app paths, and installed
+research extras; run `maglab doctor` for a first-run readiness report and
+`maglab setup all` to see feature-specific setup checks, terminal setup commands, and the
 matching REPL slash commands. Inside the MagLab REPL, use `/setup`,
 `/setup <feature>`, or direct commands such as `/setup-llm`,
 `/setup-literature`, `/setup-simulation`, `/setup-figure`,

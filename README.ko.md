@@ -68,6 +68,7 @@ gateway 설정은 터미널 안에서 확인하도록 안내합니다.
 git clone https://github.com/TaewoooPark/MagLab.git
 cd MagLab
 pipx install --python python3.12 --editable ".[research]"
+maglab install doctor
 maglab doctor
 maglab setup all
 maglab manual --lang ko
@@ -244,7 +245,7 @@ skill     list
 cost
 manual    [topic] --lang en|ko
 config    show · path · restore · reset
-install
+install   doctor
 doctor
 workspace status · brief · init · tree
 theme     list · set
@@ -321,7 +322,8 @@ uv pip install -e ".[dev]"             # ruff, mypy, pytest, pre-commit
 ```
 
 일반 연구용 설치에서는 `.[research]` extra를 권장합니다. 설치 후
-`maglab setup all`을 실행하면 각 기능의 준비 상태, 터미널 설정 명령, 대응되는
+`maglab install doctor`로 Python, PATH, 전역 앱 경로, research extra 상태를
+확인하고, `maglab setup all`을 실행하면 각 기능의 준비 상태, 터미널 설정 명령, 대응되는
 REPL slash command를 한 번에 볼 수 있습니다. MagLab REPL 안에서는 `/setup`,
 `/setup <feature>`, 또는 `/setup-llm`, `/setup-literature`,
 `/setup-simulation`, `/setup-figure`, `/setup-instrument`,

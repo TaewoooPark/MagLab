@@ -57,7 +57,7 @@ _BASE_SLASH_COMMANDS: CommandTree = {
             "--type": {"all": None, "docs": None, "code": None, "data": None, "changed": None},
         },
     },
-    "/install": None,
+    "/install": {"doctor": {"--json": None}},
     "/manual": {"en": None, "ko": None},
     "/doctor": None,
     "/setup": dict.fromkeys(FEATURE_KEYS),
@@ -214,6 +214,9 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
         "global command plus per-folder workspace",
         (
             HelpEntry("/install", "print global install commands"),
+            HelpEntry(
+                "/install doctor", "audit Python, PATH, research extras, and workspace paths"
+            ),
             HelpEntry("/manual --lang en|ko", "list installed user manuals"),
             HelpEntry("/doctor", "check workspace, backend, package extras, and sim readiness"),
             HelpEntry("/workspace status", "show current folder, config, data, cache paths"),
@@ -302,6 +305,7 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
 
 QUICK_HELP: tuple[HelpEntry, ...] = (
     HelpEntry("/doctor", "check local readiness; add --smoke for live LLM verification"),
+    HelpEntry("/install doctor", "verify the global command and research extras"),
     HelpEntry("/workspace brief", "summarize the current folder"),
     HelpEntry("/connect status", "inspect the selected model/backend"),
     HelpEntry("/sim doctor", "choose mock, CPU, local GPU, SSH GPU, or SSH HPC path"),

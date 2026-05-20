@@ -9,7 +9,13 @@ from pathlib import Path
 
 from rich.console import Console
 
-from maglab.setup import FEATURES, RECOMMENDED_INSTALL, normalize_feature, render_setup
+from maglab.setup import (
+    FEATURES,
+    RECOMMENDED_INSTALL,
+    build_install_doctor_report,
+    normalize_feature,
+    render_setup,
+)
 
 
 def test_research_extra_contains_all_feature_dependency_groups() -> None:
@@ -66,6 +72,20 @@ def test_render_setup_all_recommends_research_extra() -> None:
     assert RECOMMENDED_INSTALL in output
     assert "MagLab research feature setup" in output
     assert "/setup <feature>" in output
+
+
+def test_install_doctor_report_covers_global_and_workspace_paths() -> None:
+    report = build_install_doctor_report()
+
+    assert report["recommended_install"] == RECOMMENDED_INSTALL
+    assert "python" in report
+    assert "command" in report
+    assert "workspace" in report
+    workspace = report["workspace"]
+    assert isinstance(workspace, dict)
+    assert "root" in workspace
+    assert "global_config" in workspace
+    assert "global_cache" in workspace
 
 
 def test_render_setup_feature_shows_terminal_commands() -> None:
