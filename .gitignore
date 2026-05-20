@@ -25,6 +25,9 @@ htmlcov/
 *.sqlite3
 gateway.db
 
+# === Local demo captures ===
+demo/
+
 # === Credentials — never commit (PLAN §7.2) ===
 auth.json
 .env

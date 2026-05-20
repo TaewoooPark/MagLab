@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 import typer
+from click.utils import strip_ansi
 from typer.testing import CliRunner
 
 from maglab.commands.p2_analysis import register
@@ -58,9 +59,10 @@ def _write_csv(path: Path, **columns: list[float]) -> None:
 class TestHelp:
     def test_fit_help(self, app: typer.Typer, runner: CliRunner) -> None:
         result = runner.invoke(app, ["fit", "--help"])
+        output = strip_ansi(result.output)
         assert result.exit_code == 0, result.output
-        assert "effect" in result.output.lower()
-        assert "--discover" in result.output
+        assert "effect" in output.lower()
+        assert "--discover" in output
 
     def test_analyze_help(self, app: typer.Typer, runner: CliRunner) -> None:
         result = runner.invoke(app, ["analyze", "--help"])
