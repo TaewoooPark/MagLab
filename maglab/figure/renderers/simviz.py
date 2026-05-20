@@ -16,11 +16,17 @@ External dependency handling:
 - Skips PNG when ``pyvista`` is not installed.
 """
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import warnings
 from pathlib import Path
 from typing import Any
+
+from maglab.figure.runtime import ensure_matplotlib_runtime_env
+
+ensure_matplotlib_runtime_env()
 
 import matplotlib
 import matplotlib.pyplot as plt

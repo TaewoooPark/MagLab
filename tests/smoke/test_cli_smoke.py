@@ -118,6 +118,10 @@ def test_workspace_tree_filters_docs_code_data() -> None:
 @pytest.mark.smoke
 def test_workspace_tree_depth_and_all_flags() -> None:
     with runner.isolated_filesystem():
+        Path(".github").mkdir()
+        Path(".github/workflow.yml").write_text("ci\n", encoding="utf-8")
+        Path("demo.egg-info").mkdir()
+        Path("demo.egg-info/PKG-INFO").write_text("generated\n", encoding="utf-8")
         Path(".maglab/runtime").mkdir(parents=True)
         Path(".maglab/runtime/budget.db").write_text("x\n", encoding="utf-8")
         Path("a/b").mkdir(parents=True)
@@ -131,8 +135,12 @@ def test_workspace_tree_depth_and_all_flags() -> None:
     assert default.exit_code == 0, default.output
     assert full.exit_code == 0, full.output
     assert all("/" not in entry.rstrip("/") for entry in json.loads(shallow.output)["entries"])
-    assert all(".maglab/runtime" not in entry for entry in json.loads(default.output)["entries"])
+    assert all(".github" not in entry for entry in json.loads(default.output)["entries"])
+    assert all(".maglab" not in entry for entry in json.loads(default.output)["entries"])
+    assert all(".egg-info" not in entry for entry in json.loads(default.output)["entries"])
     assert any(".maglab/runtime" in entry for entry in json.loads(full.output)["entries"])
+    assert any(".github" in entry for entry in json.loads(full.output)["entries"])
+    assert any(".egg-info" in entry for entry in json.loads(full.output)["entries"])
 
 
 @pytest.mark.smoke

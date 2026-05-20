@@ -19,6 +19,8 @@ Graceful handling when external solvers (OOMMF/MuMax3) are not installed
 (plots data only without simulation).
 """
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import contextlib
@@ -27,6 +29,10 @@ import uuid
 import warnings
 from pathlib import Path
 from typing import Any
+
+from maglab.figure.runtime import ensure_matplotlib_runtime_env
+
+ensure_matplotlib_runtime_env()
 
 import matplotlib
 

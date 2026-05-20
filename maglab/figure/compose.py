@@ -11,10 +11,16 @@ Key features:
 - Combines the axes returned by each panel renderer (``DataPlotRenderer``).
 """
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import string
 from typing import Any
+
+from maglab.figure.runtime import ensure_matplotlib_runtime_env
+
+ensure_matplotlib_runtime_env()
 
 import matplotlib
 import matplotlib.gridspec as gridspec

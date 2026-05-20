@@ -19,9 +19,11 @@ import platformdirs
 
 APP_NAME = "maglab"
 _IGNORED_NAMES = {
+    ".github",
     ".git",
     ".hg",
     ".svn",
+    ".maglab",
     ".cache",
     ".coverage",
     ".DS_Store",
@@ -47,7 +49,11 @@ _IGNORED_NAMES = {
 }
 
 _IGNORED_REL_PREFIXES = {
+    ".maglab/cache",
     ".maglab/runtime",
+    "docs/generated",
+    "impl/review",
+    "tests/fixtures",
 }
 
 _PROJECT_CONTEXT_NAMES = (
@@ -194,6 +200,8 @@ def _is_ignored_relative_path(rel_posix: str) -> bool:
     """Return True when a relative path is intentionally hidden by default."""
     parts = rel_posix.split("/")
     if any(part in _IGNORED_NAMES for part in parts):
+        return True
+    if any(part.endswith(".egg-info") for part in parts):
         return True
     return any(
         rel_posix == prefix or rel_posix.startswith(f"{prefix}/")

@@ -1796,20 +1796,26 @@ def sim_plot(
     ),
     fmt: str = typer.Option("pdf", "--format", "-f", help="Export format (pdf·svg·eps)."),
     journal: str = typer.Option(
-        "nature", "--journal", "-j", help="Journal target (nature·aps·ieee·elsevier)."
+        "nature",
+        "--journal",
+        "-j",
+        help="Journal target or alias (nature·aps·prl·prb·ieee·elsevier).",
     ),
     caption: str = typer.Option("", "--caption", help="Figure caption."),
 ) -> None:
     """F6: experimental data CSV → auto-inference → FigureSpec → vector figure output."""
 
     from maglab.figure.spec import ColumnWidth, JournalTarget
+    from maglab.figure.styles import normalize_journal_key
     from maglab.sim.plot import plot_data_to_figure
 
     # Parse journal
     try:
-        j = JournalTarget(journal)
+        j = JournalTarget(normalize_journal_key(journal))
     except ValueError:
-        console.print(f"[red]Unknown journal:[/] {journal!r}. Available: nature·aps·ieee·elsevier")
+        console.print(
+            f"[red]Unknown journal:[/] {journal!r}. Available: nature·aps/prl/prb·ieee·elsevier"
+        )
         raise typer.Exit(1) from None
 
     with console.status("[dim]Loading data and rendering figure…[/]"):
@@ -2242,7 +2248,12 @@ def figure_spec_cmd(
     output: str = typer.Option(
         "figure_spec.json", "--output", "-o", help="FigureSpec JSON output path."
     ),
-    journal: str = typer.Option("nature", "--journal", "-j", help="Journal target."),
+    journal: str = typer.Option(
+        "nature",
+        "--journal",
+        "-j",
+        help="Journal target or alias (nature·aps·prl·prb·ieee·elsevier).",
+    ),
     kind: str = typer.Option(
         "xy", "--kind", "-k", help="Plot kind (hysteresis·hall·fmr·dispersion·xy)."
     ),
@@ -2261,9 +2272,10 @@ def figure_spec_cmd(
         PanelType,
         PlotKind,
     )
+    from maglab.figure.styles import normalize_journal_key
 
     try:
-        j = JournalTarget(journal)
+        j = JournalTarget(normalize_journal_key(journal))
     except ValueError:
         console.print(f"[red]Unknown journal:[/] {journal!r}")
         raise typer.Exit(1) from None

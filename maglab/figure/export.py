@@ -15,11 +15,17 @@ Plan §12.3-⑥: The exported file path is recorded in the provenance ledger whe
 an optional ``ledger`` argument is supplied to ``export()`` / ``export_all()``.
 """
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
+
+from maglab.figure.runtime import ensure_matplotlib_runtime_env
+
+ensure_matplotlib_runtime_env()
 
 import matplotlib
 import matplotlib.pyplot as plt

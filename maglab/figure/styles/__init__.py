@@ -155,6 +155,32 @@ def _make_prop_cycle(palette: list[str]) -> Any:
     return cycler("color", palette)
 
 
+_JOURNAL_ALIASES: dict[str, str] = {
+    "physical-review-letters": "aps",
+    "phys-rev-lett": "aps",
+    "prl": "aps",
+    "physical-review-b": "aps",
+    "phys-rev-b": "aps",
+    "prb": "aps",
+    "physical-review-x": "aps",
+    "prx": "aps",
+    "nature-communications": "nature",
+    "nat-commun": "nature",
+    "npj": "nature",
+    "nature-family": "nature",
+    "jmmm": "elsevier",
+    "journal-of-magnetism-and-magnetic-materials": "elsevier",
+    "ieee-magnetics": "ieee",
+    "ieee-transactions-on-magnetics": "ieee",
+}
+
+
+def normalize_journal_key(journal: str) -> str:
+    """Normalize common journal aliases to installed figure style keys."""
+    key = journal.strip().lower().replace("_", "-").replace(" ", "-")
+    return _JOURNAL_ALIASES.get(key, key)
+
+
 def load_style(journal: str) -> StyleProfile:
     """Load a ``StyleProfile`` by journal key.
 
@@ -174,6 +200,7 @@ def load_style(journal: str) -> StyleProfile:
     ValueError
         When an unknown journal key is given.
     """
+    journal = normalize_journal_key(journal)
     yaml_path = _STYLES_DIR / f"{journal}.yaml"
     if not yaml_path.exists():
         raise FileNotFoundError(f"Style YAML not found for journal '{journal}': {yaml_path}")
@@ -187,4 +214,4 @@ def available_journals() -> list[str]:
     return [p.stem for p in sorted(_STYLES_DIR.glob("*.yaml"))]
 
 
-__all__ = ["StyleProfile", "load_style", "available_journals"]
+__all__ = ["StyleProfile", "available_journals", "load_style", "normalize_journal_key"]

@@ -79,10 +79,22 @@ def test_workspace_context_prunes_ignored_heavy_directories(
     (tmp_path / "MAGLAB.md").write_text("# Project\n", encoding="utf-8")
     (tmp_path / "node_modules").mkdir()
     (tmp_path / "node_modules" / "hidden.js").write_text("should not appear\n", encoding="utf-8")
+    (tmp_path / ".github").mkdir()
+    (tmp_path / ".github" / "workflow.yml").write_text("ci\n", encoding="utf-8")
+    (tmp_path / ".maglab" / "cache").mkdir(parents=True)
+    (tmp_path / ".maglab" / "cache" / "font.json").write_text("cache\n", encoding="utf-8")
     (tmp_path / ".maglab" / "runtime").mkdir(parents=True)
     (tmp_path / ".maglab" / "runtime" / "budget.db").write_text("runtime\n", encoding="utf-8")
     (tmp_path / ".playwright-mcp").mkdir()
     (tmp_path / ".playwright-mcp" / "page.yml").write_text("runtime\n", encoding="utf-8")
+    (tmp_path / "pkg.egg-info").mkdir()
+    (tmp_path / "pkg.egg-info" / "PKG-INFO").write_text("generated\n", encoding="utf-8")
+    (tmp_path / "docs" / "generated").mkdir(parents=True)
+    (tmp_path / "docs" / "generated" / "api.md").write_text("generated\n", encoding="utf-8")
+    (tmp_path / "impl" / "review").mkdir(parents=True)
+    (tmp_path / "impl" / "review" / "audit.md").write_text("generated\n", encoding="utf-8")
+    (tmp_path / "tests" / "fixtures").mkdir(parents=True)
+    (tmp_path / "tests" / "fixtures" / "sample.txt").write_text("fixture\n", encoding="utf-8")
     (tmp_path / "notes.md").write_text("visible\n", encoding="utf-8")
 
     result = call_tool("workspace_context", {"max_entries": 20})
@@ -91,8 +103,13 @@ def test_workspace_context_prunes_ignored_heavy_directories(
     assert "notes.md" in result["entries"]
     assert "node_modules/" not in result["entries"]
     assert all("hidden.js" not in entry for entry in result["entries"])
-    assert all(".maglab/runtime" not in entry for entry in result["entries"])
+    assert all(".github" not in entry for entry in result["entries"])
+    assert all(".maglab" not in entry for entry in result["entries"])
     assert all(".playwright-mcp" not in entry for entry in result["entries"])
+    assert all(".egg-info" not in entry for entry in result["entries"])
+    assert all("docs/generated" not in entry for entry in result["entries"])
+    assert all("impl/review" not in entry for entry in result["entries"])
+    assert all("tests/fixtures" not in entry for entry in result["entries"])
 
 
 def test_workspace_tree_tool_supports_type_and_depth_filters(

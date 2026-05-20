@@ -207,6 +207,28 @@ def test_sim_plot_svg_created(sample_hysteresis_csv: Path, tmp_path: Path) -> No
 
 
 @pytest.mark.smoke
+def test_sim_plot_accepts_prl_journal_alias(sample_hysteresis_csv: Path, tmp_path: Path) -> None:
+    """sim plot should accept common APS journal aliases."""
+    out = tmp_path / "output_prl.svg"
+    result = runner.invoke(
+        app,
+        [
+            "sim",
+            "plot",
+            str(sample_hysteresis_csv),
+            "--journal",
+            "prl",
+            "--format",
+            "svg",
+            "--output",
+            str(out),
+        ],
+    )
+    assert result.exit_code == 0, f"exit={result.exit_code}\n{result.stdout}"
+    assert out.exists()
+
+
+@pytest.mark.smoke
 def test_sim_plot_hall_csv(sample_hall_csv: Path, tmp_path: Path) -> None:
     """sim plot succeeds for a Hall CSV."""
     out = tmp_path / "hall.pdf"
@@ -345,6 +367,14 @@ def test_figure_spec_outputs_json() -> None:
     except json.JSONDecodeError:
         # Non-JSON output is also acceptable (text output allowed)
         assert len(result.stdout) > 0
+
+
+@pytest.mark.smoke
+def test_figure_spec_accepts_prl_alias() -> None:
+    """Common journal aliases should map to installed style profiles."""
+    result = runner.invoke(app, ["figure", "spec", "--journal", "prl"])
+    assert result.exit_code == 0, f"exit={result.exit_code}\n{result.stdout}"
+    assert "FigureSpec skeleton written" in result.stdout
 
 
 # ---------------------------------------------------------------------------

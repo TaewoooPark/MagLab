@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from maglab.figure.styles import StyleProfile, available_journals, load_style
+from maglab.figure.styles import StyleProfile, available_journals, load_style, normalize_journal_key
 
 # Appendix G canonical dimensions (mm)
 JOURNAL_WIDTHS = {
@@ -40,6 +40,22 @@ def test_available_journals():
     """available_journals() includes 4 journals."""
     journals = available_journals()
     assert set(journals) >= {"nature", "aps", "ieee", "elsevier"}
+
+
+@pytest.mark.parametrize(
+    "alias,expected",
+    [
+        ("prl", "aps"),
+        ("PRB", "aps"),
+        ("Physical Review Letters", "aps"),
+        ("nature communications", "nature"),
+        ("jmmm", "elsevier"),
+        ("ieee magnetics", "ieee"),
+    ],
+)
+def test_normalize_journal_key_accepts_common_aliases(alias: str, expected: str):
+    assert normalize_journal_key(alias) == expected
+    assert load_style(alias).journal == expected
 
 
 # ---------------------------------------------------------------------------

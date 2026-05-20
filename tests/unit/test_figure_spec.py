@@ -163,6 +163,16 @@ def test_journal_targets(journal: JournalTarget):
     assert spec.journal == journal
 
 
+def test_journal_alias_normalizes_to_style_target():
+    spec = FigureSpec(
+        figure_id="fig-prl",
+        journal="prl",
+        panels=[_make_panel()],
+    )
+
+    assert spec.journal == JournalTarget.APS
+
+
 @pytest.mark.parametrize("col", [ColumnWidth.SINGLE, ColumnWidth.DOUBLE])
 def test_column_widths(col: ColumnWidth):
     """Both SINGLE and DOUBLE column widths are handled."""

@@ -16,10 +16,16 @@ Core integrity rules (§12.6):
 - There is no code path in this file that calls raster generative image models.
 """
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import warnings
 from typing import TYPE_CHECKING, Any
+
+from maglab.figure.runtime import ensure_matplotlib_runtime_env
+
+ensure_matplotlib_runtime_env()
 
 import matplotlib
 import matplotlib.pyplot as plt

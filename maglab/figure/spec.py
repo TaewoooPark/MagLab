@@ -18,6 +18,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from maglab.figure.styles import normalize_journal_key
+
 
 class PanelType(StrEnum):
     """Panel type enumeration.
@@ -239,6 +241,14 @@ class FigureSpec(BaseModel):
     provenance_ids: list[str] | None = None
 
     model_config = {"frozen": False}
+
+    @field_validator("journal", mode="before")
+    @classmethod
+    def _normalize_journal_alias(cls, value: Any) -> Any:
+        """Allow common journal aliases such as PRL/PRB to select APS styling."""
+        if isinstance(value, str):
+            return normalize_journal_key(value)
+        return value
 
     @model_validator(mode="after")
     def _collect_provenance(self) -> FigureSpec:
