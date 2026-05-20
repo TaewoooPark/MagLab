@@ -61,9 +61,7 @@ class BlochDomainWallPrimitive:
             "description": "Show domain background",
         },
     ]
-    physics_convention: str = (
-        "Bloch wall convention. Wall propagation direction x, spins rotate in the y-z plane. Chirality ±1."
-    )
+    physics_convention: str = "Bloch wall convention. Wall propagation direction x, spins rotate in the y-z plane. Chirality ±1."
     references: list[str] = ["doi:10.1103/PhysRevB.84.094410"]
     provenance: dict[str, Any] = {
         "source": "handwritten",

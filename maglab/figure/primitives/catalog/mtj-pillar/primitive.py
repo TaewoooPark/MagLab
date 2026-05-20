@@ -60,9 +60,7 @@ class MTJPillarPrimitive:
             "description": "Fixed layer magnetization direction",
         },
     ]
-    physics_convention: str = (
-        "Bottom = pinned layer (fixed), middle = MgO barrier, top = free layer. Magnetization arrows shown."
-    )
+    physics_convention: str = "Bottom = pinned layer (fixed), middle = MgO barrier, top = free layer. Magnetization arrows shown."
     references: list[str] = ["doi:10.1103/PhysRevLett.84.3149"]
     provenance: dict[str, Any] = {"source": "handwritten", "author": "MagLab P4"}
     preview: str | None = None

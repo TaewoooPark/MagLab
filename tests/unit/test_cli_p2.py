@@ -163,9 +163,7 @@ class TestFit:
         csv_path = tmp_path / "hall.csv"
         _write_csv(csv_path, B=B.tolist(), rho_xy=rho_xy.tolist())
 
-        result = runner.invoke(
-            app, ["fit", "--effect", "ordinary_hall", str(csv_path), "--refs"]
-        )
+        result = runner.invoke(app, ["fit", "--effect", "ordinary_hall", str(csv_path), "--refs"])
         assert result.exit_code == 0, result.output
         assert "Reference" in result.output or "DOI" in result.output or "Phys" in result.output
 
@@ -181,7 +179,11 @@ class TestAnalyzeLoad:
         import numpy as np
 
         csv_path = tmp_path / "data.csv"
-        _write_csv(csv_path, B=np.linspace(-1, 1, 30).tolist(), rho_xy=(1e-9 * np.linspace(-1, 1, 30)).tolist())
+        _write_csv(
+            csv_path,
+            B=np.linspace(-1, 1, 30).tolist(),
+            rho_xy=(1e-9 * np.linspace(-1, 1, 30)).tolist(),
+        )
 
         result = runner.invoke(app, ["analyze", "load", str(csv_path)])
         assert result.exit_code == 0, result.output
@@ -266,7 +268,9 @@ class TestAnalyzeConsistency:
         assert result.exit_code == 0, result.output
         # The command should complete without crashing; output may say consistent or chi2 info
 
-    def test_consistency_missing_file(self, app: typer.Typer, runner: CliRunner, tmp_path: Path) -> None:
+    def test_consistency_missing_file(
+        self, app: typer.Typer, runner: CliRunner, tmp_path: Path
+    ) -> None:
         """Missing second file gives exit code 1."""
         path_a = self._make_ordinary_hall_csv(tmp_path, "c", 1.5e-10)
         result = runner.invoke(
@@ -328,7 +332,11 @@ class TestDeviceFom:
         """sot-mram with default parameters computes FoMs."""
         result = runner.invoke(app, ["device", "fom", "sot-mram"])
         assert result.exit_code == 0, result.output
-        assert "thermal_stability" in result.output or "delta" in result.output.lower() or "Δ" in result.output
+        assert (
+            "thermal_stability" in result.output
+            or "delta" in result.output.lower()
+            or "Δ" in result.output
+        )
 
     def test_fom_sot_mram_custom_params(self, app: typer.Typer, runner: CliRunner) -> None:
         """sot-mram with explicit params computes FoMs and outputs values."""

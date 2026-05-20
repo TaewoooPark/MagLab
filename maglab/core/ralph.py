@@ -458,9 +458,7 @@ class RalphEngine:
         Stop reason (None means continue).
         """
         if self._state is None:
-            raise RuntimeError(
-                "Ralph run has not been started. Call start() or resume() first."
-            )
+            raise RuntimeError("Ralph run has not been started. Call start() or resume() first.")
 
         self._state.iteration += 1
 
@@ -598,9 +596,7 @@ class RalphEngine:
                 output = agent_fn(self._state, *args, **kwargs)
             except Exception as exc:  # noqa: BLE001
                 error_key = type(exc).__name__
-                log.warning(
-                    "[detached] Agent error (iteration %d): %s", self._state.iteration, exc
-                )
+                log.warning("[detached] Agent error (iteration %d): %s", self._state.iteration, exc)
                 reason = self.step("", score=0.0, error_key=error_key)
                 if reason:
                     log.info("[detached] Circuit breaker: %s", reason)

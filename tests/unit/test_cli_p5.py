@@ -111,9 +111,7 @@ class TestLitSearch:
         # Folder exists but no extractable text
         empty_dir = tmp_path / "papers"
         empty_dir.mkdir()
-        with patch(
-            "maglab.literature.keywords.extract_keywords_from_folder", return_value=[]
-        ):
+        with patch("maglab.literature.keywords.extract_keywords_from_folder", return_value=[]):
             result = runner.invoke(app, ["lit", "search", str(empty_dir)])
         assert result.exit_code == 1
 
@@ -290,9 +288,7 @@ class TestLitGraph:
     def test_citation_lineage_empty(self, runner: CliRunner, app: typer.Typer) -> None:
         kg = self._mock_kg()
         with patch("maglab.literature.graph.get_graph", return_value=kg):
-            result = runner.invoke(
-                app, ["lit", "graph", "IrMn", "--cite-map", "10.1103/fake.doi"]
-            )
+            result = runner.invoke(app, ["lit", "graph", "IrMn", "--cite-map", "10.1103/fake.doi"])
         assert result.exit_code == 0
         kg.citation_lineage.assert_called_once_with("10.1103/fake.doi")
 
@@ -492,9 +488,7 @@ class TestLabNote:
         assert result.exit_code == 1
         assert "Unknown measurement type" in result.output
 
-    def test_draft_flag(
-        self, runner: CliRunner, app: typer.Typer, tmp_path: pathlib.Path
-    ) -> None:
+    def test_draft_flag(self, runner: CliRunner, app: typer.Typer, tmp_path: pathlib.Path) -> None:
         nb_dir = tmp_path / "nb_draft"
         result = runner.invoke(
             app,
@@ -516,9 +510,7 @@ class TestLabPlan:
         assert "Measurement Plan" in result.output
         assert "step" in result.output.lower()
 
-    def test_saves_yaml(
-        self, runner: CliRunner, app: typer.Typer, tmp_path: pathlib.Path
-    ) -> None:
+    def test_saves_yaml(self, runner: CliRunner, app: typer.Typer, tmp_path: pathlib.Path) -> None:
         out_yaml = tmp_path / "plan.yaml"
         result = runner.invoke(
             app,
@@ -671,9 +663,7 @@ class TestReviewMetaReview:
         rubric = get_rubric("general")
         return PanelReview(journal="general", reviews=reviews, rubric=rubric)
 
-    def test_meta_review_shown_in_output(
-        self, runner: CliRunner, app: typer.Typer
-    ) -> None:
+    def test_meta_review_shown_in_output(self, runner: CliRunner, app: typer.Typer) -> None:
         """review_command must include 'Meta-Review' section in output."""
         mock_result = self._make_panel_result_with_dissent()
         with (
@@ -685,9 +675,7 @@ class TestReviewMetaReview:
         # Meta-review section must appear
         assert "Meta-Review" in result.output or "meta-review" in result.output.lower()
 
-    def test_meta_review_recommendation_shown(
-        self, runner: CliRunner, app: typer.Typer
-    ) -> None:
+    def test_meta_review_recommendation_shown(self, runner: CliRunner, app: typer.Typer) -> None:
         """review_command must show the overall recommendation from MetaReviewer."""
         mock_result = self._make_panel_result_with_dissent()
         with (
@@ -701,9 +689,7 @@ class TestReviewMetaReview:
         found = any(rec in result.output for rec in recommendations)
         assert found, f"No recommendation found in output: {result.output[:300]}"
 
-    def test_dissent_surfaced_in_output(
-        self, runner: CliRunner, app: typer.Typer
-    ) -> None:
+    def test_dissent_surfaced_in_output(self, runner: CliRunner, app: typer.Typer) -> None:
         """When score spread ≥3, the dissent must appear in output."""
         mock_result = self._make_panel_result_with_dissent()
         with (

@@ -86,7 +86,9 @@ class ThieleModel(EffectModel):
     @property
     def measurement_config(self) -> MeasurementConfig:
         return MeasurementConfig(
-            geometry=("Current-driven skyrmion Hall angle measurement. v_x, v_y vs. driving current density j."),
+            geometry=(
+                "Current-driven skyrmion Hall angle measurement. v_x, v_y vs. driving current density j."
+            ),
             tensor_rank=2,
             required_columns=("j", "v_x", "v_y"),
             notes=(

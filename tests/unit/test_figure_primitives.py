@@ -28,7 +28,12 @@ class DummyPrimitive:
     tags: list[str] = ["Hall", "bar", "measurement", "geometry"]
     description: str = "Hall bar device geometry dummy primitive (for testing)."
     parameters: list[dict[str, Any]] = [
-        {"name": "width_um", "type": "float", "default": 20.0, "description": "Hall bar width (μm)."},
+        {
+            "name": "width_um",
+            "type": "float",
+            "default": 20.0,
+            "description": "Hall bar width (μm).",
+        },
         {
             "name": "length_um",
             "type": "float",
@@ -281,13 +286,13 @@ class TestR4Finding1SvgLineAttributes:
         """Count occurrences of ``attr=`` inside a single SVG tag string."""
         import re
 
-        return len(re.findall(rf'\b{re.escape(attr)}=', tag))
+        return len(re.findall(rf"\b{re.escape(attr)}=", tag))
 
     def _extract_line_tags(self, svg: str) -> list[str]:
         """Return all <line …/> tag strings from an SVG document."""
         import re
 
-        return re.findall(r'<line\b[^>]*/>', svg, re.DOTALL)
+        return re.findall(r"<line\b[^>]*/>", svg, re.DOTALL)
 
     def test_hall_bar_current_arrow_has_y1_and_y2(self) -> None:
         """HallBarPrimitive current-arrow <line> must have exactly one y1 and one y2."""
@@ -315,7 +320,9 @@ class TestR4Finding1SvgLineAttributes:
         reg = make_default_registry()
         prim = reg.load("measurement-geometry")  # type: ignore[assignment]
 
-        svg = prim.render({"show_current": True, "show_field": False, "show_voltage": False}, backend="svg")
+        svg = prim.render(
+            {"show_current": True, "show_field": False, "show_voltage": False}, backend="svg"
+        )
         line_tags = self._extract_line_tags(svg)
         assert line_tags, "No <line> elements found in measurement-geometry SVG."
         for tag in line_tags:
@@ -563,9 +570,7 @@ class TestR11ZeroDivisionGuards:
         try:
             ET.fromstring(svg)
         except ET.ParseError as exc:
-            raise AssertionError(
-                f"{label!r}: render output is not valid XML: {exc}"
-            ) from exc
+            raise AssertionError(f"{label!r}: render output is not valid XML: {exc}") from exc
 
     # ------------------------------------------------------------------
     # F1 — neel-domain-wall: wall_width=0
@@ -699,9 +704,7 @@ class TestR12Finding1BlochArrowheadColor:
         try:
             ET.fromstring(svg)
         except ET.ParseError as exc:
-            raise AssertionError(
-                f"{label!r}: render output is not valid XML: {exc}"
-            ) from exc
+            raise AssertionError(f"{label!r}: render output is not valid XML: {exc}") from exc
 
     @staticmethod
     def _extract_line_tags(svg: str) -> list[str]:
@@ -767,9 +770,7 @@ class TestR12Finding1BlochArrowheadColor:
         for tag in arrow_lines:
             # Extract color= attribute value.
             m = re.search(r'color="([^"]*)"', tag)
-            assert m is not None, (
-                f"<line> referencing #arrBloch has no color= attribute: {tag!r}"
-            )
+            assert m is not None, f"<line> referencing #arrBloch has no color= attribute: {tag!r}"
             color_val = m.group(1)
             assert color_val != "rgb(0,0,0)", (
                 f"<line> color= is pure black 'rgb(0,0,0)' — arrowhead will be invisible: {tag!r}"
@@ -807,9 +808,7 @@ class TestR13Finding1MTJPillarVerticalArrow:
         try:
             ET.fromstring(svg)
         except ET.ParseError as exc:
-            raise AssertionError(
-                f"{label!r}: render output is not valid XML: {exc}"
-            ) from exc
+            raise AssertionError(f"{label!r}: render output is not valid XML: {exc}") from exc
 
     @staticmethod
     def _extract_line_tags(svg: str) -> list[str]:
@@ -986,7 +985,9 @@ class TestR13Finding1MTJPillarVerticalArrow:
                 and m1.group(1) == m2.group(1)
             )
         ]
-        assert vertical, "'down' direction: no vertical arrow line found — cannot check orientation."
+        assert vertical, (
+            "'down' direction: no vertical arrow line found — cannot check orientation."
+        )
         for tag in vertical:
             y1_m = re.search(r'\by1="([^"]*)"', tag)
             y2_m = re.search(r'\by2="([^"]*)"', tag)

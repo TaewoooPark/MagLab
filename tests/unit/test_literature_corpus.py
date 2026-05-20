@@ -127,9 +127,7 @@ class TestUpdateRetractionStatusPrefixNormalization:
         rec = _record("doi:10.1103/physrevb.103.014412")
         db.add(rec)
 
-        db.update_retraction_status(
-            "https://doi.org/10.1103/physrevb.103.014412", "retracted"
-        )
+        db.update_retraction_status("https://doi.org/10.1103/physrevb.103.014412", "retracted")
 
         found = db.get_by_doi("10.1103/physrevb.103.014412")
         assert found is not None

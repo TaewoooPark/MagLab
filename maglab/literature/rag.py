@@ -50,9 +50,7 @@ def chunk_text(
         When ``chunk_size <= overlap``, which would cause an infinite loop.
     """
     if chunk_size <= overlap:
-        raise ValueError(
-            f"chunk_size ({chunk_size}) must be greater than overlap ({overlap})"
-        )
+        raise ValueError(f"chunk_size ({chunk_size}) must be greater than overlap ({overlap})")
     words = text.split()
     if not words:
         return []
@@ -492,7 +490,9 @@ class LiteratureRAG:
                 embedding_raw = row.get("vector", [])
                 # pandas may return numpy arrays; coerce to plain list.
                 try:
-                    embedding: list[float] = list(embedding_raw) if embedding_raw is not None else []
+                    embedding: list[float] = (
+                        list(embedding_raw) if embedding_raw is not None else []
+                    )
                 except TypeError:
                     embedding = []
                 chunk = Chunk(
@@ -501,11 +501,13 @@ class LiteratureRAG:
                     doi=str(row.get("doi", "")),
                     title=str(row.get("title", "")),
                     authors=str(row.get("authors", "")),
-                    year=int(row["year"]) if (
+                    year=int(row["year"])
+                    if (
                         (year_raw := row.get("year")) is not None
                         and not (isinstance(year_raw, float) and year_raw != year_raw)  # NaN check
                         and year_raw
-                    ) else None,
+                    )
+                    else None,
                     venue=str(row.get("venue", "")),
                     namespace=str(row.get("namespace", "literature")),
                     text=str(row.get("text", "")),

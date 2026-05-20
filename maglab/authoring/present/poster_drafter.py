@@ -118,10 +118,7 @@ class PosterDrafter:
         if template_src is not None and fmt == "svg":
             log.debug("PosterDrafter: using svg/template.svg")
             today = datetime.date.today().isoformat()
-            svg_raw = (
-                template_src.replace("%%TITLE%%", title)
-                .replace("%%DATE%%", today)
-            )
+            svg_raw = template_src.replace("%%TITLE%%", title).replace("%%DATE%%", today)
         else:
             user = (
                 f"Poster size: {size}\n"

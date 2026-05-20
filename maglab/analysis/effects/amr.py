@@ -83,7 +83,9 @@ class AMREffect(EffectModel):
     @property
     def measurement_config(self) -> MeasurementConfig:
         return MeasurementConfig(
-            geometry=("Hall bar, in-plane magnetization angle θ rotation (0~2π). I∥x, longitudinal voltage V_x measured."),
+            geometry=(
+                "Hall bar, in-plane magnetization angle θ rotation (0~2π). I∥x, longitudinal voltage V_x measured."
+            ),
             tensor_rank=2,
             required_columns=("theta", "rho_xx"),
             notes="theta [rad]: angle between current and magnetization. rho_xx [Ohm·m]: longitudinal resistivity.",

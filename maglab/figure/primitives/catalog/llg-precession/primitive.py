@@ -26,11 +26,23 @@ class LLGPrecessionPrimitive:
     )
     parameters: list[dict[str, Any]] = [
         {"name": "radius", "type": "float", "default": 50.0, "description": "Bloch sphere radius"},
-        {"name": "theta_deg", "type": "float", "default": 45.0, "description": "Precession polar angle θ (degrees)"},
-        {"name": "show_damping", "type": "bool", "default": True, "description": "Show damping spiral"},
+        {
+            "name": "theta_deg",
+            "type": "float",
+            "default": 45.0,
+            "description": "Precession polar angle θ (degrees)",
+        },
+        {
+            "name": "show_damping",
+            "type": "bool",
+            "default": True,
+            "description": "Show damping spiral",
+        },
         {"name": "show_heff", "type": "bool", "default": True, "description": "Show Heff arrow"},
     ]
-    physics_convention: str = "LLG equation. dM/dt = -γ(M×Heff) + α/Ms(M×dM/dt). Counter-clockwise precession."
+    physics_convention: str = (
+        "LLG equation. dM/dt = -γ(M×Heff) + α/Ms(M×dM/dt). Counter-clockwise precession."
+    )
     references: list[str] = ["doi:10.1103/PhysRevB.72.014463"]
     provenance: dict[str, Any] = {"source": "handwritten", "author": "MagLab P4"}
     preview: str | None = None

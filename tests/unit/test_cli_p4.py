@@ -68,9 +68,7 @@ class TestHelp:
 
 
 class TestStart:
-    def test_start_creates_state_file(
-        self, ralph_cli: typer.Typer, state_file: Path
-    ) -> None:
+    def test_start_creates_state_file(self, ralph_cli: typer.Typer, state_file: Path) -> None:
         result = runner.invoke(
             ralph_cli,
             ["ralph", "start", "Test goal", "--state-file", str(state_file)],
@@ -78,9 +76,7 @@ class TestStart:
         assert result.exit_code == 0, result.output
         assert state_file.is_file()
 
-    def test_start_output_contains_goal(
-        self, ralph_cli: typer.Typer, state_file: Path
-    ) -> None:
+    def test_start_output_contains_goal(self, ralph_cli: typer.Typer, state_file: Path) -> None:
         result = runner.invoke(
             ralph_cli,
             ["ralph", "start", "My research goal", "--state-file", str(state_file)],
@@ -88,9 +84,7 @@ class TestStart:
         assert result.exit_code == 0, result.output
         assert "My research goal" in result.output
 
-    def test_start_default_mode_in_session(
-        self, ralph_cli: typer.Typer, state_file: Path
-    ) -> None:
+    def test_start_default_mode_in_session(self, ralph_cli: typer.Typer, state_file: Path) -> None:
         runner.invoke(
             ralph_cli,
             ["ralph", "start", "Goal", "--state-file", str(state_file)],
@@ -101,9 +95,7 @@ class TestStart:
         assert state is not None
         assert state.mode == RalphMode.IN_SESSION
 
-    def test_start_detached_mode(
-        self, ralph_cli: typer.Typer, state_file: Path
-    ) -> None:
+    def test_start_detached_mode(self, ralph_cli: typer.Typer, state_file: Path) -> None:
         result = runner.invoke(
             ralph_cli,
             [
@@ -123,9 +115,7 @@ class TestStart:
         assert state is not None
         assert state.mode == RalphMode.DETACHED
 
-    def test_start_custom_max_iterations(
-        self, ralph_cli: typer.Typer, state_file: Path
-    ) -> None:
+    def test_start_custom_max_iterations(self, ralph_cli: typer.Typer, state_file: Path) -> None:
         runner.invoke(
             ralph_cli,
             [
@@ -144,9 +134,7 @@ class TestStart:
         assert state is not None
         assert state.max_iterations == 5
 
-    def test_start_invalid_mode_exits_1(
-        self, ralph_cli: typer.Typer, state_file: Path
-    ) -> None:
+    def test_start_invalid_mode_exits_1(self, ralph_cli: typer.Typer, state_file: Path) -> None:
         result = runner.invoke(
             ralph_cli,
             [
@@ -161,9 +149,7 @@ class TestStart:
         )
         assert result.exit_code == 1
 
-    def test_start_loop_type_saved(
-        self, ralph_cli: typer.Typer, state_file: Path
-    ) -> None:
+    def test_start_loop_type_saved(self, ralph_cli: typer.Typer, state_file: Path) -> None:
         runner.invoke(
             ralph_cli,
             [
@@ -193,22 +179,16 @@ class TestStatus:
         self, ralph_cli: typer.Typer, tmp_path: Path
     ) -> None:
         missing = tmp_path / "nonexistent.md"
-        result = runner.invoke(
-            ralph_cli, ["ralph", "status", "--state-file", str(missing)]
-        )
+        result = runner.invoke(ralph_cli, ["ralph", "status", "--state-file", str(missing)])
         assert result.exit_code == 1
         assert "No Ralph state file" in result.output
 
-    def test_status_active_loop(
-        self, ralph_cli: typer.Typer, state_file: Path
-    ) -> None:
+    def test_status_active_loop(self, ralph_cli: typer.Typer, state_file: Path) -> None:
         # Pre-create an active state
         state = RalphState(goal="Active goal", active=True, iteration=3, max_iterations=20)
         save_state(state, state_file)
 
-        result = runner.invoke(
-            ralph_cli, ["ralph", "status", "--state-file", str(state_file)]
-        )
+        result = runner.invoke(ralph_cli, ["ralph", "status", "--state-file", str(state_file)])
         assert result.exit_code == 0, result.output
         assert "Active goal" in result.output
         assert "3" in result.output  # iteration count appears in output
@@ -225,21 +205,15 @@ class TestStatus:
         )
         save_state(state, state_file)
 
-        result = runner.invoke(
-            ralph_cli, ["ralph", "status", "--state-file", str(state_file)]
-        )
+        result = runner.invoke(ralph_cli, ["ralph", "status", "--state-file", str(state_file)])
         assert result.exit_code == 0, result.output
         assert StopReason.MAX_ITERATIONS.value in result.output
 
-    def test_status_shows_mode(
-        self, ralph_cli: typer.Typer, state_file: Path
-    ) -> None:
+    def test_status_shows_mode(self, ralph_cli: typer.Typer, state_file: Path) -> None:
         state = RalphState(mode=RalphMode.DETACHED, goal="Detached run")
         save_state(state, state_file)
 
-        result = runner.invoke(
-            ralph_cli, ["ralph", "status", "--state-file", str(state_file)]
-        )
+        result = runner.invoke(ralph_cli, ["ralph", "status", "--state-file", str(state_file)])
         assert result.exit_code == 0, result.output
         assert "detached" in result.output
 
@@ -254,21 +228,15 @@ class TestCancel:
         self, ralph_cli: typer.Typer, tmp_path: Path
     ) -> None:
         missing = tmp_path / "nonexistent.md"
-        result = runner.invoke(
-            ralph_cli, ["ralph", "cancel", "--state-file", str(missing)]
-        )
+        result = runner.invoke(ralph_cli, ["ralph", "cancel", "--state-file", str(missing)])
         assert result.exit_code == 1
         assert "No Ralph state file" in result.output
 
-    def test_cancel_active_loop_stops_it(
-        self, ralph_cli: typer.Typer, state_file: Path
-    ) -> None:
+    def test_cancel_active_loop_stops_it(self, ralph_cli: typer.Typer, state_file: Path) -> None:
         state = RalphState(goal="Running goal", active=True, iteration=2)
         save_state(state, state_file)
 
-        result = runner.invoke(
-            ralph_cli, ["ralph", "cancel", "--state-file", str(state_file)]
-        )
+        result = runner.invoke(ralph_cli, ["ralph", "cancel", "--state-file", str(state_file)])
         assert result.exit_code == 0, result.output
         assert "cancelled" in result.output.lower()
 
@@ -289,9 +257,7 @@ class TestCancel:
         )
         save_state(state, state_file)
 
-        result = runner.invoke(
-            ralph_cli, ["ralph", "cancel", "--state-file", str(state_file)]
-        )
+        result = runner.invoke(ralph_cli, ["ralph", "cancel", "--state-file", str(state_file)])
         # Should NOT exit 1 — already stopped is not an error
         assert result.exit_code == 0, result.output
         assert "already stopped" in result.output.lower()
@@ -303,9 +269,7 @@ class TestCancel:
 
 
 class TestLifecycle:
-    def test_start_status_cancel_full_cycle(
-        self, ralph_cli: typer.Typer, state_file: Path
-    ) -> None:
+    def test_start_status_cancel_full_cycle(self, ralph_cli: typer.Typer, state_file: Path) -> None:
         # 1. Start
         result = runner.invoke(
             ralph_cli,
@@ -315,21 +279,15 @@ class TestLifecycle:
         assert state_file.is_file()
 
         # 2. Status — loop should be active
-        result = runner.invoke(
-            ralph_cli, ["ralph", "status", "--state-file", str(state_file)]
-        )
+        result = runner.invoke(ralph_cli, ["ralph", "status", "--state-file", str(state_file)])
         assert result.exit_code == 0, result.output
         assert "Lifecycle goal" in result.output
 
         # 3. Cancel
-        result = runner.invoke(
-            ralph_cli, ["ralph", "cancel", "--state-file", str(state_file)]
-        )
+        result = runner.invoke(ralph_cli, ["ralph", "cancel", "--state-file", str(state_file)])
         assert result.exit_code == 0, result.output
 
         # 4. Status after cancel — should show stopped
-        result = runner.invoke(
-            ralph_cli, ["ralph", "status", "--state-file", str(state_file)]
-        )
+        result = runner.invoke(ralph_cli, ["ralph", "status", "--state-file", str(state_file)])
         assert result.exit_code == 0, result.output
         assert "external" in result.output

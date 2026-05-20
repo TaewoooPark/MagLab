@@ -59,5 +59,7 @@ class DeviceResult(BaseModel):
 
     def summary(self) -> str:
         """Return a summary string."""
-        fom_str = ", ".join(f"{k}={v:.4g}" for k, v in self.fom.items()) if self.fom else "not computed"
+        fom_str = (
+            ", ".join(f"{k}={v:.4g}" for k, v in self.fom.items()) if self.fom else "not computed"
+        )
         return f"Device scale | FoM: {fom_str} | Notes: {self.notes[:80]}"

@@ -115,9 +115,7 @@ class AxisSpec(BaseModel):
     def lim_must_have_two_elements(cls, v: list[float] | None) -> list[float] | None:
         """Validate that lim is None or has exactly 2 elements [min, max]."""
         if v is not None and len(v) != 2:
-            raise ValueError(
-                f"lim must have exactly 2 elements [min, max], got {len(v)}"
-            )
+            raise ValueError(f"lim must have exactly 2 elements [min, max], got {len(v)}")
         return v
 
 
@@ -178,9 +176,7 @@ class PanelSpec(BaseModel):
     def _data_plot_requires_plot_kind(self) -> PanelSpec:
         """Data-plot panels must specify a plot_kind."""
         if self.panel_type is PanelType.DATA_PLOT and self.plot_kind is None:
-            raise ValueError(
-                f"Panel '{self.panel_id}': data-plot panels must specify plot_kind."
-            )
+            raise ValueError(f"Panel '{self.panel_id}': data-plot panels must specify plot_kind.")
         return self
 
 

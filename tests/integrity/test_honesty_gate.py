@@ -546,9 +546,7 @@ class TestReportBuilderGateRegression:
         builder = ReportBuilder("regression-r3-f1-clean")
         builder.narrative("Please refer to the data vault for all values.")
         report = builder.build(run_honesty_gate=True, raise_on_violation=False)
-        assert report.passed_gate, (
-            "Clean narrative was incorrectly blocked by the gate."
-        )
+        assert report.passed_gate, "Clean narrative was incorrectly blocked by the gate."
         assert report.violations == []
 
     def test_fake_citation_in_narrative_fails_gate(self):
@@ -620,12 +618,9 @@ class TestReportBuilderVaultMergeRegression:
             vault_ids={external_vault_id},  # dp.id intentionally absent here
         )
 
-        out_of_vault = [
-            v for v in report.violations if v.kind is ViolationKind.OUT_OF_VAULT_VALUE
-        ]
+        out_of_vault = [v for v in report.violations if v.kind is ViolationKind.OUT_OF_VAULT_VALUE]
         assert out_of_vault == [], (
-            f"Spurious OUT_OF_VAULT_VALUE violations for registered dp.id={dp.id!r}: "
-            f"{out_of_vault}"
+            f"Spurious OUT_OF_VAULT_VALUE violations for registered dp.id={dp.id!r}: {out_of_vault}"
         )
         assert report.passed_gate, (
             "passed_gate must be True when the only UUID in the narrative is the "
@@ -649,9 +644,7 @@ class TestReportBuilderVaultMergeRegression:
             vault_ids={str(uuid.uuid4())},  # neither dp.id nor unknown_id is here
         )
 
-        out_of_vault = [
-            v for v in report.violations if v.kind is ViolationKind.OUT_OF_VAULT_VALUE
-        ]
+        out_of_vault = [v for v in report.violations if v.kind is ViolationKind.OUT_OF_VAULT_VALUE]
         assert len(out_of_vault) >= 1, (
             "A genuinely unknown UUID in the narrative must still raise OUT_OF_VAULT_VALUE."
         )
@@ -673,12 +666,8 @@ class TestReportBuilderVaultMergeRegression:
             vault_ids=None,  # vault check must be skipped entirely
         )
 
-        out_of_vault = [
-            v for v in report.violations if v.kind is ViolationKind.OUT_OF_VAULT_VALUE
-        ]
-        assert out_of_vault == [], (
-            "vault_ids=None must suppress all OUT_OF_VAULT_VALUE checks."
-        )
+        out_of_vault = [v for v in report.violations if v.kind is ViolationKind.OUT_OF_VAULT_VALUE]
+        assert out_of_vault == [], "vault_ids=None must suppress all OUT_OF_VAULT_VALUE checks."
 
 
 # ---------------------------------------------------------------------------

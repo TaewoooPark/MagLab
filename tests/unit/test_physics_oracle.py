@@ -45,11 +45,11 @@ class TestCheckDamping:
     @pytest.mark.parametrize(
         "alpha",
         [
-            0.0,    # boundary value — physically allowed
+            0.0,  # boundary value — physically allowed
             0.001,  # YIG level
             0.008,  # Permalloy level
-            0.5,    # high damping
-            1.0,    # maximum allowed boundary
+            0.5,  # high damping
+            1.0,  # maximum allowed boundary
         ],
     )
     def test_physical_alpha(self, alpha: float) -> None:
@@ -85,7 +85,7 @@ class TestCheckSaturationMagnetization:
         [
             1.43e5,  # YIG
             4.85e5,  # Ni
-            8.0e5,   # Permalloy
+            8.0e5,  # Permalloy
             1.44e6,  # Co
             1.71e6,  # Fe
         ],
@@ -96,10 +96,10 @@ class TestCheckSaturationMagnetization:
     @pytest.mark.parametrize(
         "ms",
         [
-            0.0,   # zero is unphysical
+            0.0,  # zero is unphysical
             -1e5,
             -1.0,
-            1e9,   # exceeds unphysical upper bound
+            1e9,  # exceeds unphysical upper bound
             1e10,
         ],
     )
@@ -120,10 +120,10 @@ class TestCheckMagnetization:
     @pytest.mark.parametrize(
         "m, ms",
         [
-            (0.0, 8e5),    # M = 0
-            (4e5, 8e5),    # M = Ms/2
-            (8e5, 8e5),    # M = Ms (boundary)
-            (-8e5, 8e5),   # reversed (absolute value check)
+            (0.0, 8e5),  # M = 0
+            (4e5, 8e5),  # M = Ms/2
+            (8e5, 8e5),  # M = Ms (boundary)
+            (-8e5, 8e5),  # reversed (absolute value check)
             (1.7e6, 1.71e6),  # Fe near saturation
         ],
     )
@@ -133,10 +133,10 @@ class TestCheckMagnetization:
     @pytest.mark.parametrize(
         "m, ms",
         [
-            (9e5, 8e5),    # M > Ms
+            (9e5, 8e5),  # M > Ms
             (1.8e6, 1.71e6),  # Fe over-saturation
-            (1.0, 0.0),    # Ms=0 is unphysical
-            (-1.0, 0.5),   # Ms too small (outside valid range, ok=False here)
+            (1.0, 0.0),  # Ms=0 is unphysical
+            (-1.0, 0.5),  # Ms too small (outside valid range, ok=False here)
         ],
     )
     def test_unphysical_magnetization(self, m: float, ms: float) -> None:

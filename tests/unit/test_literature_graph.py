@@ -404,7 +404,9 @@ class TestF5RetractionDOINormalization:
             call_count += 1
             return "ok"
 
-        with patch.object(KnowledgeGraph, "_fetch_retraction_status_from_oa", side_effect=counting_oa):
+        with patch.object(
+            KnowledgeGraph, "_fetch_retraction_status_from_oa", side_effect=counting_oa
+        ):
             r1 = tmp_graph.check_retraction(f"https://doi.org/{doi_bare}")
             r2 = tmp_graph.check_retraction(f"http://doi.org/{doi_bare}")
             r3 = tmp_graph.check_retraction(f"doi:{doi_bare}")
@@ -462,9 +464,7 @@ class TestF6DoiLessContraNodeIds:
         assert len(edges) >= 1
         edge = edges[0]
         # The DOI-less paper's node must not be "paper:unknown"
-        doi_less_side = (
-            edge.source_id if edge.target_id == "paper:10.1103/a" else edge.target_id
-        )
+        doi_less_side = edge.source_id if edge.target_id == "paper:10.1103/a" else edge.target_id
         assert doi_less_side != "paper:unknown", (
             "DOI-less paper node collapsed to 'paper:unknown' (F6 bug)."
         )
@@ -512,9 +512,7 @@ class TestR14ContradictionPaperNodesCreated:
         assert node_a.node_type == "paper"
         assert node_b.node_type == "paper"
 
-    def test_get_neighbors_traverses_contradiction_edges(
-        self, tmp_graph: KnowledgeGraph
-    ) -> None:
+    def test_get_neighbors_traverses_contradiction_edges(self, tmp_graph: KnowledgeGraph) -> None:
         """get_neighbors() on a paper node created via report_property() must
         return the connected contradicting paper — not [] as before the fix."""
         tmp_graph.report_property("Ta", "theta_SH", -0.15, doi="10.1103/r14-x", title="Paper X")
@@ -571,9 +569,7 @@ class TestR14ContradictionPaperNodesCreated:
     ) -> None:
         """DOI-less papers (using noid-hash node IDs) must also have nodes created."""
         tmp_graph.report_property("Pt", "theta_SH", 0.08, doi="", title="Noid-Paper-Alpha")
-        flags = tmp_graph.report_property(
-            "Pt", "theta_SH", 0.02, doi="", title="Noid-Paper-Beta"
-        )
+        flags = tmp_graph.report_property("Pt", "theta_SH", 0.02, doi="", title="Noid-Paper-Beta")
         assert len(flags) == 1
 
         # Both noid nodes must exist
@@ -616,9 +612,7 @@ class TestR15NodeCommitBeforeAddEdge:
         assert tmp_graph.get_node("paper:10.1103/r15-b") is not None
 
         # Manually remove node_b to create an inconsistent state.
-        tmp_graph._conn.execute(
-            "DELETE FROM nodes WHERE node_id = ?", ("paper:10.1103/r15-b",)
-        )
+        tmp_graph._conn.execute("DELETE FROM nodes WHERE node_id = ?", ("paper:10.1103/r15-b",))
         tmp_graph._conn.commit()
         assert tmp_graph.get_node("paper:10.1103/r15-b") is None, "Setup: node_b should be gone"
 

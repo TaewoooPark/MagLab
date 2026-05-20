@@ -517,9 +517,7 @@ class TestParseCriticResponseRegression:
 
     def test_not_passed_substring_does_not_pass(self) -> None:
         """'not passed' in response must NOT set passed=True."""
-        result = _parse_critic_response(
-            "Panel labels (a/b/c): not passed. Font size: not passed."
-        )
+        result = _parse_critic_response("Panel labels (a/b/c): not passed. Font size: not passed.")
         assert result.passed is False, (
             "Response with 'not passed' items should not be detected as PASSED."
         )
@@ -531,9 +529,7 @@ class TestParseCriticResponseRegression:
 
     def test_axis_label_passed_color_failed_does_not_pass(self) -> None:
         """Partial pass ('Axis labels passed, colorblind palette failed') is not a full pass."""
-        result = _parse_critic_response(
-            "Axis labels passed, colorblind palette failed."
-        )
+        result = _parse_critic_response("Axis labels passed, colorblind palette failed.")
         assert result.passed is False
 
     def test_did_not_passed_does_not_pass(self) -> None:
@@ -677,9 +673,13 @@ class TestDetachedLoopGitCommit:
             (c[c.index("-m") + 1] for c in captured_calls if "commit" in c and "-m" in c),
             "",
         )
-        assert commit_msg.startswith("ralph:"), f"Commit message missing 'ralph:' prefix: {commit_msg!r}"
+        assert commit_msg.startswith("ralph:"), (
+            f"Commit message missing 'ralph:' prefix: {commit_msg!r}"
+        )
 
-    def test_git_commit_in_non_git_dir_does_not_raise(self, tmp_path: Path, monkeypatch: Any) -> None:
+    def test_git_commit_in_non_git_dir_does_not_raise(
+        self, tmp_path: Path, monkeypatch: Any
+    ) -> None:
         """detached_loop(git_commit=True) is a no-op (no raise) in a non-git directory."""
         # Use a temp dir that is NOT a git repo
         non_git_dir = tmp_path / "not_a_repo"
@@ -721,9 +721,7 @@ class TestDetachedLoopGitCommit:
 class TestDetachedLoopNoProgressRegression:
     """R4/F2 — detached_loop must run to max_iterations when output varies."""
 
-    def test_detached_loop_runs_all_iterations_with_varying_output(
-        self, tmp_path: Path
-    ) -> None:
+    def test_detached_loop_runs_all_iterations_with_varying_output(self, tmp_path: Path) -> None:
         """detached_loop with max_iterations=10 and a varying-output agent_fn
         must complete all 10 iterations — not stop at 4 due to NO_PROGRESS.
 
@@ -771,9 +769,7 @@ class TestDetachedLoopNoProgressRegression:
             "OUTPUT_SIMILARITY breaker must fire when agent returns identical output."
         )
 
-    def test_detached_loop_with_score_fn_no_progress_still_fires(
-        self, tmp_path: Path
-    ) -> None:
+    def test_detached_loop_with_score_fn_no_progress_still_fires(self, tmp_path: Path) -> None:
         """When score_fn is provided and always returns 0.5, the NO_PROGRESS breaker
         must still fire (backward-compatible: score_fn path is unchanged)."""
         from maglab.core.ralph import RalphEngine, RalphState, StopReason
@@ -803,9 +799,7 @@ class TestDetachedLoopNoProgressRegression:
             f"Expected stop_reason=NO_PROGRESS, got {engine.state.stop_reason!r}."
         )
 
-    def test_detached_loop_with_varying_score_fn_runs_longer(
-        self, tmp_path: Path
-    ) -> None:
+    def test_detached_loop_with_varying_score_fn_runs_longer(self, tmp_path: Path) -> None:
         """When score_fn returns increasing scores, the loop runs beyond 4 iterations."""
         from maglab.core.ralph import RalphEngine, RalphState
 

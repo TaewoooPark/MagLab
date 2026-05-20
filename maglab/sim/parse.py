@@ -64,7 +64,9 @@ class JobResult(BaseModel):
         raw output files are not passed directly.
         """
         status = (
-            "converged" if self.converged else ("not converged" if self.converged is False else "unknown")
+            "converged"
+            if self.converged
+            else ("not converged" if self.converged is False else "unknown")
         )
         q_summary = ", ".join(f"{k}: {len(v)}" for k, v in self.quantities.items())
         return (

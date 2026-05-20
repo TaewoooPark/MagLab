@@ -442,6 +442,7 @@ class KnowledgeGraph:
                     relative_diff=rel_diff,
                 )
                 flags.append(flag)
+
                 # Create a contradicts edge.  F6: DOI-less papers must not all
                 # collapse to "paper:unknown" (that would cause every DOI-less
                 # contradiction to share the same edge_id and be silently
@@ -464,15 +465,19 @@ class KnowledgeGraph:
                     "INSERT OR IGNORE INTO nodes "
                     "(node_id, node_type, label, properties, created_at) "
                     "VALUES (?,?,?,?,?)",
-                    (node_a_id, "paper", row["title"] or row["doi"] or node_a_id,
-                     "{}", time.time()),
+                    (
+                        node_a_id,
+                        "paper",
+                        row["title"] or row["doi"] or node_a_id,
+                        "{}",
+                        time.time(),
+                    ),
                 )
                 self._conn.execute(
                     "INSERT OR IGNORE INTO nodes "
                     "(node_id, node_type, label, properties, created_at) "
                     "VALUES (?,?,?,?,?)",
-                    (node_b_id, "paper", title or doi or node_b_id,
-                     "{}", time.time()),
+                    (node_b_id, "paper", title or doi or node_b_id, "{}", time.time()),
                 )
                 # Commit the node rows immediately so they are durable regardless
                 # of whether add_edge() succeeds or raises IntegrityError (duplicate

@@ -34,7 +34,9 @@ def test_deny_rule_exact_match() -> None:
 
 
 def test_deny_rule_regex_match() -> None:
-    rule = DenyRule(pattern=r"file\.(delete|write)", reason="file modification forbidden", is_regex=True)
+    rule = DenyRule(
+        pattern=r"file\.(delete|write)", reason="file modification forbidden", is_regex=True
+    )
     assert rule.matches("file.delete") is True
     assert rule.matches("file.write") is True
     assert rule.matches("file.read") is False

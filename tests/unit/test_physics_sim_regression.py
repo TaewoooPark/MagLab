@@ -182,9 +182,9 @@ class TestDMIFormulaRegression:
         from maglab.analysis.effects.dmi import DMIEffect
 
         model = DMIEffect()
-        D_i = 1.3e-3   # J/m²  (Co/Pt typical)
-        k = 1.2e7      # rad/m  (BLS probe wavevector)
-        Ms = 1.19e6    # A/m   (Co)
+        D_i = 1.3e-3  # J/m²  (Co/Pt typical)
+        k = 1.2e7  # rad/m  (BLS probe wavevector)
+        Ms = 1.19e6  # A/m   (Co)
 
         params = {"D_i": D_i}
         geo = {"k": np.array([k]), "Ms": Ms}
@@ -212,7 +212,7 @@ class TestDMIFormulaRegression:
 
         model = DMIEffect()
         D_true = 1.3e-3  # J/m²
-        Ms = 1.19e6      # A/m
+        Ms = 1.19e6  # A/m
         gamma_p = abs(GAMMA_E) / (2.0 * math.pi) * 1e-9  # GHz/T
         k = np.linspace(0.5e7, 2.0e7, 20)
         delta_f = 2.0 * gamma_p * D_true * k / Ms  # correct formula
@@ -222,8 +222,7 @@ class TestDMIFormulaRegression:
         D_fit = result.params["D_i"]
         rel_err = abs(D_fit - D_true) / D_true
         assert rel_err < 0.05, (
-            f"DMI roundtrip: D_true={D_true:.4g}, D_fit={D_fit:.4g}, "
-            f"rel_err={rel_err:.3f}"
+            f"DMI roundtrip: D_true={D_true:.4g}, D_fit={D_fit:.4g}, rel_err={rel_err:.3f}"
         )
 
     def test_dmi_formula_no_mu0(self) -> None:
@@ -277,13 +276,13 @@ class TestSTFMRSpinHallAngleRegression:
         from maglab.analysis.effects.stfmr import STFMREffect
 
         # Pt(5nm)/Py(5nm) typical values
-        S = 0.2       # S/A ratio ~ 0.2 for Pt/Py
+        S = 0.2  # S/A ratio ~ 0.2 for Pt/Py
         A = 1.0
-        Ms = 860e3    # A/m  (Permalloy)
-        t_FM = 5e-9   # m
-        t_NM = 5e-9   # m
+        Ms = 860e3  # A/m  (Permalloy)
+        t_FM = 5e-9  # m
+        t_NM = 5e-9  # m
         H_res = 60e3  # A/m  (≈ 75 mT)
-        M_eff = Ms    # in-plane geometry: M_eff ≈ Ms
+        M_eff = Ms  # in-plane geometry: M_eff ≈ Ms
 
         xi = STFMREffect.spin_hall_angle(S, A, Ms, t_FM, t_NM, M_eff, H_res)
 
@@ -328,7 +327,7 @@ class TestSTFMRSpinHallAngleRegression:
 
         S_true = 1e-4
         A_true = 5e-5
-        H_res_true = 5e4   # A/m
+        H_res_true = 5e4  # A/m
         dH_true = 2e3
         Ms = 8e5
         t_FM = 5e-9
@@ -377,9 +376,9 @@ class TestDWVelocityBelowWalkerRegression:
         from maglab.physics.formulas import dw_velocity_below_walker
 
         gamma = abs(GAMMA_E)
-        delta = 30e-9   # 30 nm wall width (Permalloy typical)
-        H = 10e3        # 10 kA/m
-        Ms = 8e5        # A/m (Permalloy)
+        delta = 30e-9  # 30 nm wall width (Permalloy typical)
+        H = 10e3  # 10 kA/m
+        Ms = 8e5  # A/m (Permalloy)
         alpha = 0.01
 
         v = dw_velocity_below_walker(H=H, alpha=alpha, Ms=Ms, delta=delta, gamma=gamma)
@@ -415,7 +414,7 @@ class TestDWVelocityBelowWalkerRegression:
         rel_diff = abs(v_formulas - v_model) / max(abs(v_formulas), abs(v_model), 1e-30)
         assert rel_diff < 1e-8, (
             f"formulas.dw_velocity_below_walker ({v_formulas:.4f} m/s) "
-            f"disagrees with DW1DModel ({v_model:.4f} m/s); ratio={v_formulas/v_model:.4f}"
+            f"disagrees with DW1DModel ({v_model:.4f} m/s); ratio={v_formulas / v_model:.4f}"
         )
 
     def test_dw_velocity_denominator_alpha_squared(self) -> None:
@@ -461,9 +460,9 @@ class TestMacrospinFitOscillatoryModel:
         from maglab.analysis.effects.macrospin import MacrospinModel
 
         alpha_true = 0.01
-        H_k = 1e5          # A/m
+        H_k = 1e5  # A/m
         omega_0 = abs(GAMMA_E) * MU_0 * H_k  # rad/s
-        mz_0 = 0.8         # initial m_z
+        mz_0 = 0.8  # initial m_z
 
         # Synthetic oscillatory data: 1 - A·exp(-α·ω₀·t)·cos(ω₀·t)
         t = np.linspace(0.0, 5.0 / (alpha_true * omega_0), 500)
@@ -593,8 +592,7 @@ class TestFMRKittelForwardFitConsistency:
         params = {"M_eff": -3e6, "gamma_ghz_t": 28.0}
         f = model.forward(params, geometry={"H_res": H_res})
         assert not np.any(np.isnan(f)), (
-            f"forward() returned NaN for negative M_eff: {f}; "
-            "np.abs guard missing from forward()."
+            f"forward() returned NaN for negative M_eff: {f}; np.abs guard missing from forward()."
         )
         assert np.all(f >= 0.0), f"forward() returned negative frequencies: {f}"
 
@@ -634,8 +632,9 @@ class TestFMRKittelForwardFitConsistency:
         f = model.forward(params, geometry={"H_res": H_res})
         f_expected = gamma_p * MU_0 * np.sqrt(H_Am * (H_Am + M_eff))
 
-        np.testing.assert_allclose(f, f_expected, rtol=1e-10,
-                                   err_msg="forward() changed for positive M_eff.")
+        np.testing.assert_allclose(
+            f, f_expected, rtol=1e-10, err_msg="forward() changed for positive M_eff."
+        )
 
 
 # ===========================================================================
@@ -658,12 +657,11 @@ class TestSpinHallAnglePMAGuard:
         from maglab.analysis.effects.stfmr import STFMREffect
 
         # Ta/CoFeB/MgO typical: M_eff < 0, |M_eff| >> H_res
-        M_eff = -5e5   # A/m  (strong PMA)
-        H_res = 1e4    # A/m  (1 + M_eff/H_res = 1 - 50 = -49)
+        M_eff = -5e5  # A/m  (strong PMA)
+        H_res = 1e4  # A/m  (1 + M_eff/H_res = 1 - 50 = -49)
         with pytest.raises(ValueError, match="spin_hall_angle"):
             STFMREffect.spin_hall_angle(
-                S=1e-4, A=5e-5, Ms=8e5, t_FM=5e-9, t_NM=5e-9,
-                M_eff=M_eff, H_res=H_res
+                S=1e-4, A=5e-5, Ms=8e5, t_FM=5e-9, t_NM=5e-9, M_eff=M_eff, H_res=H_res
             )
 
     def test_pma_error_message_is_descriptive(self) -> None:
@@ -674,8 +672,7 @@ class TestSpinHallAnglePMAGuard:
 
         with pytest.raises(ValueError, match="PMA"):
             STFMREffect.spin_hall_angle(
-                S=1e-4, A=5e-5, Ms=8e5, t_FM=5e-9, t_NM=5e-9,
-                M_eff=-5e5, H_res=1e4
+                S=1e-4, A=5e-5, Ms=8e5, t_FM=5e-9, t_NM=5e-9, M_eff=-5e5, H_res=1e4
             )
 
     def test_borderline_pma_exactly_negative_one(self) -> None:
@@ -686,8 +683,7 @@ class TestSpinHallAnglePMAGuard:
         M_eff = -H_res  # geom_arg = 0.0 → sqrt(0) is fine, but M_eff < 0 check catches < 0
         # geom_arg = 0 → sqrt(0) = 0, which is valid (boundary)
         xi = STFMREffect.spin_hall_angle(
-            S=1e-4, A=5e-5, Ms=8e5, t_FM=5e-9, t_NM=5e-9,
-            M_eff=M_eff, H_res=H_res
+            S=1e-4, A=5e-5, Ms=8e5, t_FM=5e-9, t_NM=5e-9, M_eff=M_eff, H_res=H_res
         )
         assert xi == 0.0 or math.isfinite(xi), "Borderline case (geom_arg=0) should not crash."
 
@@ -730,8 +726,9 @@ class TestLLGForwardDegenerateTspan:
         # Must not raise; result must be the initial magnetization
         result = model.forward(params, geo)
         assert result.shape == (1, 3), f"Unexpected shape: {result.shape}"
-        np.testing.assert_allclose(result[0], m_0, atol=1e-12,
-                                   err_msg="Degenerate t_span must return initial condition.")
+        np.testing.assert_allclose(
+            result[0], m_0, atol=1e-12, err_msg="Degenerate t_span must return initial condition."
+        )
 
     def test_degenerate_tspan_h_zero_no_crash(self) -> None:
         """t_span=(T, T) with H_mag=0 must not raise ZeroDivisionError."""
@@ -750,8 +747,12 @@ class TestLLGForwardDegenerateTspan:
         }
         result = model.forward(params, geo)
         assert result.shape == (1, 3)
-        np.testing.assert_allclose(result[0], m_0, atol=1e-12,
-                                   err_msg="Degenerate zero-H t_span must return initial condition.")
+        np.testing.assert_allclose(
+            result[0],
+            m_0,
+            atol=1e-12,
+            err_msg="Degenerate zero-H t_span must return initial condition.",
+        )
 
     def test_degenerate_tspan_zero_origin_no_crash(self) -> None:
         """t_span=(0, 0) must not crash."""
@@ -828,14 +829,18 @@ class TestLLG2SublatticeStepControl:
 
         # Unit-norm invariant must hold throughout: |m| = 1 ± 1e-4
         np.testing.assert_allclose(
-            norms_a, 1.0, atol=1e-4,
+            norms_a,
+            1.0,
+            atol=1e-4,
             err_msg=(
                 "LLG2SublatticeModel: |m_a| deviates from 1 for H_E=1e9 A/m; "
                 "likely missing internal step-size control."
             ),
         )
         np.testing.assert_allclose(
-            norms_b, 1.0, atol=1e-4,
+            norms_b,
+            1.0,
+            atol=1e-4,
             err_msg=(
                 "LLG2SublatticeModel: |m_b| deviates from 1 for H_E=1e9 A/m; "
                 "likely missing internal step-size control."
@@ -885,10 +890,12 @@ class TestLLG2SublatticeStepControl:
         for traj, label in [(traj_coarse, "coarse"), (traj_fine, "fine")]:
             norms_a = np.linalg.norm(traj[:, :3], axis=1)
             norms_b = np.linalg.norm(traj[:, 3:], axis=1)
-            np.testing.assert_allclose(norms_a, 1.0, atol=1e-4,
-                err_msg=f"H_E=1e8 {label}: |m_a| not unit-norm")
-            np.testing.assert_allclose(norms_b, 1.0, atol=1e-4,
-                err_msg=f"H_E=1e8 {label}: |m_b| not unit-norm")
+            np.testing.assert_allclose(
+                norms_a, 1.0, atol=1e-4, err_msg=f"H_E=1e8 {label}: |m_a| not unit-norm"
+            )
+            np.testing.assert_allclose(
+                norms_b, 1.0, atol=1e-4, err_msg=f"H_E=1e8 {label}: |m_b| not unit-norm"
+            )
 
     def test_degenerate_tspan_no_crash(self) -> None:
         """t_start == t_end: must return initial condition without crashing."""
@@ -958,9 +965,7 @@ class TestFMRKittelOOPNegativeFrequency:
         params = {"M_eff": M_eff, "gamma_ghz_t": 28.0}
 
         f = model.forward(params, geometry={"H_res": np.array([H_sat_T])})
-        assert abs(float(f[0])) < 1e-6, (
-            f"FMRKittel OOP: f at saturation = {f[0]:.4g} GHz ≠ 0."
-        )
+        assert abs(float(f[0])) < 1e-6, f"FMRKittel OOP: f at saturation = {f[0]:.4g} GHz ≠ 0."
 
     def test_oop_forward_positive_above_saturation(self) -> None:
         """H_res > M_eff·μ₀ (above saturation): formula must be unchanged, f > 0."""
@@ -977,7 +982,9 @@ class TestFMRKittelOOPNegativeFrequency:
         f_expected = 28.0 * MU_0 * (H_Am - M_eff)  # H_Am > M_eff → positive, abs is identity
 
         np.testing.assert_allclose(
-            f, f_expected, rtol=1e-10,
+            f,
+            f_expected,
+            rtol=1e-10,
             err_msg="FMRKittel OOP: above-saturation result changed (regression).",
         )
 
@@ -1043,9 +1050,9 @@ class TestFerrimagnetCompensationFreqUnits:
         from maglab.physics.formulas import ferrimagnet_compensation_freq
 
         gamma = abs(GAMMA_E)
-        m_a = 4e5    # A/m
-        m_b = 6e5    # A/m
-        H_E = 1e8    # A/m
+        m_a = 4e5  # A/m
+        m_b = 6e5  # A/m
+        H_E = 1e8  # A/m
 
         f_hz = ferrimagnet_compensation_freq(m_a, m_b, H_E, gamma, gamma)
 
@@ -1081,8 +1088,8 @@ class TestFerrimagnetCompensationFreqUnits:
 
         model = LLG2SublatticeModel()
         gamma = abs(GAMMA_E)
-        m_a = 4e5    # A/m  (GdFe sublattice a)
-        m_b = 6e5    # A/m  (GdFe sublattice b)
+        m_a = 4e5  # A/m  (GdFe sublattice a)
+        m_b = 6e5  # A/m  (GdFe sublattice b)
         H_E_true = 1.0e8  # A/m — physically realistic exchange field
 
         # Forward: compute f_comp from the corrected formula [Hz]
@@ -1176,9 +1183,9 @@ class TestSpinPumpingISHENoMu0:
         from maglab.physics.constants import GAMMA_E, HBAR
 
         model = SpinPumpingISHE()
-        g_eff = 4.4e19   # m⁻²  (Mosendz 2010, Pt/Py)
-        Ms = 8e5         # A/m  (Permalloy)
-        d_FM = 5e-9      # m    (5 nm FM layer)
+        g_eff = 4.4e19  # m⁻²  (Mosendz 2010, Pt/Py)
+        Ms = 8e5  # A/m  (Permalloy)
+        d_FM = 5e-9  # m    (5 nm FM layer)
         d_NM = np.array([5e-9])  # NM thickness
 
         # Use lambda_sf ≪ d_NM so tanh(d_NM / (2*lambda_sf)) → 1 (saturated limit)
@@ -1217,7 +1224,7 @@ class TestSpinPumpingISHENoMu0:
         from maglab.physics.constants import GAMMA_E, HBAR
 
         model = SpinPumpingISHE()
-        g_true = 5.0e19   # m⁻²  — typical Pt/Py (Mosendz 2010)
+        g_true = 5.0e19  # m⁻²  — typical Pt/Py (Mosendz 2010)
         alpha_0_true = 0.005
         lambda_sf_true = 5e-9
         Ms = 8e5
@@ -1279,7 +1286,7 @@ class TestWalkerVelocityDeltaFactor:
         from maglab.physics.formulas import walker_velocity
 
         gamma = abs(GAMMA_E)
-        Ms = 860e3    # A/m  (Permalloy saturation magnetization)
+        Ms = 860e3  # A/m  (Permalloy saturation magnetization)
         alpha = 0.01  # Gilbert damping (does not enter the formula)
 
         # Test across the Permalloy DW width range Delta = 10-50 nm
@@ -1329,7 +1336,7 @@ class TestWalkerVelocityDeltaFactor:
         Ms = 860e3
         Delta = 30e-9  # 30 nm (Permalloy DW width)
 
-        old_expression = gamma * MU_0 * Ms / 2.0          # rad/s — wrong units
+        old_expression = gamma * MU_0 * Ms / 2.0  # rad/s — wrong units
         correct_velocity = gamma * Delta * MU_0 * Ms / 2.0  # m/s — correct
 
         # The old expression is ~1/Delta times too large (about 3.3e7 times)
@@ -1360,8 +1367,8 @@ class TestWalkerVelocityDeltaFactor:
         from maglab.physics.formulas import walker_velocity
 
         gamma_val = abs(GAMMA_E)
-        Delta_val = 100e-9   # 100 nm
-        Ms_val = 860e3       # A/m
+        Delta_val = 100e-9  # 100 nm
+        Ms_val = 860e3  # A/m
 
         v = walker_velocity(alpha=0.0, Ms=Ms_val, Delta=Delta_val, gamma=gamma_val)
         v_manual = gamma_val * Delta_val * MU_0 * Ms_val / 2.0
@@ -1393,14 +1400,16 @@ class TestGMRTMRSlonczewskiAmplitude:
 
         model = GMRTMREffect()
         P1, P2 = 0.55, 0.55  # P1*P2 = 0.3025
-        G_0 = 1e-3            # S (average conductance)
+        G_0 = 1e-3  # S (average conductance)
 
         # Slonczewski: G_P = G_0*(1+P1*P2), G_AP = G_0*(1-P1*P2)
         G_P_expected = G_0 * (1.0 + P1 * P2)
         G_AP_expected = G_0 * (1.0 - P1 * P2)
 
         G_P_code = model.forward({"G_0": G_0, "P1": P1, "P2": P2}, {"theta": np.array([0.0])})[0]
-        G_AP_code = model.forward({"G_0": G_0, "P1": P1, "P2": P2}, {"theta": np.array([math.pi])})[0]
+        G_AP_code = model.forward({"G_0": G_0, "P1": P1, "P2": P2}, {"theta": np.array([math.pi])})[
+            0
+        ]
 
         assert abs(G_P_code - G_P_expected) / G_P_expected < 1e-10, (
             f"G_P: got {G_P_code:.6g}, expected {G_P_expected:.6g}"
@@ -1418,7 +1427,9 @@ class TestGMRTMRSlonczewskiAmplitude:
             P1, P2 = P, P
             G_0 = 1.0
             G_P = model.forward({"G_0": G_0, "P1": P1, "P2": P2}, {"theta": np.array([0.0])})[0]
-            G_AP = model.forward({"G_0": G_0, "P1": P1, "P2": P2}, {"theta": np.array([math.pi])})[0]
+            G_AP = model.forward({"G_0": G_0, "P1": P1, "P2": P2}, {"theta": np.array([math.pi])})[
+                0
+            ]
             ratio_code = G_P / G_AP
             ratio_expected = (1.0 + P1 * P2) / (1.0 - P1 * P2)
             assert abs(ratio_code - ratio_expected) / ratio_expected < 1e-10, (
@@ -1437,12 +1448,8 @@ class TestGMRTMRSlonczewskiAmplitude:
         G_0 = 1.0
         # Test the physically problematic region P1*P2 >= 0.5 (e.g. CoFeB/MgO)
         for P in [0.71, 0.80, 0.90, 0.99]:
-            G_AP = model.forward(
-                {"G_0": G_0, "P1": P, "P2": P}, {"theta": np.array([math.pi])}
-            )[0]
-            assert G_AP > 0, (
-                f"G_AP = {G_AP:.4g} ≤ 0 for P={P} (P1*P2={P**2:.3g}) — unphysical"
-            )
+            G_AP = model.forward({"G_0": G_0, "P1": P, "P2": P}, {"theta": np.array([math.pi])})[0]
+            assert G_AP > 0, f"G_AP = {G_AP:.4g} ≤ 0 for P={P} (P1*P2={P**2:.3g}) — unphysical"
 
     def test_average_conductance_equals_g0(self) -> None:
         """G_0 is the average conductance: (G_P + G_AP) / 2 = G_0 exactly."""
@@ -1452,7 +1459,9 @@ class TestGMRTMRSlonczewskiAmplitude:
         G_0 = 2.5e-3
         for P1, P2 in [(0.4, 0.5), (0.7, 0.3), (0.9, 0.9)]:
             G_P = model.forward({"G_0": G_0, "P1": P1, "P2": P2}, {"theta": np.array([0.0])})[0]
-            G_AP = model.forward({"G_0": G_0, "P1": P1, "P2": P2}, {"theta": np.array([math.pi])})[0]
+            G_AP = model.forward({"G_0": G_0, "P1": P1, "P2": P2}, {"theta": np.array([math.pi])})[
+                0
+            ]
             G_avg = (G_P + G_AP) / 2.0
             assert abs(G_avg - G_0) / G_0 < 1e-10, (
                 f"P1={P1},P2={P2}: (G_P+G_AP)/2 = {G_avg:.6g}, G_0 = {G_0:.6g}"
@@ -1506,7 +1515,7 @@ class TestGMRTMRSlonczewskiAmplitude:
         G_0_true = 1e-3
         P1_true = 0.55
         P2_true = 0.55
-        p1p2_true = P1_true * P2_true   # 0.3025
+        p1p2_true = P1_true * P2_true  # 0.3025
 
         # Buggy data: generated with old TMR/2 amplitude
         tmr = G.tmr_from_polarizations(P1_true, P2_true)

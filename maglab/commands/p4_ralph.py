@@ -103,9 +103,7 @@ def ralph_start(
     try:
         ralph_mode = RalphMode(mode)
     except ValueError:
-        console.print(
-            f"[red]Unknown mode:[/] {mode!r}. Valid values: in-session, detached."
-        )
+        console.print(f"[red]Unknown mode:[/] {mode!r}. Valid values: in-session, detached.")
         raise typer.Exit(1) from None
 
     state_path = Path(state_file) if state_file else _DEFAULT_STATE_PATH
@@ -226,10 +224,7 @@ def ralph_cancel(
 
     state = load_state(state_path)
     if state is None:
-        console.print(
-            f"[red]No Ralph state file found at:[/] {state_path}\n"
-            "Nothing to cancel."
-        )
+        console.print(f"[red]No Ralph state file found at:[/] {state_path}\nNothing to cancel.")
         raise typer.Exit(1)
 
     if not state.active:

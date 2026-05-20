@@ -124,9 +124,7 @@ def write_command(
             f"% Fill in sections before submission.\n",
             encoding="utf-8",
         )
-        console.print(
-            f"[green]Dry-run complete.[/] Output directory: [bold]{out_dir}[/]"
-        )
+        console.print(f"[green]Dry-run complete.[/] Output directory: [bold]{out_dir}[/]")
         console.print(
             "[yellow]HUMAN REVIEW REQUIRED[/] — this is an AI-drafted stub. "
             "Replace with real content before use."
@@ -731,8 +729,7 @@ def gateway_start(
             fd.close()
         except FileExistsError:
             console.print(
-                "[yellow]Gateway is already starting or running.[/] "
-                "Use 'maglab gateway status'."
+                "[yellow]Gateway is already starting or running.[/] Use 'maglab gateway status'."
             )
             return
 
@@ -758,8 +755,7 @@ def gateway_start(
         # gateway stop sends SIGTERM to this PID via stop_daemon().
         pid_file.write_text(str(proc.pid))
         console.print(
-            f"[green]Gateway started[/] (PID={proc.pid}).  "
-            "Use 'maglab gateway status' to check."
+            f"[green]Gateway started[/] (PID={proc.pid}).  Use 'maglab gateway status' to check."
         )
 
 
@@ -888,9 +884,7 @@ def present_slides(
             f"% HUMAN REVIEW REQUIRED\n% Dry-run stub — format={fmt}\n",
             encoding="utf-8",
         )
-        console.print(
-            f"[green]Dry-run complete.[/] Output: [bold]{out_dir}[/]"
-        )
+        console.print(f"[green]Dry-run complete.[/] Output: [bold]{out_dir}[/]")
         console.print("[bold yellow]HUMAN REVIEW REQUIRED[/] — AI draft, verify before presenting.")
         return
 
@@ -905,9 +899,7 @@ def present_slides(
     try:
         slide_fmt = SlideFormat(fmt)
     except ValueError:
-        console.print(
-            f"[red]Unknown format:[/] {fmt!r}.  Valid: beamer, pptx, marp"
-        )
+        console.print(f"[red]Unknown format:[/] {fmt!r}.  Valid: beamer, pptx, marp")
         raise typer.Exit(1) from None
 
     vault = DataVault()
@@ -943,11 +935,10 @@ def present_slides(
 
     _write_human_review_marker(out_dir)
 
+    console.print(f"[green]Slides drafted:[/] [bold]{out_file}[/]  ({len(deck.slides)} slides)")
     console.print(
-        f"[green]Slides drafted:[/] [bold]{out_file}[/]  "
-        f"({len(deck.slides)} slides)"
+        "[bold yellow]HUMAN REVIEW REQUIRED[/] — verify all data and figures before presenting."
     )
-    console.print("[bold yellow]HUMAN REVIEW REQUIRED[/] — verify all data and figures before presenting.")
 
 
 @present_app.command("poster")
@@ -1025,10 +1016,11 @@ def present_poster(
     _write_human_review_marker(out_dir)
 
     console.print(
-        f"[green]Poster drafted:[/] [bold]{poster.path}[/]  "
-        f"(format={poster.format}, size={size})"
+        f"[green]Poster drafted:[/] [bold]{poster.path}[/]  (format={poster.format}, size={size})"
     )
-    console.print("[bold yellow]HUMAN REVIEW REQUIRED[/] — verify all data and figures before printing.")
+    console.print(
+        "[bold yellow]HUMAN REVIEW REQUIRED[/] — verify all data and figures before printing."
+    )
 
 
 # ===========================================================================
@@ -1091,8 +1083,7 @@ def hypotheses_command(
     # Render hypothesis cards as Rich Panels
     console.print(
         Panel(
-            f"[bold]D1 Hypothesis Engine[/] — Topic: [cyan]{topic}[/]\n"
-            f"[dim]{result.disclaimer}[/]",
+            f"[bold]D1 Hypothesis Engine[/] — Topic: [cyan]{topic}[/]\n[dim]{result.disclaimer}[/]",
             title="[yellow]AI Suggestion — Hypotheses",
             expand=False,
         )
@@ -1112,9 +1103,7 @@ def hypotheses_command(
         )
         if not rh.physical_valid and rh.physics_contradiction:
             card_text += f"\n  [red]Warning:[/] {rh.physics_contradiction}"
-        console.print(
-            Panel(card_text, title=f"[dim]{rh.ai_label}[/]", expand=False)
-        )
+        console.print(Panel(card_text, title=f"[dim]{rh.ai_label}[/]", expand=False))
 
     console.print(
         f"\n[dim]Generated {len(result.ranked)} hypothesis card(s).[/]  "
@@ -1192,8 +1181,7 @@ def _write_pptx_deck(deck: object, out_file: Path) -> None:
         from pptx import Presentation  # type: ignore[import]
     except ImportError as exc:
         console.print(
-            f"[red]python-pptx not installed:[/] {exc}\n"
-            "Install with:  pip install python-pptx"
+            f"[red]python-pptx not installed:[/] {exc}\nInstall with:  pip install python-pptx"
         )
         raise typer.Exit(1) from exc
 

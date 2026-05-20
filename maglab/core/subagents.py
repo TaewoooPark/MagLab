@@ -267,9 +267,7 @@ class SubagentRunner:
             )
         defn = self._defs.get(name)
         if defn is None:
-            raise ValueError(
-                f"Subagent '{name}' not found. Registered list: {sorted(self._defs)}"
-            )
+            raise ValueError(f"Subagent '{name}' not found. Registered list: {sorted(self._defs)}")
 
         raw_output = self._execute(defn, task, extra_context=extra_context)
         structured = _parse_structured_output(raw_output)

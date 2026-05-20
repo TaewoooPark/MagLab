@@ -85,14 +85,11 @@ class LLG2SublatticeModel(EffectModel):
     @property
     def references(self) -> list[str]:
         return [
-            "Keffer, F., Kittel, C., Phys. Rev. 85, 329 (1952). "
-            "DOI: 10.1103/PhysRev.85.329",
-            "Kittel, C., Phys. Rev. 76, 743 (1949). "
-            "DOI: 10.1103/PhysRev.76.743",
+            "Keffer, F., Kittel, C., Phys. Rev. 85, 329 (1952). DOI: 10.1103/PhysRev.85.329",
+            "Kittel, C., Phys. Rev. 76, 743 (1949). DOI: 10.1103/PhysRev.76.743",
             "MacNeill, D. et al., Phys. Rev. Lett. 123, 047204 (2019). "
             "DOI: 10.1103/PhysRevLett.123.047204",
-            "Kim, K.-J. et al., Nat. Mater. 21, 544 (2022). "
-            "DOI: 10.1038/s41563-022-01250-0",
+            "Kim, K.-J. et al., Nat. Mater. 21, 544 (2022). DOI: 10.1038/s41563-022-01250-0",
         ]
 
     @property
@@ -206,11 +203,17 @@ class LLG2SublatticeModel(EffectModel):
         gamma_b = float(geo.get("gamma_b", abs(GAMMA_E)))
 
         return self._llg2sl_rk4(
-            m_0_a, m_0_b,
-            H_E, H_A, H_ext,
-            Ms_a, Ms_b,
-            alpha_a, alpha_b,
-            gamma_a, gamma_b,
+            m_0_a,
+            m_0_b,
+            H_E,
+            H_A,
+            H_ext,
+            Ms_a,
+            Ms_b,
+            alpha_a,
+            alpha_b,
+            gamma_a,
+            gamma_b,
             t_eval,
         )
 
@@ -251,16 +254,8 @@ class LLG2SublatticeModel(EffectModel):
 
         def _rhs(ma: np.ndarray, mb: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
             # Effective fields: Zeeman + exchange + anisotropy (uniaxial z-axis)
-            H_eff_a = (
-                H_ext
-                - H_E * mb
-                + H_A * ma[2] * np.array([0.0, 0.0, 1.0])
-            )
-            H_eff_b = (
-                H_ext
-                - H_E * ma
-                + H_A * mb[2] * np.array([0.0, 0.0, 1.0])
-            )
+            H_eff_a = H_ext - H_E * mb + H_A * ma[2] * np.array([0.0, 0.0, 1.0])
+            H_eff_b = H_ext - H_E * ma + H_A * mb[2] * np.array([0.0, 0.0, 1.0])
 
             # H_eff_a/b are in A/m; multiply by MU_0 to convert to T.
             # LLG in SI: dm/dt = -γ·μ₀·(m×H_eff) + ...
@@ -418,7 +413,9 @@ class LLG2SublatticeModel(EffectModel):
             # Extract scalar values
             m_a_val = float(data["m_a"]) if np.ndim(data["m_a"]) == 0 else float(data["m_a"][0])
             m_b_val = float(data["m_b"]) if np.ndim(data["m_b"]) == 0 else float(data["m_b"][0])
-            f_comp_val = float(data["f_comp"]) if np.ndim(data["f_comp"]) == 0 else float(data["f_comp"][0])
+            f_comp_val = (
+                float(data["f_comp"]) if np.ndim(data["f_comp"]) == 0 else float(data["f_comp"][0])
+            )
             gamma_a = float(geo.get("gamma_a", abs(GAMMA_E)))
             gamma_b = float(geo.get("gamma_b", abs(GAMMA_E)))
 
@@ -432,9 +429,7 @@ class LLG2SublatticeModel(EffectModel):
             if denom_gamma < 1e-30:
                 H_E_solved = 1e6  # fallback
             else:
-                H_E_solved = (
-                    2.0 * math.pi * f_comp_val * (m_a_val + m_b_val) / (denom_gamma * MU_0)
-                )
+                H_E_solved = 2.0 * math.pi * f_comp_val * (m_a_val + m_b_val) / (denom_gamma * MU_0)
 
             # Single-point analytic inversion: H_E is fully determined by
             # f_comp, m_a, m_b, gamma_a, gamma_b with no degrees of freedom.
@@ -448,12 +443,12 @@ class LLG2SublatticeModel(EffectModel):
             fit_he = FitResult(
                 params={
                     "H_E": H_E_solved,
-                    "H_A": 1e3,          # not constrained by this measurement
-                    "alpha_a": 0.005,    # not constrained by this measurement
-                    "alpha_b": 0.005,    # not constrained by this measurement
+                    "H_A": 1e3,  # not constrained by this measurement
+                    "alpha_a": 0.005,  # not constrained by this measurement
+                    "alpha_b": 0.005,  # not constrained by this measurement
                 },
                 uncertainties={
-                    "H_E": 0.0,   # analytic result — no statistical uncertainty
+                    "H_E": 0.0,  # analytic result — no statistical uncertainty
                     "H_A": 0.0,
                     "alpha_a": 0.0,
                     "alpha_b": 0.0,

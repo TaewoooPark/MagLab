@@ -124,7 +124,9 @@ class TestSlidesDeckBeamer:
         return SlideDeck(
             slides=[
                 SlideSpec(title="Intro", bullets=["Item A"]),
-                SlideSpec(title="Results", bullets=["Item B"], figure_placeholder="{{figure:SPEC}}"),
+                SlideSpec(
+                    title="Results", bullets=["Item B"], figure_placeholder="{{figure:SPEC}}"
+                ),
             ],
             format=SlideFormat.BEAMER,
         )
@@ -243,6 +245,7 @@ class TestPosterDrafter:
     def test_draft_poster_uses_svg_template(self, tmp_path: Path) -> None:
         """draft_poster writes a .svg file that contains the template's SVG root."""
         vault = DataVault()
+
         # LLM should NOT be called when the SVG template exists
         def _should_not_be_called(s: str, u: str) -> str:
             raise AssertionError("LLM called even though SVG template exists")

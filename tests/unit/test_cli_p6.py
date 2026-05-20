@@ -138,9 +138,11 @@ class TestWriteCommand:
             [
                 "write",
                 "AHE measurement shows large Hall resistivity.",
-                "--journal", "prl",
+                "--journal",
+                "prl",
                 "--dry-run",
-                "--output-dir", str(out_dir),
+                "--output-dir",
+                str(out_dir),
             ],
         )
         assert result.exit_code == 0, result.output
@@ -154,9 +156,11 @@ class TestWriteCommand:
             [
                 "write",
                 "SOT torque measurement results.",
-                "--journal", "nature",
+                "--journal",
+                "nature",
                 "--dry-run",
-                "--output-dir", str(out_dir),
+                "--output-dir",
+                str(out_dir),
             ],
         )
         marker = out_dir / "HUMAN_REVIEW_REQUIRED.txt"
@@ -172,9 +176,11 @@ class TestWriteCommand:
             [
                 "write",
                 "Spin Hall angle measurement.",
-                "--journal", "prb",
+                "--journal",
+                "prb",
                 "--dry-run",
-                "--output-dir", str(out_dir),
+                "--output-dir",
+                str(out_dir),
             ],
         )
         assert (out_dir / "main.tex").is_file()
@@ -186,9 +192,11 @@ class TestWriteCommand:
             [
                 "write",
                 "Results context.",
-                "--journal", "prl",
+                "--journal",
+                "prl",
                 "--dry-run",
-                "--output-dir", str(tmp_path / "wr"),
+                "--output-dir",
+                str(tmp_path / "wr"),
             ],
         )
         assert "HUMAN REVIEW REQUIRED" in result.output
@@ -244,14 +252,18 @@ class TestCommsRevision:
         def _mock_llm(s: str, u: str) -> str:
             return _REVISION_STUB
 
-        with patch("maglab.authoring.comms.revision_letter.RevisionLetterAgent._generate_draft",
-                   side_effect=lambda inputs: _REVISION_STUB):
+        with patch(
+            "maglab.authoring.comms.revision_letter.RevisionLetterAgent._generate_draft",
+            side_effect=lambda inputs: _REVISION_STUB,
+        ):
             result = runner.invoke(
                 comms_app,
                 [
                     "revision",
-                    "--review", str(review_file),
-                    "--output", str(out_file),
+                    "--review",
+                    str(review_file),
+                    "--output",
+                    str(out_file),
                 ],
             )
 
@@ -316,10 +328,14 @@ class TestCommsCoverLetter:
                 comms_app,
                 [
                     "cover-letter",
-                    "--journal", "PRL",
-                    "--title", "Anomalous Hall in Pt/Co",
-                    "--results", "large AHE,high conductivity",
-                    "--output", str(out),
+                    "--journal",
+                    "PRL",
+                    "--title",
+                    "Anomalous Hall in Pt/Co",
+                    "--results",
+                    "large AHE,high conductivity",
+                    "--output",
+                    str(out),
                 ],
             )
 
@@ -337,9 +353,12 @@ class TestCommsCoverLetter:
                 comms_app,
                 [
                     "cover-letter",
-                    "--journal", "Nature",
-                    "--title", "Skyrmion dynamics",
-                    "--output", str(out),
+                    "--journal",
+                    "Nature",
+                    "--title",
+                    "Skyrmion dynamics",
+                    "--output",
+                    str(out),
                 ],
             )
 
@@ -362,8 +381,10 @@ class TestCommsEmail:
                 [
                     "email",
                     "collaboration",
-                    "--recipient", "Professor Park",
-                    "--output", str(out),
+                    "--recipient",
+                    "Professor Park",
+                    "--output",
+                    str(out),
                 ],
             )
 
@@ -376,9 +397,16 @@ class TestCommsEmail:
         )
         assert result.exit_code == 1
 
-    @pytest.mark.parametrize("email_type", [
-        "collaboration", "question", "interview", "recommendation", "application",
-    ])
+    @pytest.mark.parametrize(
+        "email_type",
+        [
+            "collaboration",
+            "question",
+            "interview",
+            "recommendation",
+            "application",
+        ],
+    )
     def test_email_all_types_accepted(self, email_type: str, tmp_path: Path) -> None:
         out = tmp_path / f"email_{email_type}.txt"
 
@@ -408,10 +436,14 @@ class TestCommsAbstract:
                 comms_app,
                 [
                     "abstract",
-                    "--conference", "APS March Meeting",
-                    "--char-limit", "1750",
-                    "--results", "Large AHE signal detected.",
-                    "--output", str(out),
+                    "--conference",
+                    "APS March Meeting",
+                    "--char-limit",
+                    "1750",
+                    "--results",
+                    "Large AHE signal detected.",
+                    "--output",
+                    str(out),
                 ],
             )
 
@@ -433,10 +465,14 @@ class TestCommsGrant:
                 comms_app,
                 [
                     "grant",
-                    "--agency", "NSF",
-                    "--mechanism", "NSF-DMR",
-                    "--page-limit", "2",
-                    "--output", str(out),
+                    "--agency",
+                    "NSF",
+                    "--mechanism",
+                    "NSF-DMR",
+                    "--page-limit",
+                    "2",
+                    "--output",
+                    str(out),
                 ],
             )
 
@@ -498,8 +534,10 @@ class TestCommsRebuttal:
                 comms_app,
                 [
                     "rebuttal",
-                    "--reviews", str(reviews_file),
-                    "--output", str(out_file),
+                    "--reviews",
+                    str(reviews_file),
+                    "--output",
+                    str(out_file),
                 ],
             )
 
@@ -536,8 +574,10 @@ class TestCommsRebuttal:
                 comms_app,
                 [
                     "rebuttal",
-                    "--reviews", "Reviewer: The paper lacks novelty.",
-                    "--output", str(out_file),
+                    "--reviews",
+                    "Reviewer: The paper lacks novelty.",
+                    "--output",
+                    str(out_file),
                 ],
             )
 
@@ -614,15 +654,17 @@ class TestCommsWriteFailure:
                 comms_app,
                 [
                     "cover-letter",
-                    "--journal", "PRL",
-                    "--title", "AHE in Pt/Co",
-                    "--output", str(bad_out),
+                    "--journal",
+                    "PRL",
+                    "--title",
+                    "AHE in Pt/Co",
+                    "--output",
+                    str(bad_out),
                 ],
             )
 
         assert result.exit_code == 1, (
-            f"R14-F1: cover-letter write failure did not exit 1. "
-            f"Output: {result.output!r}"
+            f"R14-F1: cover-letter write failure did not exit 1. Output: {result.output!r}"
         )
         assert "Draft write failed" in result.output
 
@@ -663,15 +705,19 @@ class TestGatewayStatus:
 
     def test_status_when_not_running(self) -> None:
         """gateway status must not crash when daemon is not running."""
-        with patch("maglab.gateway.runner.is_running", return_value=False), \
-             patch("maglab.gateway.runner.read_pid", return_value=None):
+        with (
+            patch("maglab.gateway.runner.is_running", return_value=False),
+            patch("maglab.gateway.runner.read_pid", return_value=None),
+        ):
             result = runner.invoke(gateway_app, ["status"])
         assert result.exit_code == 0, result.output
         assert "Stopped" in result.output or "status" in result.output.lower()
 
     def test_status_when_running(self) -> None:
-        with patch("maglab.gateway.runner.is_running", return_value=True), \
-             patch("maglab.gateway.runner.read_pid", return_value=12345):
+        with (
+            patch("maglab.gateway.runner.is_running", return_value=True),
+            patch("maglab.gateway.runner.read_pid", return_value=12345),
+        ):
             result = runner.invoke(gateway_app, ["status"])
         assert result.exit_code == 0, result.output
         # Should show running and PID
@@ -712,6 +758,7 @@ class TestGatewayInstall:
     def test_install_bad_config_permissions_exits_1(self, tmp_path: Path) -> None:
         """install should refuse if config file exists with wrong permissions."""
         import os
+
         cfg = tmp_path / "gateway.yaml"
         cfg.write_text("dummy", encoding="utf-8")
         os.chmod(cfg, 0o644)  # not 0600
@@ -745,8 +792,9 @@ class TestGatewayInstall:
         # install_service is imported inside the function body via
         # ``from maglab.gateway.runner import install_service``, so patching
         # the function on the module object is the correct target.
-        with patch("pathlib.Path.home", return_value=tmp_path), patch(
-            "maglab.gateway.runner.install_service", side_effect=perm_exc
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch("maglab.gateway.runner.install_service", side_effect=perm_exc),
         ):
             result = runner.invoke(
                 gateway_app,
@@ -782,7 +830,8 @@ class TestPresentSlides:
                 "slides",
                 "AHE measurement results from Pt/Co multilayers.",
                 "--dry-run",
-                "--output-dir", str(out_dir),
+                "--output-dir",
+                str(out_dir),
             ],
         )
         assert result.exit_code == 0, result.output
@@ -796,7 +845,8 @@ class TestPresentSlides:
                 "slides",
                 "SOT results.",
                 "--dry-run",
-                "--output-dir", str(out_dir),
+                "--output-dir",
+                str(out_dir),
             ],
         )
         assert (out_dir / "HUMAN_REVIEW_REQUIRED.txt").is_file()
@@ -809,8 +859,10 @@ class TestPresentSlides:
             [
                 "slides",
                 "Results.",
-                "--format", "invalid_fmt",
-                "--output-dir", str(tmp_path / "x"),
+                "--format",
+                "invalid_fmt",
+                "--output-dir",
+                str(tmp_path / "x"),
             ],
         )
         # The format validation only runs in non-dry-run mode.
@@ -829,7 +881,8 @@ class TestPresentPoster:
                 "poster",
                 "DW velocity measurement showing Walker breakdown.",
                 "--dry-run",
-                "--output-dir", str(out_dir),
+                "--output-dir",
+                str(out_dir),
             ],
         )
         assert result.exit_code == 0, result.output
@@ -843,7 +896,8 @@ class TestPresentPoster:
                 "poster",
                 "FMR linewidth results.",
                 "--dry-run",
-                "--output-dir", str(out_dir),
+                "--output-dir",
+                str(out_dir),
             ],
         )
         assert (out_dir / "HUMAN_REVIEW_REQUIRED.txt").is_file()
@@ -855,7 +909,8 @@ class TestPresentPoster:
                 "poster",
                 "Results.",
                 "--dry-run",
-                "--output-dir", str(tmp_path / "p"),
+                "--output-dir",
+                str(tmp_path / "p"),
             ],
         )
         assert "HUMAN REVIEW REQUIRED" in result.output
@@ -889,9 +944,7 @@ class TestHypothesesCommand:
         # Expect at least 3 hypothesis cards — count via the "AI suggestion" panel titles.
         # Each card panel has "AI suggestion" as its title.
         card_count = result.output.count("AI suggestion")
-        assert card_count >= 3, (
-            f"Expected >=3 cards, got {card_count}. Output: {result.output}"
-        )
+        assert card_count >= 3, f"Expected >=3 cards, got {card_count}. Output: {result.output}"
 
     def test_hypotheses_disclaimer_present(self) -> None:
         app = _fresh_app()
@@ -911,9 +964,12 @@ class TestHypothesesCommand:
             [
                 "hypotheses",
                 "skyrmion Hall effect",
-                "--n", "3",
-                "--seed", "7",
-                "--json-out", str(json_path),
+                "--n",
+                "3",
+                "--seed",
+                "7",
+                "--json-out",
+                str(json_path),
             ],
         )
         assert result.exit_code == 0, result.output
@@ -983,9 +1039,7 @@ class TestHypothesesCommand:
             f"ImportError escaped as unhandled exception: {result.exception}"
         )
 
-    def test_hypotheses_json_out_unwritable_path_shows_friendly_error(
-        self, tmp_path: Path
-    ) -> None:
+    def test_hypotheses_json_out_unwritable_path_shows_friendly_error(self, tmp_path: Path) -> None:
         """Regression for R12-F1: OSError from --json-out write must surface as a
         formatted [red]JSON write failed:[/] message + exit 1, not a raw traceback.
 
@@ -1003,9 +1057,12 @@ class TestHypothesesCommand:
             [
                 "hypotheses",
                 "spin Hall effect in heavy metals",
-                "--n", "3",
-                "--seed", "42",
-                "--json-out", str(nonexistent_parent),
+                "--n",
+                "3",
+                "--seed",
+                "42",
+                "--json-out",
+                str(nonexistent_parent),
             ],
         )
 
@@ -1049,9 +1106,12 @@ class TestHypothesesCommand:
                 [
                     "hypotheses",
                     "spin Hall effect in heavy metals",
-                    "--n", "3",
-                    "--seed", "42",
-                    "--json-out", str(json_path),
+                    "--n",
+                    "3",
+                    "--seed",
+                    "42",
+                    "--json-out",
+                    str(json_path),
                 ],
             )
 
@@ -1120,9 +1180,11 @@ class TestIntegrity:
             [
                 "write",
                 "Measurement results here.",
-                "--journal", "prl",
+                "--journal",
+                "prl",
                 "--dry-run",
-                "--output-dir", str(out_dir),
+                "--output-dir",
+                str(out_dir),
             ],
         )
         marker = out_dir / "HUMAN_REVIEW_REQUIRED.txt"
@@ -1138,7 +1200,8 @@ class TestIntegrity:
                 "slides",
                 "Results.",
                 "--dry-run",
-                "--output-dir", str(out_dir),
+                "--output-dir",
+                str(out_dir),
             ],
         )
         marker = out_dir / "HUMAN_REVIEW_REQUIRED.txt"
@@ -1154,7 +1217,8 @@ class TestIntegrity:
                 "poster",
                 "Results.",
                 "--dry-run",
-                "--output-dir", str(out_dir),
+                "--output-dir",
+                str(out_dir),
             ],
         )
         marker = out_dir / "HUMAN_REVIEW_REQUIRED.txt"
@@ -1251,7 +1315,9 @@ class TestGatewayStartR6:
         pid_file.write_text("12345")
 
         # Invoke the second background start WITHOUT the env var (genuine race).
-        env_without_claimed = {k: v for k, v in os.environ.items() if k != "MAGLAB_GATEWAY_PID_CLAIMED"}
+        env_without_claimed = {
+            k: v for k, v in os.environ.items() if k != "MAGLAB_GATEWAY_PID_CLAIMED"
+        }
 
         with (
             patch("maglab.gateway.runner._pid_path", return_value=pid_file),
@@ -1263,9 +1329,10 @@ class TestGatewayStartR6:
         # Must exit cleanly (exit code 0 — not an uncaught exception).
         assert result.exit_code == 0, f"Output: {result.output}\nException: {result.exception}"
         # Must print the rejection message.
-        assert "already starting" in result.output.lower() or "already running" in result.output.lower(), (
-            f"Double-start not rejected. Output: {result.output}"
-        )
+        assert (
+            "already starting" in result.output.lower()
+            or "already running" in result.output.lower()
+        ), f"Double-start not rejected. Output: {result.output}"
 
     def test_foreground_direct_double_start_rejected(self, tmp_path: Path) -> None:
         """A direct `gateway start --foreground` (no MAGLAB_GATEWAY_PID_CLAIMED env)
@@ -1278,7 +1345,9 @@ class TestGatewayStartR6:
         # Pre-create the file as if a first --foreground already claimed it.
         pid_file.write_text("55555")
 
-        env_without_claimed = {k: v for k, v in os.environ.items() if k != "MAGLAB_GATEWAY_PID_CLAIMED"}
+        env_without_claimed = {
+            k: v for k, v in os.environ.items() if k != "MAGLAB_GATEWAY_PID_CLAIMED"
+        }
 
         with (
             patch("maglab.gateway.runner._pid_path", return_value=pid_file),
@@ -1288,9 +1357,10 @@ class TestGatewayStartR6:
             result = runner.invoke(gateway_app, ["start", "--foreground"])
 
         assert result.exit_code == 0, f"Output: {result.output}\nException: {result.exception}"
-        assert "already starting" in result.output.lower() or "already running" in result.output.lower(), (
-            f"Foreground double-start not rejected. Output: {result.output}"
-        )
+        assert (
+            "already starting" in result.output.lower()
+            or "already running" in result.output.lower()
+        ), f"Foreground double-start not rejected. Output: {result.output}"
 
     def test_foreground_direct_without_env_var_claims_normally(self, tmp_path: Path) -> None:
         """A direct `gateway start --foreground` where no PID file exists must
@@ -1306,7 +1376,9 @@ class TestGatewayStartR6:
         def fake_run_foreground() -> None:
             called.append(True)
 
-        env_without_claimed = {k: v for k, v in os.environ.items() if k != "MAGLAB_GATEWAY_PID_CLAIMED"}
+        env_without_claimed = {
+            k: v for k, v in os.environ.items() if k != "MAGLAB_GATEWAY_PID_CLAIMED"
+        }
 
         with (
             patch("maglab.gateway.runner._pid_path", return_value=pid_file),
@@ -1345,9 +1417,7 @@ class TestGatewayStartR7:
     simulating exactly what the child subprocess would see.
     """
 
-    def test_claimed_child_reaches_event_loop_despite_running_pid(
-        self, tmp_path: Path
-    ) -> None:
+    def test_claimed_child_reaches_event_loop_despite_running_pid(self, tmp_path: Path) -> None:
         """Core R7 regression: with MAGLAB_GATEWAY_PID_CLAIMED=1 AND a live PID
         in the file (our own PID, so is_running() returns True), gateway_start
         must NOT early-return — it must call _run_gateway_foreground.
@@ -1399,9 +1469,7 @@ class TestGatewayStartR7:
             f"Output: {result.output}"
         )
 
-    def test_unclaimed_invocation_still_rejects_running_daemon(
-        self, tmp_path: Path
-    ) -> None:
+    def test_unclaimed_invocation_still_rejects_running_daemon(self, tmp_path: Path) -> None:
         """Without MAGLAB_GATEWAY_PID_CLAIMED, a genuine running daemon (live PID
         in file) must still be rejected by is_running().
 

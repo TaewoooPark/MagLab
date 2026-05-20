@@ -62,7 +62,7 @@ class DelegatedCLIBackend(LLMBackend):
         extra_flags: list[str] | None = None,
     ) -> None:
         self.cli = cli
-        self.default_model = model
+        self.default_model = model or ""
         self.timeout = timeout
         self.extra_flags: list[str] = extra_flags or []
 
@@ -79,7 +79,9 @@ class DelegatedCLIBackend(LLMBackend):
         path = shutil.which(exe_name)
         if path is None:
             if exe_name == "codex":
-                hint = "Install and authenticate the official Codex CLI, then run `maglab auth codex`."
+                hint = (
+                    "Install and authenticate the official Codex CLI, then run `maglab auth codex`."
+                )
             elif exe_name == "claude":
                 hint = "Install and authenticate the official Claude CLI, then run `maglab auth claude`."
             elif exe_name == "gemini":

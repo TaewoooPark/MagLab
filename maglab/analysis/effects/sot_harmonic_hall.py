@@ -117,7 +117,9 @@ class SOTHarmonicHall(EffectModel):
     @property
     def measurement_config(self) -> MeasurementConfig:
         return MeasurementConfig(
-            geometry=("In-plane external field φ rotation + simultaneous lock-in 1ω·2ω recording. HM/FM bilayer, I_rf∥x."),
+            geometry=(
+                "In-plane external field φ rotation + simultaneous lock-in 1ω·2ω recording. HM/FM bilayer, I_rf∥x."
+            ),
             tensor_rank=2,
             required_columns=("phi", "V_2omega"),
             notes=(
@@ -228,10 +230,20 @@ class SOTHarmonicHall(EffectModel):
         # --- Fit H_DL_raw and H_FL_raw from 2ω data ---
         # Only fit these two physically meaningful parameters (xi is geometry input)
         fit_specs = [
-            ParamSpec("H_DL_raw", "A/m", lower=None, upper=None,
-                      description="Damping-like SOT effective field (before PHE correction)"),
-            ParamSpec("H_FL_raw", "A/m", lower=None, upper=None,
-                      description="Field-like SOT effective field (before PHE correction)"),
+            ParamSpec(
+                "H_DL_raw",
+                "A/m",
+                lower=None,
+                upper=None,
+                description="Damping-like SOT effective field (before PHE correction)",
+            ),
+            ParamSpec(
+                "H_FL_raw",
+                "A/m",
+                lower=None,
+                upper=None,
+                description="Field-like SOT effective field (before PHE correction)",
+            ),
         ]
         A_mat = np.column_stack([np.cos(phi), np.cos(2.0 * phi) * np.cos(phi)])
         try:
@@ -246,9 +258,9 @@ class SOTHarmonicHall(EffectModel):
         _H_ext = H_ext
 
         def model_fn(x: np.ndarray, H_DL_raw: float, H_FL_raw: float) -> np.ndarray:
-            return (H_DL_raw / _H_ext) * np.cos(x) + (H_FL_raw / _H_ext) * np.cos(
-                2.0 * x
-            ) * np.cos(x)
+            return (H_DL_raw / _H_ext) * np.cos(x) + (H_FL_raw / _H_ext) * np.cos(2.0 * x) * np.cos(
+                x
+            )
 
         fit_result = run_fit(
             model_fn=model_fn,

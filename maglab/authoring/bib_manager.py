@@ -148,9 +148,7 @@ class BibManager:
         elif metadata.get("authors") is not None:
             authors_val = metadata["authors"]
             str_val = (
-                " and ".join(authors_val)
-                if isinstance(authors_val, list)
-                else str(authors_val)
+                " and ".join(authors_val) if isinstance(authors_val, list) else str(authors_val)
             )
             fields.append(Field("author", str_val))
 

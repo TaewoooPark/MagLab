@@ -193,9 +193,7 @@ class TestHigh1SemicolonChainingBypass:
             "Semicolon-chained '*RST; SOUR:VOLT 1000' was accepted — safety bypass present."
         )
         types = [v.violation_type for v in result.violations]
-        assert ViolationType.VOLTAGE_OVER in types, (
-            f"Expected VOLTAGE_OVER violation, got: {types}"
-        )
+        assert ViolationType.VOLTAGE_OVER in types, f"Expected VOLTAGE_OVER violation, got: {types}"
 
     def test_cls_semicolon_volt_over_limit_is_blocked(self):
         """'*CLS; SOUR:VOLT 1000' must also be rejected."""
@@ -210,7 +208,9 @@ class TestHigh1SemicolonChainingBypass:
         # *RST initializes, so OUTP ON after it on the same semicolon-split list is valid.
         checker = SafetyChecker(get_profile("keithley-2400"))
         result = checker.check_scpi_sequence(["*RST; OUTP ON"])
-        order_errs = [v for v in result.violations if v.violation_type == ViolationType.ORDER_VIOLATION]
+        order_errs = [
+            v for v in result.violations if v.violation_type == ViolationType.ORDER_VIOLATION
+        ]
         assert not order_errs, (
             "Order should be satisfied: *RST (init) comes before OUTP ON on same line."
         )
@@ -247,7 +247,8 @@ class TestMedium1Sr830SlvlCheck:
         checker = SafetyChecker(get_profile("sr830"))
         result = checker.check_scpi_sequence(["*RST", "SLVL 1.0"])
         volt_errs = [
-            v for v in result.violations
+            v
+            for v in result.violations
             if v.violation_type in (ViolationType.VOLTAGE_OVER, ViolationType.VOLTAGE_UNDER)
         ]
         assert not volt_errs, f"SLVL 1.0 should be within SR830 limits, got: {volt_errs}"
@@ -256,10 +257,7 @@ class TestMedium1Sr830SlvlCheck:
         """SLVL 5.0 (exactly at the limit) must be accepted."""
         checker = SafetyChecker(get_profile("sr830"))
         result = checker.check_scpi_sequence(["*RST", "SLVL 5.0"])
-        volt_errs = [
-            v for v in result.violations
-            if v.violation_type == ViolationType.VOLTAGE_OVER
-        ]
+        volt_errs = [v for v in result.violations if v.violation_type == ViolationType.VOLTAGE_OVER]
         assert not volt_errs
 
 
@@ -271,8 +269,7 @@ class TestMedium3VoltRangFalsePositive:
         checker = SafetyChecker(get_profile("sr830"))
         result = checker.check_scpi_sequence(["*RST", "VOLT:RANG 10"])
         volt_over_errs = [
-            v for v in result.violations
-            if v.violation_type == ViolationType.VOLTAGE_OVER
+            v for v in result.violations if v.violation_type == ViolationType.VOLTAGE_OVER
         ]
         assert not volt_over_errs, (
             f"VOLT:RANG 10 was incorrectly flagged as a voltage violation: {volt_over_errs}"
@@ -283,8 +280,7 @@ class TestMedium3VoltRangFalsePositive:
         checker = SafetyChecker(get_profile("keithley-2400"))
         result = checker.check_scpi_sequence(["*RST", "VOLT:RANG:AUTO 1"])
         volt_over_errs = [
-            v for v in result.violations
-            if v.violation_type == ViolationType.VOLTAGE_OVER
+            v for v in result.violations if v.violation_type == ViolationType.VOLTAGE_OVER
         ]
         assert not volt_over_errs
 
@@ -347,7 +343,8 @@ class TestR2Medium2OutputActiveParamGuard:
             ["*RST", "SOUR:VOLT 100", "OUTP ON", "READ?", "OUTP OFF"]
         )
         param_change_errs = [
-            v for v in result.violations
+            v
+            for v in result.violations
             if v.violation_type == ViolationType.OUTPUT_ACTIVE_PARAM_CHANGE
         ]
         assert not param_change_errs, (
@@ -361,7 +358,8 @@ class TestR2Medium2OutputActiveParamGuard:
             ["*RST", "SOUR:VOLT 100", "OUTP ON", "READ?", "OUTP OFF", "SOUR:VOLT 50"]
         )
         param_change_errs = [
-            v for v in result.violations
+            v
+            for v in result.violations
             if v.violation_type == ViolationType.OUTPUT_ACTIVE_PARAM_CHANGE
         ]
         assert not param_change_errs, (
@@ -421,9 +419,7 @@ instr.write("OUTP ON")
 instr.write(":SOUR:CURR 0.001")
 """
         result = check_script(script, model="keithley-2400")
-        assert not result.ok, (
-            "Repeated ':SOUR:CURR 0.001' after OUTP ON was not detected."
-        )
+        assert not result.ok, "Repeated ':SOUR:CURR 0.001' after OUTP ON was not detected."
         types = [v.violation_type for v in result.violations]
         assert ViolationType.OUTPUT_ACTIVE_PARAM_CHANGE in types
 
@@ -441,7 +437,8 @@ instr.write("OUTP OFF")
 """
         result = check_script(script, model="keithley-2400")
         param_errs = [
-            v for v in result.violations
+            v
+            for v in result.violations
             if v.violation_type == ViolationType.OUTPUT_ACTIVE_PARAM_CHANGE
         ]
         assert not param_errs, (
@@ -498,11 +495,11 @@ class TestR4Finding4CompoundScpiLineNumbers:
     def test_compound_write_violation_reports_correct_line_number(self):
         """Violation arising from a compound .write() call must report the actual script line."""
         script = (
-            "instr.write('*RST')\n"                         # line 1
-            "instr.write('*CLS')\n"                         # line 2
-            "instr.write('SENS:VOLT:RANG 1')\n"             # line 3
-            "x = instr.query('*IDN?')\n"                    # line 4
-            "instr.write('OUTP ON; SOUR:VOLT 999')\n"       # line 5
+            "instr.write('*RST')\n"  # line 1
+            "instr.write('*CLS')\n"  # line 2
+            "instr.write('SENS:VOLT:RANG 1')\n"  # line 3
+            "x = instr.query('*IDN?')\n"  # line 4
+            "instr.write('OUTP ON; SOUR:VOLT 999')\n"  # line 5
         )
         checker = SafetyChecker(get_profile("keithley-2400"))
         result = checker.check_script_text(script)
@@ -522,9 +519,9 @@ class TestR4Finding4CompoundScpiLineNumbers:
     def test_compound_write_output_active_param_change_correct_line(self):
         """OUTPUT_ACTIVE_PARAM_CHANGE from a compound .write() must report the actual script line."""
         script = (
-            "instr.write('*RST')\n"                         # line 1
-            "instr.write('SOUR:VOLT 1.0')\n"                # line 2
-            "instr.write('OUTP ON; SOUR:VOLT 5')\n"         # line 3
+            "instr.write('*RST')\n"  # line 1
+            "instr.write('SOUR:VOLT 1.0')\n"  # line 2
+            "instr.write('OUTP ON; SOUR:VOLT 5')\n"  # line 3
         )
         checker = SafetyChecker(get_profile("keithley-2400"))
         result = checker.check_script_text(script)
@@ -533,7 +530,8 @@ class TestR4Finding4CompoundScpiLineNumbers:
             "Parameter change while output active (via compound write) was not detected."
         )
         param_errs = [
-            v for v in result.violations
+            v
+            for v in result.violations
             if v.violation_type == ViolationType.OUTPUT_ACTIVE_PARAM_CHANGE
         ]
         assert param_errs, (
@@ -548,20 +546,15 @@ class TestR4Finding4CompoundScpiLineNumbers:
     def test_simple_write_line_number_still_correct(self):
         """Non-compound .write() violations still report the correct line number."""
         script = (
-            "instr.write('*RST')\n"                         # line 1
-            "instr.write(':SOUR:VOLT 500')\n"               # line 2
-            "instr.write('OUTP ON')\n"                      # line 3
+            "instr.write('*RST')\n"  # line 1
+            "instr.write(':SOUR:VOLT 500')\n"  # line 2
+            "instr.write('OUTP ON')\n"  # line 3
         )
         checker = SafetyChecker(get_profile("keithley-2400"))
         result = checker.check_script_text(script)
 
         assert not result.ok, "Over-limit voltage was not detected."
-        volt_errs = [
-            v for v in result.violations
-            if v.violation_type == ViolationType.VOLTAGE_OVER
-        ]
+        volt_errs = [v for v in result.violations if v.violation_type == ViolationType.VOLTAGE_OVER]
         assert volt_errs, "Expected VOLTAGE_OVER violation."
         for v in volt_errs:
-            assert v.line_number == 2, (
-                f"VOLTAGE_OVER reported line {v.line_number}, expected 2."
-            )
+            assert v.line_number == 2, f"VOLTAGE_OVER reported line {v.line_number}, expected 2."

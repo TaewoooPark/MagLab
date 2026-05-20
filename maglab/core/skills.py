@@ -95,7 +95,9 @@ def _validate_frontmatter(fm: dict[str, Any], skill_dir: Path) -> None:
     if not description:
         raise SkillLoadError(f"[{skill_dir.name}] frontmatter is missing the 'description' field.")
     if not isinstance(description, str) or len(description) > 1024:
-        raise SkillLoadError(f"[{skill_dir.name}] description must be a string of ≤1024 characters.")
+        raise SkillLoadError(
+            f"[{skill_dir.name}] description must be a string of ≤1024 characters."
+        )
 
 
 # ---------------------------------------------------------------------------

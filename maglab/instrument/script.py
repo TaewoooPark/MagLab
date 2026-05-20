@@ -55,7 +55,9 @@ class SweepConfig(BaseModel):
     def step_must_be_nonzero(cls, v: float) -> float:
         """Reject step=0 to prevent ZeroDivisionError in the generated np.arange loop."""
         if v == 0.0:
-            raise ValueError("sweep step must be non-zero (step=0.0 would cause ZeroDivisionError in the generated script)")
+            raise ValueError(
+                "sweep step must be non-zero (step=0.0 would cause ZeroDivisionError in the generated script)"
+            )
         return v
 
 

@@ -125,7 +125,9 @@ class TestProviderRegistry:
             "magnetometry",
             "domain_walls_skyrmions",
         }
-        assert expected.issubset(set(providers)), f"Unregistered providers: {expected - set(providers)}"
+        assert expected.issubset(set(providers)), (
+            f"Unregistered providers: {expected - set(providers)}"
+        )
 
     def test_magnetotransport_effects(self) -> None:
         """magnetotransport provider contains 9 effects (includes USMR)."""

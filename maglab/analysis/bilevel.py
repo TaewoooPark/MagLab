@@ -134,7 +134,9 @@ def optimize_inner(
             continue
 
     if best_result is None:
-        raise FitConvergenceError(f"All {n_iter} initial value attempts failed to converge. Last error: {last_error}")
+        raise FitConvergenceError(
+            f"All {n_iter} initial value attempts failed to converge. Last error: {last_error}"
+        )
 
     # AIC/BIC calculation
     ndata = len(y_data)

@@ -64,7 +64,9 @@ class TestReviewPanel:
         result = panel.review("Test manuscript.")
         for review in result.reviews:
             assert review.disclosure_passed
-            assert "AI Reviewer" in review.review_text or "corpus model" in review.review_text.lower()
+            assert (
+                "AI Reviewer" in review.review_text or "corpus model" in review.review_text.lower()
+            )
 
     def test_opted_out_author_raises(self):
         """Including an opted-out author in the panel raises an error."""
@@ -195,12 +197,8 @@ class TestF04LLMScoreUsed:
         assert len(result.reviews) == 1
         pr = result.reviews[0]
         # The score must come from the LLM function — NOT the dummy (6.0/7.0/…)
-        novelty_score = next(
-            d.score for d in pr.score.scores if d.dimension.value == "novelty"
-        )
-        assert novelty_score == 9.5, (
-            f"Expected real LLM score 9.5, got dummy score {novelty_score}"
-        )
+        novelty_score = next(d.score for d in pr.score.scores if d.dimension.value == "novelty")
+        assert novelty_score == 9.5, f"Expected real LLM score 9.5, got dummy score {novelty_score}"
 
     def test_llm_fn_returning_str_uses_fallback_dummy(self):
         """When llm_review_fn returns only str (no score), dummy is used as fallback."""
@@ -216,18 +214,12 @@ class TestF04LLMScoreUsed:
                 "The manuscript is solid."
             )
 
-        panel = ReviewPanel(
-            personas=personas, corpus_rag=rag, llm_review_fn=fake_llm_text_only
-        )
+        panel = ReviewPanel(personas=personas, corpus_rag=rag, llm_review_fn=fake_llm_text_only)
         result = panel.review("Test manuscript.")
         pr = result.reviews[0]
         # Dummy scores are used: NOVELTY = 6.0
-        novelty_score = next(
-            d.score for d in pr.score.scores if d.dimension.value == "novelty"
-        )
-        assert novelty_score == 6.0, (
-            f"Expected dummy NOVELTY score 6.0, got {novelty_score}"
-        )
+        novelty_score = next(d.score for d in pr.score.scores if d.dimension.value == "novelty")
+        assert novelty_score == 6.0, f"Expected dummy NOVELTY score 6.0, got {novelty_score}"
 
     def test_no_llm_fn_uses_dummy_score(self):
         """No llm_review_fn → dummy score (test mode unchanged)."""
@@ -236,9 +228,7 @@ class TestF04LLMScoreUsed:
         panel = ReviewPanel(personas=personas, corpus_rag=rag)  # no llm_fn
         result = panel.review("Test manuscript.")
         pr = result.reviews[0]
-        novelty_score = next(
-            d.score for d in pr.score.scores if d.dimension.value == "novelty"
-        )
+        novelty_score = next(d.score for d in pr.score.scores if d.dimension.value == "novelty")
         # Dummy: 6.0 (hardcoded in _make_dummy_score)
         assert novelty_score == 6.0
 
@@ -335,8 +325,7 @@ class TestF1ArXivSafeguardViaPanelDefaultPersona:
         )
         result = guard.guard(text_with_arxiv, raise_on_violation=False)
         fabricated = [
-            v for v in result.violations
-            if v.violation == DisclosureViolation.FABRICATED_CITATION
+            v for v in result.violations if v.violation == DisclosureViolation.FABRICATED_CITATION
         ]
         assert len(fabricated) >= 1, (
             "An arXiv ID present when verified_arxivs=set() should be flagged as unverified. "

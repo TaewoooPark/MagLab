@@ -90,8 +90,7 @@ class USMREffect(EffectModel):
         return [
             "Olejnik, K. et al., Nat. Commun. 8, 15434 (2017). DOI: 10.1038/ncomms15434",
             "Avci, C. O. et al., Nat. Phys. 11, 570 (2015). DOI: 10.1038/nphys3356",
-            "Avci, C. O. et al., Phys. Rev. B 92, 184415 (2015). "
-            "DOI: 10.1103/PhysRevB.92.184415",
+            "Avci, C. O. et al., Phys. Rev. B 92, 184415 (2015). DOI: 10.1103/PhysRevB.92.184415",
         ]
 
     @property

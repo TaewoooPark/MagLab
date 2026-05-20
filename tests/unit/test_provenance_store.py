@@ -435,9 +435,7 @@ class TestLineageAttributesInProvJson:
         assert prov_data.get("provenance_type") == "MEASURED", (
             f"provenance_type missing/wrong in prov_json: {prov_data}"
         )
-        assert prov_data.get("units") == "A/m", (
-            f"units missing/wrong in prov_json: {prov_data}"
-        )
+        assert prov_data.get("units") == "A/m", f"units missing/wrong in prov_json: {prov_data}"
         assert prov_data.get("source_ref") == "DOI:10.1234/x", (
             f"source_ref missing/wrong in prov_json: {prov_data}"
         )

@@ -252,10 +252,10 @@ class ProvenanceStore:
         # Build relation ID prefix patterns for this entity's local name.
         # Relation IDs are stored as "ml:wgb-<eid>-<aid>" etc.
         relation_prefixes = [
-            f"{ns_prefix}wgb-{local_id}-%",   # wasGeneratedBy: entity is subject
-            f"{ns_prefix}wdf-{local_id}-%",   # wasDerivedFrom: entity was derived
-            f"{ns_prefix}wdf-%-{local_id}",   # wasDerivedFrom: entity is the used source
-            f"{ns_prefix}wat-{local_id}-%",   # wasAttributedTo: entity is subject
+            f"{ns_prefix}wgb-{local_id}-%",  # wasGeneratedBy: entity is subject
+            f"{ns_prefix}wdf-{local_id}-%",  # wasDerivedFrom: entity was derived
+            f"{ns_prefix}wdf-%-{local_id}",  # wasDerivedFrom: entity is the used source
+            f"{ns_prefix}wat-{local_id}-%",  # wasAttributedTo: entity is subject
         ]
         rows: list[dict[str, Any]] = []
         # 1. The entity/activity/agent row itself

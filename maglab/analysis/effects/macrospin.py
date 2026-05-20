@@ -79,8 +79,7 @@ class MacrospinModel(EffectModel):
             "DOI: 10.1098/rsta.1948.0007",
             "Slonczewski, J. C., J. Magn. Magn. Mater. 159, L1 (1996). "
             "DOI: 10.1016/0304-8853(96)00062-5",
-            "Sun, J. Z., Phys. Rev. B 62, 570 (2000). "
-            "DOI: 10.1103/PhysRevB.62.570",
+            "Sun, J. Z., Phys. Rev. B 62, 570 (2000). DOI: 10.1103/PhysRevB.62.570",
         ]
 
     @property
@@ -209,7 +208,9 @@ class MacrospinModel(EffectModel):
         else:
             max_step = (t_end - t_start) / 100.0 if t_end > t_start else 1e-12
 
-        n_internal = max(int((t_end - t_start) / max_step) + 1, 4 * n_out) if t_end > t_start else n_out
+        n_internal = (
+            max(int((t_end - t_start) / max_step) + 1, 4 * n_out) if t_end > t_start else n_out
+        )
         t_internal = np.linspace(t_start, t_end, n_internal + 1)
         dt_int = t_internal[1] - t_internal[0] if n_internal > 0 else 0.0
 

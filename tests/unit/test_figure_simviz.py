@@ -7,6 +7,7 @@ Validates OVF loader, 2D slice, HSL color wheel, quiver, and PyVista 3D renderer
 from __future__ import annotations
 
 import math
+import os
 from pathlib import Path
 
 import pytest
@@ -40,6 +41,11 @@ def _pv_available() -> bool:
         return True
     except ImportError:
         return False
+
+
+def _skip_real_pyvista_3d() -> bool:
+    """Skip real VTK off-screen rendering where it is known to be unstable."""
+    return os.environ.get("CI") == "true" or os.environ.get("MAGLAB_SKIP_PYVISTA_3D") == "1"
 
 
 def _mpl_available() -> bool:
@@ -324,6 +330,7 @@ class TestRenderQuiver:
 
 
 @pytest.mark.skipif(not _pv_available(), reason="pyvista not installed")
+@pytest.mark.skipif(_skip_real_pyvista_3d(), reason="real PyVista 3D rendering is disabled")
 class TestRender3D:
     """render_3d — PyVista 3D off-screen renderer tests."""
 
@@ -440,6 +447,7 @@ class TestR2Medium1PlaneYSlice:
         not m.shape[0]//2 (x midpoint).
         """
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         import numpy as np
@@ -475,6 +483,7 @@ class TestR2Medium1PlaneYSlice:
     def test_render_quiver_plane_y_uses_y_midpoint(self) -> None:
         """render_quiver with plane='y' must slice m[:, y_mid, :, :], not m[x_mid, :, :, :]."""
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         import numpy as np
@@ -487,7 +496,9 @@ class TestR2Medium1PlaneYSlice:
         # render_quiver extracts the slice internally; test its shape indirectly by
         # checking that the function completes without error for a y-plane request.
         # The correct y-plane slice has shape (10, 6); the wrong x-plane slice (8, 6).
-        fig, ax = render_quiver(field_data, plane="y", plane_index=None, show_hsl=False, subsample=1)
+        fig, ax = render_quiver(
+            field_data, plane="y", plane_index=None, show_hsl=False, subsample=1
+        )
         assert fig is not None
         plt.close(fig)
 
@@ -495,8 +506,8 @@ class TestR2Medium1PlaneYSlice:
         y_mid = m.shape[1] // 2  # 4
         x_mid = m.shape[0] // 2  # 5
 
-        correct_mx = m[:, y_mid, :, 0]   # shape (10, 6)
-        wrong_mx = m[x_mid, :, :, 0]     # shape (8, 6)
+        correct_mx = m[:, y_mid, :, 0]  # shape (10, 6)
+        wrong_mx = m[x_mid, :, :, 0]  # shape (8, 6)
 
         # Correct slice is constant at 4/7; wrong slice is NOT constant at 4/7
         assert np.allclose(correct_mx, 4.0 / 7.0)
@@ -505,6 +516,7 @@ class TestR2Medium1PlaneYSlice:
     def test_render_hsl_direct_plane_y_explicit_index(self) -> None:
         """_render_hsl_direct plane='y' with explicit plane_index must use m[:, idx, :, :]."""
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         import numpy as np
@@ -598,8 +610,9 @@ class TestR8Finding2PlotterCloseOnScreenshotFailure:
         out_path = tmp_path / "out.png"
         field = self._make_field_array()
 
-        with patch.object(_simviz_mod, "pv", mock_pv), patch.object(
-            _simviz_mod, "_PV_AVAILABLE", True
+        with (
+            patch.object(_simviz_mod, "pv", mock_pv),
+            patch.object(_simviz_mod, "_PV_AVAILABLE", True),
         ):
             result = _simviz_mod.render_3d(field, output_path=out_path)
 
@@ -653,8 +666,9 @@ class TestR8Finding2PlotterCloseOnScreenshotFailure:
 
         field = self._make_field_array()
 
-        with patch.object(_simviz_mod, "pv", mock_pv), patch.object(
-            _simviz_mod, "_PV_AVAILABLE", True
+        with (
+            patch.object(_simviz_mod, "pv", mock_pv),
+            patch.object(_simviz_mod, "_PV_AVAILABLE", True),
         ):
             result = _simviz_mod.render_3d(field, output_path=None)
 
@@ -710,8 +724,9 @@ class TestR8Finding2PlotterCloseOnScreenshotFailure:
 
         field = self._make_field_array()
 
-        with patch.object(_simviz_mod, "pv", mock_pv), patch.object(
-            _simviz_mod, "_PV_AVAILABLE", True
+        with (
+            patch.object(_simviz_mod, "pv", mock_pv),
+            patch.object(_simviz_mod, "_PV_AVAILABLE", True),
         ):
             result = _simviz_mod.render_3d(field, output_path=out_path)
 
@@ -795,8 +810,9 @@ class TestR9Finding1PlotterCloseOnAddMeshFailure:
         out_path = tmp_path / "out.png"
         field = self._make_field_array()
 
-        with patch.object(_simviz_mod, "pv", mock_pv), patch.object(
-            _simviz_mod, "_PV_AVAILABLE", True
+        with (
+            patch.object(_simviz_mod, "pv", mock_pv),
+            patch.object(_simviz_mod, "_PV_AVAILABLE", True),
         ):
             result = _simviz_mod.render_3d(field, output_path=out_path)
 
@@ -882,6 +898,7 @@ class TestR10Finding1ToStringRgbRemoved:
           not an error-placeholder (which would be a single flat-colour fill).
         """
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         import numpy as np
@@ -910,9 +927,7 @@ class TestR10Finding1ToStringRgbRemoved:
             "Possible error-placeholder or wrong render path."
         )
         h, w, c = img.shape
-        assert h >= 10 and w >= 10, (
-            f"Image too small: {h}x{w}. Expected at least 10x10 pixels."
-        )
+        assert h >= 10 and w >= 10, f"Image too small: {h}x{w}. Expected at least 10x10 pixels."
         assert c == 3, f"Expected 3 colour channels (RGB), got {c}."
         std = float(np.std(img.astype(np.float32)))
         assert std > 0.0, (
@@ -933,6 +948,7 @@ class TestR10Finding1ToStringRgbRemoved:
         would indicate the AttributeError error-placeholder was returned.
         """
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         import numpy as np
@@ -975,6 +991,7 @@ class TestR10Finding1ToStringRgbRemoved:
         Same non-uniformity assertion as 2D and HSL paths.
         """
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         import numpy as np

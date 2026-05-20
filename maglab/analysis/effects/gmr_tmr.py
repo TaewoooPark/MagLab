@@ -103,7 +103,9 @@ class GMRTMREffect(EffectModel):
     @property
     def measurement_config(self) -> MeasurementConfig:
         return MeasurementConfig(
-            geometry=("Spin-valve/MTJ relative angle θ sweep between two layers (0~π). θ=0: parallel (P), θ=π: antiparallel (AP)."),
+            geometry=(
+                "Spin-valve/MTJ relative angle θ sweep between two layers (0~π). θ=0: parallel (P), θ=π: antiparallel (AP)."
+            ),
             tensor_rank=2,
             required_columns=("theta", "G"),
             notes="theta [rad]: angle between magnetizations of the two magnetic layers. G [S]: conductance.",

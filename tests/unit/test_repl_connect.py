@@ -132,7 +132,9 @@ def test_connect_reset_slash_restores_previous_config(tmp_path: Path) -> None:
     restored.ui.theme = "mono"
 
     with (
-        patch("maglab.config.restore_config", return_value=tmp_path / "config.toml") as mock_restore,
+        patch(
+            "maglab.config.restore_config", return_value=tmp_path / "config.toml"
+        ) as mock_restore,
         patch("maglab.config.load_config", return_value=restored) as mock_load,
     ):
         keep_running = _handle_slash("/connect reset", cfg)

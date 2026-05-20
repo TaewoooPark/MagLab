@@ -34,7 +34,9 @@ class ProviderProfile:
     notes: tuple[str, ...] = ()
 
 
-def _routing(plan: str, build: str, summarize: str, vision_critic: str | None = None) -> dict[str, str]:
+def _routing(
+    plan: str, build: str, summarize: str, vision_critic: str | None = None
+) -> dict[str, str]:
     return {
         "plan": plan,
         "build": build,
@@ -68,7 +70,9 @@ API_PROVIDER_PROFILES: dict[str, ProviderProfile] = {
         ),
         direct_env_vars=("ANTHROPIC_API_KEY",),
         aliases=("claude",),
-        notes=("Uses Claude-oriented long-context planning and explicit tool/provenance discipline.",),
+        notes=(
+            "Uses Claude-oriented long-context planning and explicit tool/provenance discipline.",
+        ),
     ),
     "grok": ProviderProfile(
         key="grok",
@@ -78,7 +82,9 @@ API_PROVIDER_PROFILES: dict[str, ProviderProfile] = {
         maglab_env_var="MAGLAB_GROK_API_KEY",
         litellm_env_var="XAI_API_KEY",
         default_model="xai/grok-4.20",
-        routing=_routing("xai/grok-4.20", "xai/grok-4.3-latest", "xai/grok-4.20-non-reasoning-latest"),
+        routing=_routing(
+            "xai/grok-4.20", "xai/grok-4.3-latest", "xai/grok-4.20-non-reasoning-latest"
+        ),
         prompt_file="grok.md",
         models=(
             "xai/grok-4.20",
@@ -99,11 +105,15 @@ API_PROVIDER_PROFILES: dict[str, ProviderProfile] = {
         maglab_env_var="MAGLAB_DEEPSEEK_API_KEY",
         litellm_env_var="DEEPSEEK_API_KEY",
         default_model="deepseek/deepseek-v4-pro",
-        routing=_routing("deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-flash"),
+        routing=_routing(
+            "deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-flash"
+        ),
         prompt_file="deepseek.md",
         models=("deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash"),
         direct_env_vars=("DEEPSEEK_API_KEY",),
-        notes=("Reasoner is preferred for planning; chat is preferred for tool iteration and summaries.",),
+        notes=(
+            "Reasoner is preferred for planning; chat is preferred for tool iteration and summaries.",
+        ),
     ),
     "qwen": ProviderProfile(
         key="qwen",
@@ -113,7 +123,9 @@ API_PROVIDER_PROFILES: dict[str, ProviderProfile] = {
         maglab_env_var="MAGLAB_QWEN_API_KEY",
         litellm_env_var="DASHSCOPE_API_KEY",
         default_model="dashscope/qwen3.6-plus",
-        routing=_routing("dashscope/qwen3.6-plus", "dashscope/qwen3.6-plus", "dashscope/qwen3.6-flash"),
+        routing=_routing(
+            "dashscope/qwen3.6-plus", "dashscope/qwen3.6-plus", "dashscope/qwen3.6-flash"
+        ),
         prompt_file="qwen.md",
         models=(
             "dashscope/qwen3.6-plus",
@@ -147,7 +159,9 @@ API_PROVIDER_PROFILES: dict[str, ProviderProfile] = {
         ),
         direct_env_vars=("MOONSHOT_API_KEY", "KIMI_API_KEY"),
         aliases=("moonshot",),
-        notes=("Uses Moonshot/Kimi; keeps prompts compact unless a long-context Kimi model is selected.",),
+        notes=(
+            "Uses Moonshot/Kimi; keeps prompts compact unless a long-context Kimi model is selected.",
+        ),
     ),
     "gemini": ProviderProfile(
         key="gemini",
@@ -157,7 +171,11 @@ API_PROVIDER_PROFILES: dict[str, ProviderProfile] = {
         maglab_env_var="MAGLAB_GEMINI_API_KEY",
         litellm_env_var="GEMINI_API_KEY",
         default_model="gemini/gemini-3.5-flash",
-        routing=_routing("gemini/gemini-3.1-pro-preview", "gemini/gemini-3.5-flash", "gemini/gemini-3.1-flash-lite"),
+        routing=_routing(
+            "gemini/gemini-3.1-pro-preview",
+            "gemini/gemini-3.5-flash",
+            "gemini/gemini-3.1-flash-lite",
+        ),
         prompt_file="gemini.md",
         models=(
             "gemini/gemini-3.5-flash",
@@ -204,7 +222,14 @@ API_PROVIDER_PROFILES: dict[str, ProviderProfile] = {
         default_model="gpt-5.4-mini",
         routing=_routing("gpt-5.5", "gpt-5.4", "gpt-5.4-mini"),
         prompt_file="openai.md",
-        models=("gpt-5.4-mini", "gpt-5.5", "local-model", "llama3.1", "qwen3.5-coder", "deepseek-v4-flash"),
+        models=(
+            "gpt-5.4-mini",
+            "gpt-5.5",
+            "local-model",
+            "llama3.1",
+            "qwen3.5-coder",
+            "deepseek-v4-flash",
+        ),
         direct_env_vars=("OPENAI_COMPATIBLE_API_KEY",),
         aliases=("compatible", "openai_like", "openai-like"),
         notes=("Requires backend.api.base_url or --base-url for the target endpoint.",),
@@ -249,12 +274,23 @@ def get_provider_profile(provider: str) -> ProviderProfile:
         return API_PROVIDER_PROFILES[key]
     except KeyError as exc:
         valid = ", ".join(api_provider_keys())
-        raise ValueError(f"Unknown LLM provider {provider!r}. Supported providers: {valid}") from exc
+        raise ValueError(
+            f"Unknown LLM provider {provider!r}. Supported providers: {valid}"
+        ) from exc
 
 
 def api_provider_keys() -> list[str]:
     """Return canonical direct-API provider keys shown in CLI help."""
-    return ["anthropic", "grok", "deepseek", "qwen", "kimi", "gemini", "openai", "openai-compatible"]
+    return [
+        "anthropic",
+        "grok",
+        "deepseek",
+        "qwen",
+        "kimi",
+        "gemini",
+        "openai",
+        "openai-compatible",
+    ]
 
 
 def api_provider_choices() -> str:

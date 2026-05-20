@@ -177,6 +177,7 @@ class TestFallbackCandidatesRegression:
 
     def test_partial_llm_result_gets_topped_up(self):
         """LLM returns 1 candidate but min_candidates=2 → result must have >= 2."""
+
         def returns_one(query, templates):
             return [
                 {
@@ -196,6 +197,7 @@ class TestFallbackCandidatesRegression:
 
     def test_empty_llm_result_still_gets_fallback(self):
         """LLM returns 0 candidates → fallback is triggered (original behavior preserved)."""
+
         def returns_none(query, templates):
             return []
 

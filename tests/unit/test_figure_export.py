@@ -96,9 +96,7 @@ class TestPDFExport:
         # If pdfplumber can read font info, fonts are embedded.
         # (fonttype=42 = TrueType embedding — font name is present)
         # Even an empty figure has text elements (x, y labels), so fonts must be non-empty.
-        assert len(fonts) > 0, (
-            "Could not read font info from PDF. Check fonttype=42 embedding."
-        )
+        assert len(fonts) > 0, "Could not read font info from PDF. Check fonttype=42 embedding."
 
 
 # ---------------------------------------------------------------------------
@@ -137,9 +135,7 @@ class TestSVGExport:
             exporter.export(fig, out, fmt="svg")
             content = out.read_text(encoding="utf-8")
         plt.close(fig)
-        assert "<text" in content, (
-            "SVG has no <text> elements. Check svg.fonttype='none' setting."
-        )
+        assert "<text" in content, "SVG has no <text> elements. Check svg.fonttype='none' setting."
 
     def test_svg_is_text_editable(self):
         """SVG file is a UTF-8 text file editable with a text editor."""
@@ -383,7 +379,9 @@ class TestMCPFigureNoLeak:
         ledger = ProvenanceLedger()
         with tempfile.TemporaryDirectory() as tmpdir:
             stem = Path(tmpdir) / "multi"
-            exporter.export_all(fig, stem, formats=["pdf", "svg"], ledger=ledger, figure_id="fig-multi")
+            exporter.export_all(
+                fig, stem, formats=["pdf", "svg"], ledger=ledger, figure_id="fig-multi"
+            )
         plt.close(fig)
         ids = ledger.all_ids()
         assert len(ids) >= 2, f"Expected at least 2 provenance entries; got {len(ids)}."

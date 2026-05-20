@@ -273,7 +273,9 @@ def run_pipeline(
             atm_out_dir = work_dir / "atomistic"
             atm_r = parse_vampire_output(atm_out_dir)
             if not atm_r.converged:
-                result.errors.append("Atomistic simulation failed to converge or produced no output")
+                result.errors.append(
+                    "Atomistic simulation failed to converge or produced no output"
+                )
                 return result
 
         result.atomistic_result = atm_r

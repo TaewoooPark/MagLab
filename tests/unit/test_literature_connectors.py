@@ -473,6 +473,7 @@ class TestF01BackoffRetries:
 
     def test_is_retriable_429(self):
         """HTTP 429 is classified as retriable."""
+
         class FakeResp:
             status_code = 429
 
@@ -482,6 +483,7 @@ class TestF01BackoffRetries:
 
     def test_is_retriable_503(self):
         """HTTP 503 is classified as retriable."""
+
         class FakeResp:
             status_code = 503
 
@@ -499,6 +501,7 @@ class TestF01BackoffRetries:
 
     def test_is_retriable_404_false(self):
         """HTTP 404 (not found) is NOT retriable."""
+
         class FakeResp:
             status_code = 404
 
@@ -516,6 +519,7 @@ class TestF01BackoffRetries:
     def test_retriable_error_causes_retry(self, mock_sleep, mock_put, mock_get):
         """A 429-like exception raised inside fetch_by_doi causes the backoff
         wrapper to retry — confirming @_with_backoff is no longer dead code."""
+
         # Simulate a rate-limit exception that the connector should re-raise.
         class FakeResponse:
             status_code = 429
@@ -543,6 +547,7 @@ class TestF01BackoffRetries:
         connector._pyalex = mock_pyalex
 
         import pytest as _pytest
+
         with _pytest.raises(RuntimeError):
             connector.fetch_by_doi("10.1234/rate-limited")
 
@@ -582,7 +587,10 @@ class TestF03RAGPersistenceReadback:
 
         from maglab.literature.rag import LiteratureRAG
 
-        with tempfile.TemporaryDirectory() as tmpdir, mpatch.object(LiteratureRAG, "_load_from_db") as mock_load:
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            mpatch.object(LiteratureRAG, "_load_from_db") as mock_load,
+        ):
             LiteratureRAG(db_path=Path(tmpdir) / "lancedb")
             assert mock_load.called, "_load_from_db was not called during __init__"
 
@@ -693,9 +701,7 @@ class TestN02CacheConnectionLeak:
         with mpatch.object(conn_mod, "_get_cache_conn", return_value=mock_conn):
             conn_mod._cache_put("any_key", {"data": 1})
 
-        assert len(closed_calls) >= 1, (
-            "_cache_put did not close the connection when execute raised"
-        )
+        assert len(closed_calls) >= 1, "_cache_put did not close the connection when execute raised"
 
 
 # ---------------------------------------------------------------------------

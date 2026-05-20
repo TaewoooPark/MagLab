@@ -11,7 +11,18 @@ class CoordinateAxesPrimitive:
 
     name: str = "coordinate-axes"
     category: str = "annotation"
-    tags: list[str] = ["coordinate axes", "axes", "x", "y", "z", "coordinate system", "annotation", "arrow", "label", "vector"]
+    tags: list[str] = [
+        "coordinate axes",
+        "axes",
+        "x",
+        "y",
+        "z",
+        "coordinate system",
+        "annotation",
+        "arrow",
+        "label",
+        "vector",
+    ]
     description: str = (
         "Coordinate axes annotation primitive. Renders x, y, z axis arrows with "
         "user-defined labels. Supports 2D/3D projection mode selection."

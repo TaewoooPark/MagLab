@@ -79,7 +79,9 @@ class HysteresisLoop(EffectModel):
     @property
     def measurement_config(self) -> MeasurementConfig:
         return MeasurementConfig(
-            geometry=("VSM or SQUID magnetometer. M(H) loop measurement. Full bidirectional loop (+H → -H → +H)."),
+            geometry=(
+                "VSM or SQUID magnetometer. M(H) loop measurement. Full bidirectional loop (+H → -H → +H)."
+            ),
             tensor_rank=2,
             required_columns=("H", "M"),
             notes=(

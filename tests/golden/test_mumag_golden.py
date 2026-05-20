@@ -165,12 +165,16 @@ class TestMumag1Magnumnp:
 
         # Skip on error (insufficient resources or other reason)
         if result.error_message:
-            pytest.skip(f"Simulation failed (insufficient resources or other reason): {result.error_message}")
+            pytest.skip(
+                f"Simulation failed (insufficient resources or other reason): {result.error_message}"
+            )
 
         for comp in ("mx", "my", "mz"):
             val = result.get_scalar(comp)
             if val is not None:
-                assert -1.0 <= val <= 1.0, f"Magnetization component {comp}={val} is outside the physical range [-1, 1]."
+                assert -1.0 <= val <= 1.0, (
+                    f"Magnetization component {comp}={val} is outside the physical range [-1, 1]."
+                )
 
 
 # ---------------------------------------------------------------------------

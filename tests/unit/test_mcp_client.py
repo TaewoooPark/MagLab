@@ -967,7 +967,11 @@ class TestMcpCLICommands:
         runner = CliRunner()
         result = runner.invoke(app, ["mcp", "add", "--help"])
         assert result.exit_code == 0
-        assert "command_or_url" in result.stdout.lower() or "command-or-url" in result.stdout.lower() or "command" in result.stdout.lower()
+        assert (
+            "command_or_url" in result.stdout.lower()
+            or "command-or-url" in result.stdout.lower()
+            or "command" in result.stdout.lower()
+        )
 
     def test_mcp_enable_help(self) -> None:
         from typer.testing import CliRunner

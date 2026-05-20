@@ -88,12 +88,18 @@ class FMRKittel(EffectModel):
 
     @property
     def measurement_config(self) -> MeasurementConfig:
-        geometry_str = "In-plane or out-of-plane FMR" if self._mode == "in_plane" else "Out-of-plane FMR"
+        geometry_str = (
+            "In-plane or out-of-plane FMR" if self._mode == "in_plane" else "Out-of-plane FMR"
+        )
         return MeasurementConfig(
-            geometry=(f"{geometry_str}: frequency-swept FMR measurement (VNA-FMR). Collect f vs. H_res pairs."),
+            geometry=(
+                f"{geometry_str}: frequency-swept FMR measurement (VNA-FMR). Collect f vs. H_res pairs."
+            ),
             tensor_rank=2,
             required_columns=("H_res", "f"),
-            notes=("H_res [T]: FMR resonance field at each frequency. f [GHz]: microwave frequency."),
+            notes=(
+                "H_res [T]: FMR resonance field at each frequency. f [GHz]: microwave frequency."
+            ),
         )
 
     @property

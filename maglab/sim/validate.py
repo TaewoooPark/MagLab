@@ -60,7 +60,8 @@ class ValidationError(Exception):
         self.violations = violations
         lines = [f"  [{v.rule}] {v.message}" for v in violations]
         super().__init__(
-            f"Simulation spec validation failed ({len(violations)} violation(s)):\n" + "\n".join(lines)
+            f"Simulation spec validation failed ({len(violations)} violation(s)):\n"
+            + "\n".join(lines)
         )
 
 

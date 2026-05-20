@@ -249,9 +249,7 @@ def run_loop_c(
                         )
                         # Use the full invariant system prompt so the LLM retains the
                         # {{dp:KEY}}-only / no-bare-numbers invariant during revision.
-                        revision_system = drafter._build_system_prompt(
-                            section_type, [], ""
-                        )
+                        revision_system = drafter._build_system_prompt(section_type, [], "")
                         revised_tex = llm_fn(revision_system, revision_prompt)
                         # Append _AI_DISCLOSURE to match the initial-draft path in
                         # section_drafter.py (§16.5 protocol — every AI-drafted output
@@ -337,9 +335,7 @@ def run_loop_c(
                     # an external stop request, not a retry signal.  Without
                     # this branch the inner ``while`` never advances the engine
                     # and spins forever.
-                    log.warning(
-                        "[Loop C] Human gate rejected %s — aborting loop.", section_name
-                    )
+                    log.warning("[Loop C] Human gate rejected %s — aborting loop.", section_name)
                     engine.step(f"Section {section_name} rejected by human gate.", score=0.0)
                     engine.stop(StopReason.EXTERNAL)
                     break

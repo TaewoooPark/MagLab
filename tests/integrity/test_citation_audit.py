@@ -408,7 +408,9 @@ class TestNoLLMFallback:
                 raise_on_blocking=True,
             )
 
-    def test_no_classifier_fallback_produces_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_no_classifier_fallback_produces_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """The default fallback must log a warning when skipping semantic verification."""
         import logging
 

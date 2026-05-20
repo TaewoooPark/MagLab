@@ -461,9 +461,7 @@ class MCPClientRegistry:
             except RuntimeError:
                 pass  # no event loop — stack will be GC'd
         # Evict tools belonging to this server from the cache.
-        self._tools = {
-            k: v for k, v in self._tools.items() if v.server_name != name
-        }
+        self._tools = {k: v for k, v in self._tools.items() if v.server_name != name}
         self._save()
 
     async def close_all(self) -> None:
@@ -551,9 +549,7 @@ class MCPClientRegistry:
         self._ensure_loaded()
 
         if "::" not in namespaced_name:
-            raise KeyError(
-                f"Tool name {namespaced_name!r} must be namespaced as 'server::tool'."
-            )
+            raise KeyError(f"Tool name {namespaced_name!r} must be namespaced as 'server::tool'.")
 
         server_name, tool_name = namespaced_name.split("::", 1)
 
@@ -634,13 +630,9 @@ class MCPClientRegistry:
                         "HTTP transport requires the 'mcp' package with SSE support. "
                         "Install it with: pip install maglab[mcp]"
                     )
-                read_stream, write_stream = await stack.enter_async_context(
-                    sse_client(cfg.url)
-                )
+                read_stream, write_stream = await stack.enter_async_context(sse_client(cfg.url))
 
-            session = await stack.enter_async_context(
-                ClientSession(read_stream, write_stream)
-            )
+            session = await stack.enter_async_context(ClientSession(read_stream, write_stream))
             await session.initialize()
             await self._index_tools(server_name, session, cfg)
         except Exception:

@@ -214,16 +214,14 @@ class TestELNEntry:
         """R10 F-01: values containing embedded double-quotes survive round-trip."""
         entry = ELNEntry(
             title="Double-quote test",
-            tags=['say "hi"', 'AHE'],
+            tags=['say "hi"', "AHE"],
             datapoint_ids=['dp-"run1"'],
             provenance_entity_ids=['prov-"entity"'],
         )
         md = entry.to_markdown()
         restored = ELNEntry.from_markdown(md)
 
-        assert restored.tags == ['say "hi"', 'AHE'], (
-            f"tags round-trip failed: {restored.tags}"
-        )
+        assert restored.tags == ['say "hi"', "AHE"], f"tags round-trip failed: {restored.tags}"
         assert restored.datapoint_ids == ['dp-"run1"'], (
             f"datapoint_ids round-trip failed: {restored.datapoint_ids}"
         )
@@ -331,27 +329,21 @@ class TestELNEntry:
         entry = ELNEntry(title="Quote in sample", sample='Label "A"', instrument="Lock-in")
         md = entry.to_markdown()
         restored = ELNEntry.from_markdown(md)
-        assert restored.sample == 'Label "A"', (
-            f"sample round-trip failed: {restored.sample!r}"
-        )
+        assert restored.sample == 'Label "A"', f"sample round-trip failed: {restored.sample!r}"
 
     def test_roundtrip_sample_ending_with_double_quote(self):
         """R11 F-01: sample value ending with a double-quote round-trips (failure mode A)."""
         entry = ELNEntry(title="Trailing quote", sample='hello"', instrument="VNA")
         md = entry.to_markdown()
         restored = ELNEntry.from_markdown(md)
-        assert restored.sample == 'hello"', (
-            f"sample round-trip failed: {restored.sample!r}"
-        )
+        assert restored.sample == 'hello"', f"sample round-trip failed: {restored.sample!r}"
 
     def test_roundtrip_sample_wrapped_in_quotes(self):
         """R11 F-01: sample that is itself a quoted string round-trips (failure mode B)."""
         entry = ELNEntry(title="Wrapped quotes", sample='"quoted"', instrument="VNA")
         md = entry.to_markdown()
         restored = ELNEntry.from_markdown(md)
-        assert restored.sample == '"quoted"', (
-            f"sample round-trip failed: {restored.sample!r}"
-        )
+        assert restored.sample == '"quoted"', f"sample round-trip failed: {restored.sample!r}"
 
     def test_roundtrip_instrument_with_embedded_double_quote(self):
         """R11 F-01: instrument value containing an embedded double-quote round-trips."""
@@ -392,12 +384,8 @@ class TestELNEntry:
         entry = ELNEntry(title="Empty scalars", sample="", instrument="")
         md = entry.to_markdown()
         restored = ELNEntry.from_markdown(md)
-        assert restored.sample == "", (
-            f"sample round-trip failed: {restored.sample!r}"
-        )
-        assert restored.instrument == "", (
-            f"instrument round-trip failed: {restored.instrument!r}"
-        )
+        assert restored.sample == "", f"sample round-trip failed: {restored.sample!r}"
+        assert restored.instrument == "", f"instrument round-trip failed: {restored.instrument!r}"
 
     def test_roundtrip_sample_combined_special_chars(self):
         """R11 F-01: sample and instrument with combined double-quotes and backslashes."""
@@ -508,7 +496,9 @@ class TestELNNotebook:
                 measurement_type=MeasurementType.FMR,
             )
             assert (
-                "Frequency" in entry.body or "FMR" in entry.body or "frequency" in entry.body.lower()
+                "Frequency" in entry.body
+                or "FMR" in entry.body
+                or "frequency" in entry.body.lower()
             )
 
 

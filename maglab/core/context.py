@@ -135,7 +135,9 @@ class WorkingContext:
 
         full_summary = summary
         if suffix_lines:
-            full_summary = summary + "\n\n<!-- compaction preserved keys -->\n" + "\n".join(suffix_lines)
+            full_summary = (
+                summary + "\n\n<!-- compaction preserved keys -->\n" + "\n".join(suffix_lines)
+            )
 
         new_ctx = WorkingContext()
         new_ctx.messages = [{"role": "user", "content": f"[Conversation summary]\n{full_summary}"}]

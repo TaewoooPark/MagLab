@@ -127,9 +127,7 @@ class TestNoDoubleHashing:
         expected = _hash_user_id(raw_uid)  # SHA-256 of the raw ID
         double_hashed = _hash_user_id(pre_hashed)  # SHA-256 of the hash (the bug)
 
-        assert session.user_id_hash == expected, (
-            "Stored hash is a double-hash (bug F2 not fixed)."
-        )
+        assert session.user_id_hash == expected, "Stored hash is a double-hash (bug F2 not fixed)."
         assert session.user_id_hash != double_hashed, (
             "Stored hash must NOT be SHA-256(SHA-256(uid)) — that is the double-hash bug."
         )

@@ -55,7 +55,12 @@ class MultilayerStackPrimitive:
             "default": 20.0,
             "description": "SVG height scale per nm",
         },
-        {"name": "show_labels", "type": "bool", "default": True, "description": "Show layer labels"},
+        {
+            "name": "show_labels",
+            "type": "bool",
+            "default": True,
+            "description": "Show layer labels",
+        },
         {
             "name": "show_thickness",
             "type": "bool",

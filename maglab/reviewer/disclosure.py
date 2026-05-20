@@ -104,8 +104,8 @@ _CITATION_PATTERN_RE = re.compile(
     r"|et al\."
     r"|corresponding author"
     r"|\(\d{4}\)"
-    r"|DOI:\s*10\."          # "DOI: 10.xxxx/..." direct citation form
-    r"|\(DOI:"               # "(DOI:..." parenthetical form
+    r"|DOI:\s*10\."  # "DOI: 10.xxxx/..." direct citation form
+    r"|\(DOI:"  # "(DOI:..." parenthetical form
     r")",
     re.IGNORECASE,
 )
@@ -534,7 +534,9 @@ class PersonaGuard:
         # ②: first-person attribution
         violations.extend(check_first_person(text))
         # ③: fabricated citations
-        violations.extend(check_fabricated_citations(text, self._verified_dois, self._verified_arxivs))
+        violations.extend(
+            check_fabricated_citations(text, self._verified_dois, self._verified_arxivs)
+        )
         # ④: scope limit
         violations.extend(check_scope(text, corpus_keywords=self._corpus_keywords))
         # ⑤: fabricated expertise

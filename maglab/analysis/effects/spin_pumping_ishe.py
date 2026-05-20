@@ -94,7 +94,9 @@ class SpinPumpingISHE(EffectModel):
             ),
             tensor_rank=2,
             required_columns=("d_NM", "delta_alpha"),
-            notes=("d_NM [m]: NM layer thickness array. delta_alpha [dimensionless]: Δα extracted from FMR linewidth enhancement."),
+            notes=(
+                "d_NM [m]: NM layer thickness array. delta_alpha [dimensionless]: Δα extracted from FMR linewidth enhancement."
+            ),
         )
 
     @property

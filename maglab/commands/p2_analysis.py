@@ -114,9 +114,7 @@ _DEV_TEMP_OPT = typer.Option(None, "--T", "--temp", help="Temperature [K] (defau
 _DEV_DBIT_OPT = typer.Option(None, "--d-bit", help="Bit cell diameter [m].")
 _DEV_P_OPT = typer.Option(None, "--P", help="Spin polarisation (STT-MRAM).")
 _DEV_TMR_OPT = typer.Option(None, "--TMR", help="TMR ratio (STT-MRAM).")
-_DEV_JDRIVE_OPT = typer.Option(
-    None, "--j-drive", help="Drive current density (racetrack) [A/m²]."
-)
+_DEV_JDRIVE_OPT = typer.Option(None, "--j-drive", help="Drive current density (racetrack) [A/m²].")
 _DEV_REFS_OPT = typer.Option(False, "--refs", help="Print primary literature references.")
 
 # ---------------------------------------------------------------------------
@@ -494,9 +492,7 @@ def analyze_consistency(
         for eff_name, res in ((effect_a, result_a), (effect_b, result_b)):
             cr = check_reduced_chi2(res)
             status = "[green]OK[/]" if cr.ok else "[yellow]WARNING[/]"
-            console.print(
-                f"  reduced χ² ({eff_name}): {res.reduced_chi2:.4f}  [{status}]"
-            )
+            console.print(f"  reduced χ² ({eff_name}): {res.reduced_chi2:.4f}  [{status}]")
             for w in cr.warnings:
                 console.print(f"    [dim]{w}[/]")
 
@@ -564,7 +560,7 @@ def analyze_symmetry(
         f"σ^{'xyz'[c]}_{{'xyz'[a]}}{'xyz'[b]}" for a, b, c in comp.ohe_components[:6]
     )
     if len(comp.ohe_components) > 6:
-        ohe_str += f" … (+{len(comp.ohe_components)-6} more)"
+        ohe_str += f" … (+{len(comp.ohe_components) - 6} more)"
     tbl.add_row(
         "OHE (rank-3 tensor)",
         "[green]Yes[/]" if comp.ohe_components else "[red]No[/]",

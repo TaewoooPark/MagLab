@@ -85,7 +85,9 @@ class GilbertDamping(EffectModel):
             geometry=("Broadband FMR (VNA-FMR or ST-FMR frequency sweep). Measure ΔH vs. f."),
             tensor_rank=2,
             required_columns=("f", "dH"),
-            notes=("f [GHz]: microwave frequency. dH [T]: FMR half-linewidth (HWHM) at each frequency."),
+            notes=(
+                "f [GHz]: microwave frequency. dH [T]: FMR half-linewidth (HWHM) at each frequency."
+            ),
         )
 
     @property

@@ -78,7 +78,14 @@ _BASE_SLASH_COMMANDS: CommandTree = {
     },
     "/physics": {"compute": None, "units": None, "oracle": None},
     "/mat": {"list": None, "show": None, "build": None},
-    "/theme": {"list": None, "set": None, "domain": None, "mono": None, "moke": None, "light": None},
+    "/theme": {
+        "list": None,
+        "set": None,
+        "domain": None,
+        "mono": None,
+        "moke": None,
+        "light": None,
+    },
     "/skill": {"list": None},
     "/cost": None,
     "/mcp": {"list": None, "serve": None, "add": None, "enable": None, "disable": None},
@@ -86,7 +93,15 @@ _BASE_SLASH_COMMANDS: CommandTree = {
     "/config": {"show": None, "path": None, "reset": None, "restore": None},
     "/version": None,
     "/info": None,
-    "/sim": {"micro": None, "validate": None, "plot": None, "job": None, "dft": None, "atomistic": None, "pipeline": None},
+    "/sim": {
+        "micro": None,
+        "validate": None,
+        "plot": None,
+        "job": None,
+        "dft": None,
+        "atomistic": None,
+        "pipeline": None,
+    },
     "/figure": {
         "spec": None,
         "render": None,
@@ -94,7 +109,14 @@ _BASE_SLASH_COMMANDS: CommandTree = {
         "export": None,
         "primitives": {"list": None, "show": None},
     },
-    "/instr": {"scaffold": None, "scpi": None, "script": None, "check": None, "ingest": None, "implement": None},
+    "/instr": {
+        "scaffold": None,
+        "scpi": None,
+        "script": None,
+        "check": None,
+        "ingest": None,
+        "implement": None,
+    },
     "/fit": None,
     "/analyze": {"load": None, "model": None, "consistency": None, "symmetry": None},
     "/device": {"fom": None},
@@ -104,7 +126,14 @@ _BASE_SLASH_COMMANDS: CommandTree = {
     "/lab": {"note": None, "note-list": None, "plan": None},
     "/explain": None,
     "/write": None,
-    "/comms": {"revision": None, "cover-letter": None, "email": None, "abstract": None, "grant": None, "rebuttal": None},
+    "/comms": {
+        "revision": None,
+        "cover-letter": None,
+        "email": None,
+        "abstract": None,
+        "grant": None,
+        "rebuttal": None,
+    },
     "/gateway": {"setup": None, "start": None, "stop": None, "status": None, "install": None},
     "/present": {"slides": None, "poster": None},
     "/hypotheses": None,
@@ -164,8 +193,13 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
         (
             HelpEntry("/connect status", "inspect current backend readiness"),
             HelpEntry("/connect codex|claude|gemini-cli", "use delegated CLI OAuth"),
-            HelpEntry("/connect anthropic|grok|deepseek|qwen|kimi|gemini|openai", "configure direct API key backend"),
-            HelpEntry("/connect api <provider> [model] [base_url]", "configure provider explicitly"),
+            HelpEntry(
+                "/connect anthropic|grok|deepseek|qwen|kimi|gemini|openai",
+                "configure direct API key backend",
+            ),
+            HelpEntry(
+                "/connect api <provider> [model] [base_url]", "configure provider explicitly"
+            ),
             HelpEntry("/connect ollama [model] [host]", "use local Ollama"),
             HelpEntry("/auth ...", "same credential commands as the CLI"),
         ),
@@ -176,7 +210,9 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
         (
             HelpEntry("/physics compute|units|oracle", "formula, unit, and sanity checks"),
             HelpEntry("/mat list|show|build", "materials database and stack builder"),
-            HelpEntry("/sim micro|validate|plot|job|dft|atomistic|pipeline", "simulation workflows"),
+            HelpEntry(
+                "/sim micro|validate|plot|job|dft|atomistic|pipeline", "simulation workflows"
+            ),
             HelpEntry("/analyze load|model|consistency|symmetry", "data/model consistency checks"),
             HelpEntry("/device fom", "device figure-of-merit calculations"),
         ),
@@ -190,7 +226,10 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
             HelpEntry("/review", "persona review panel"),
             HelpEntry("/explain", "anomaly explanation"),
             HelpEntry("/write", "journal manuscript drafting"),
-            HelpEntry("/comms revision|cover-letter|email|abstract|grant|rebuttal", "academic communications"),
+            HelpEntry(
+                "/comms revision|cover-letter|email|abstract|grant|rebuttal",
+                "academic communications",
+            ),
         ),
     ),
     HelpEntry(
@@ -198,7 +237,10 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
         "deliverables and external interfaces",
         (
             HelpEntry("/figure spec|render|compose|export|primitives", "figure production"),
-            HelpEntry("/instr scaffold|scpi|script|check|ingest|implement", "instrument and manual workflows"),
+            HelpEntry(
+                "/instr scaffold|scpi|script|check|ingest|implement",
+                "instrument and manual workflows",
+            ),
             HelpEntry("/mcp list|serve|add|enable|disable", "MCP tools"),
             HelpEntry("/agents list|show", "subagent definitions"),
             HelpEntry("/ralph start|status|cancel", "autonomous loop engine"),
@@ -225,7 +267,9 @@ def render_slash_help(console: Console | None = None) -> None:
             _add_help_entry(section_node, entry)
     con.print(root)
     con.print()
-    con.print("[dim]Anything not starting with / is sent to the MagLab orchestrator as a normal prompt.[/]")
+    con.print(
+        "[dim]Anything not starting with / is sent to the MagLab orchestrator as a normal prompt.[/]"
+    )
 
 
 def _add_help_entry(parent: Tree, entry: HelpEntry) -> None:

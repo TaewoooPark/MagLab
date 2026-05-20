@@ -195,9 +195,7 @@ class SMREffect(EffectModel):
             # Single-geometry fallback
             geom_key = str(geometry.get("geom", "alpha")) if geometry else "alpha"
 
-            def model_fn_single(
-                x: np.ndarray, rho_0: float, delta_rho_1: float
-            ) -> np.ndarray:
+            def model_fn_single(x: np.ndarray, rho_0: float, delta_rho_1: float) -> np.ndarray:
                 _m = self._m_y(x, geom_key)
                 return rho_0 + delta_rho_1 * (1.0 - _m**2)
 

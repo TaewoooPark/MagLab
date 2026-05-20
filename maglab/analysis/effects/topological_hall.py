@@ -77,7 +77,9 @@ class TopologicalHallEffect(EffectModel):
     @property
     def measurement_config(self) -> MeasurementConfig:
         return MeasurementConfig(
-            geometry=("Hall bar, simultaneous ρ_xy(H)·M(H) measurement required. Sweep beyond saturation field to extract R_0."),
+            geometry=(
+                "Hall bar, simultaneous ρ_xy(H)·M(H) measurement required. Sweep beyond saturation field to extract R_0."
+            ),
             tensor_rank=2,
             required_columns=("B", "rho_xy", "M"),
             notes=(

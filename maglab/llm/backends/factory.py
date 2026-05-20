@@ -7,9 +7,9 @@ LLM backend implementations. It deliberately does not own credentials.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from maglab.config import Config
+from maglab.llm.base import LLMBackend
 
 
 @dataclass(frozen=True)
@@ -23,7 +23,7 @@ class BackendStatus:
     action: str = ""
 
 
-def create_backend(config: Config) -> Any:
+def create_backend(config: Config) -> LLMBackend:
     """Create the configured backend instance.
 
     Raises:

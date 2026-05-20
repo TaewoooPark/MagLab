@@ -197,9 +197,9 @@ def _is_retriable(exc: BaseException) -> bool:
     # --- network-level transient errors ---
     _retriable_types = (
         TimeoutError,
-        ConnectionError,       # broad: includes ConnectionResetError etc.
+        ConnectionError,  # broad: includes ConnectionResetError etc.
         BrokenPipeError,
-        OSError,               # catches socket-level timeouts
+        OSError,  # catches socket-level timeouts
     )
     if isinstance(exc, _retriable_types):
         return True
@@ -276,11 +276,7 @@ def _reconstruct_abstract(inv: dict[str, Any]) -> str:
     """
     if not inv:
         return ""
-    pos_word = sorted(
-        (pos, word)
-        for word, positions in inv.items()
-        for pos in positions
-    )
+    pos_word = sorted((pos, word) for word, positions in inv.items() for pos in positions)
     return " ".join(word for _, word in pos_word)
 
 
@@ -590,9 +586,7 @@ class ArXivConnector:
 
             self._arxiv = arxiv
         except ImportError as exc:
-            raise ImportError(
-                "arxiv not installed — pip install 'maglab[literature]'"
-            ) from exc
+            raise ImportError("arxiv not installed — pip install 'maglab[literature]'") from exc
 
     @_with_backoff()
     def search(
@@ -713,9 +707,7 @@ class CrossRefConnector:
 
             self._cr = Crossref()
         except ImportError as exc:
-            raise ImportError(
-                "habanero not installed — pip install 'maglab[literature]'"
-            ) from exc
+            raise ImportError("habanero not installed — pip install 'maglab[literature]'") from exc
 
     @_with_backoff()
     def fetch_by_doi(self, doi: str) -> LiteratureRecord | None:

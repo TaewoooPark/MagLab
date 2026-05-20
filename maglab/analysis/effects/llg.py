@@ -88,7 +88,9 @@ class LLGModel(EffectModel):
     @property
     def measurement_config(self) -> MeasurementConfig:
         return MeasurementConfig(
-            geometry=("Macrospin model. Provide initial condition m_0 and H_eff. Compute m(t) via ODE integration."),
+            geometry=(
+                "Macrospin model. Provide initial condition m_0 and H_eff. Compute m(t) via ODE integration."
+            ),
             tensor_rank=2,
             required_columns=("t", "mx", "my", "mz"),
             notes="t [s]: time array. mx, my, mz: magnetization components (|m|=1 normalized).",

@@ -94,7 +94,7 @@ class TestCircuitBreakerState:
         cb = CircuitBreakerState(no_progress_limit=3, no_progress_threshold=0.01)
         cb.record_output("a1", score=0.5)
         cb.record_output("a2", score=0.505)  # no progress 1
-        cb.record_output("a3", score=0.9)    # progress → reset
+        cb.record_output("a3", score=0.9)  # progress → reset
         reason = cb.record_output("a4", score=0.905)  # no progress 1 (restarted)
         assert reason is None
         assert cb.no_progress_count == 1
@@ -148,9 +148,9 @@ class TestCircuitBreakerState:
     def test_first_zero_score_then_progress(self) -> None:
         """Loop starting at 0.0, then making genuine progress, must not be killed prematurely."""
         cb = CircuitBreakerState(no_progress_limit=3, no_progress_threshold=0.01)
-        cb.record_output("iter1", score=0.0)   # first call — no comparison, count stays 0
-        cb.record_output("iter2", score=0.0)   # delta=0.0 < threshold → count=1
-        cb.record_output("iter3", score=0.5)   # delta=0.5 >= threshold → progress, count resets to 0
+        cb.record_output("iter1", score=0.0)  # first call — no comparison, count stays 0
+        cb.record_output("iter2", score=0.0)  # delta=0.0 < threshold → count=1
+        cb.record_output("iter3", score=0.5)  # delta=0.5 >= threshold → progress, count resets to 0
         # iter4: score=0.5 (same as last), delta=0.0 < threshold → count=1
         reason = cb.record_output("iter4", score=0.5)
         assert reason is None, "Loop must still be running after a progress reset"
@@ -159,9 +159,9 @@ class TestCircuitBreakerState:
     def test_three_genuine_no_progress_rounds_after_first(self) -> None:
         """After the initial call, 3 consecutive no-progress rounds must still stop."""
         cb = CircuitBreakerState(no_progress_limit=3, no_progress_threshold=0.01)
-        cb.record_output("iter1", score=0.5)   # first — no comparison, count stays 0
-        cb.record_output("iter2", score=0.505) # delta=0.005 < 0.01 → count=1
-        cb.record_output("iter3", score=0.508) # delta=0.003 → count=2
+        cb.record_output("iter1", score=0.5)  # first — no comparison, count stays 0
+        cb.record_output("iter2", score=0.505)  # delta=0.005 < 0.01 → count=1
+        cb.record_output("iter3", score=0.508)  # delta=0.003 → count=2
         reason = cb.record_output("iter4", score=0.510)  # delta=0.002 → count=3 → STOP
         assert reason == StopReason.NO_PROGRESS
 

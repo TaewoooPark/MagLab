@@ -224,7 +224,6 @@ class TestGetJournalMetrics:
 # ---------------------------------------------------------------------------
 
 
-
 class TestListTopJournalsBySjr:
     @patch(
         "maglab.literature.journals._load_sjr_csv",
@@ -290,6 +289,7 @@ class TestBundledCsvFiles:
     def test_sjr_csv_exists(self):
         """maglab/physics/data/sjr.csv must be present."""
         from pathlib import Path
+
         csv_path = Path(__file__).parent.parent.parent / "maglab" / "physics" / "data" / "sjr.csv"
         assert csv_path.is_file(), f"SJR CSV not found at {csv_path}"
 
@@ -298,6 +298,7 @@ class TestBundledCsvFiles:
         # Reload without cache
 
         from maglab.literature.journals import _load_sjr_csv
+
         _load_sjr_csv.cache_clear()
         data = _load_sjr_csv()
         _load_sjr_csv.cache_clear()  # clean up
@@ -306,7 +307,9 @@ class TestBundledCsvFiles:
         assert key in data, f"PRL not found in SJR CSV. Keys: {list(data.keys())[:10]}"
         assert data[key]["sjr"] is not None
         assert data[key]["sjr"] > 0
-        assert data[key]["quartile"] in ("Q1", "Q2", "Q3", "Q4"), f"Unexpected quartile: {data[key]['quartile']}"
+        assert data[key]["quartile"] in ("Q1", "Q2", "Q3", "Q4"), (
+            f"Unexpected quartile: {data[key]['quartile']}"
+        )
 
     def test_sjr_csv_has_magnetism_journals(self):
         """SJR CSV must contain at least one magnetism-related journal."""
@@ -316,17 +319,15 @@ class TestBundledCsvFiles:
         data = _load_sjr_csv()
         _load_sjr_csv.cache_clear()
 
-        magnetism_found = any(
-            "magnet" in key or "spintronic" in key for key in data
-        )
+        magnetism_found = any("magnet" in key or "spintronic" in key for key in data)
         assert magnetism_found, "No magnetism journal found in SJR CSV"
 
     def test_eigenfactor_csv_exists(self):
         """maglab/physics/data/eigenfactor.csv must be present."""
         from pathlib import Path
+
         csv_path = (
-            Path(__file__).parent.parent.parent
-            / "maglab" / "physics" / "data" / "eigenfactor.csv"
+            Path(__file__).parent.parent.parent / "maglab" / "physics" / "data" / "eigenfactor.csv"
         )
         assert csv_path.is_file(), f"Eigenfactor CSV not found at {csv_path}"
 
@@ -359,10 +360,8 @@ class TestBundledCsvFiles:
     def test_nemad_csv_exists(self):
         """maglab/physics/data/nemad.csv must be present."""
         from pathlib import Path
-        csv_path = (
-            Path(__file__).parent.parent.parent
-            / "maglab" / "physics" / "data" / "nemad.csv"
-        )
+
+        csv_path = Path(__file__).parent.parent.parent / "maglab" / "physics" / "data" / "nemad.csv"
         assert csv_path.is_file(), f"NEMAD CSV not found at {csv_path}"
 
     def test_nemad_csv_loads_key_materials(self):
@@ -370,18 +369,13 @@ class TestBundledCsvFiles:
         import csv
         from pathlib import Path
 
-        csv_path = (
-            Path(__file__).parent.parent.parent
-            / "maglab" / "physics" / "data" / "nemad.csv"
-        )
+        csv_path = Path(__file__).parent.parent.parent / "maglab" / "physics" / "data" / "nemad.csv"
         formulae = set()
         with open(csv_path, encoding="utf-8-sig", newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 row = {k.strip(): v.strip() for k, v in row.items() if k}
-                formula = (
-                    row.get("formula") or row.get("Formula") or row.get("material") or ""
-                )
+                formula = row.get("formula") or row.get("Formula") or row.get("material") or ""
                 if formula:
                     formulae.add(formula.lower())
 

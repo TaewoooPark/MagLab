@@ -81,7 +81,11 @@ _MUMAX3_PATTERNS: list[tuple[re.Pattern[str], ErrorClass, str]] = [
         ErrorClass.RESOURCE,
         "GPU/CPU memory insufficient",
     ),
-    (re.compile(r"NaN|Inf|not a number", re.I), ErrorClass.CONVERGENCE, "magnetization diverged (NaN/Inf)"),
+    (
+        re.compile(r"NaN|Inf|not a number", re.I),
+        ErrorClass.CONVERGENCE,
+        "magnetization diverged (NaN/Inf)",
+    ),
     (
         re.compile(r"invalid.*parameter|invalid.*value|out of range", re.I),
         ErrorClass.INPUT,
@@ -97,7 +101,11 @@ _MUMAX3_PATTERNS: list[tuple[re.Pattern[str], ErrorClass, str]] = [
         ErrorClass.INPUT,
         "MX3 script syntax error",
     ),
-    (re.compile(r"timeout|time limit|timed out", re.I), ErrorClass.RESOURCE, "execution time exceeded"),
+    (
+        re.compile(r"timeout|time limit|timed out", re.I),
+        ErrorClass.RESOURCE,
+        "execution time exceeded",
+    ),
     (
         re.compile(r"mumax3: command not found|executable not found|no such file.*mumax", re.I),
         ErrorClass.ENGINE_NOT_FOUND,
@@ -107,8 +115,16 @@ _MUMAX3_PATTERNS: list[tuple[re.Pattern[str], ErrorClass, str]] = [
 
 # OOMMF error patterns
 _OOMMF_PATTERNS: list[tuple[re.Pattern[str], ErrorClass, str]] = [
-    (re.compile(r"OutOfMemory|out of memory|MemAlloc", re.I), ErrorClass.RESOURCE, "insufficient memory"),
-    (re.compile(r"NaN|Inf|Diverge|diverge", re.I), ErrorClass.CONVERGENCE, "magnetization diverged"),
+    (
+        re.compile(r"OutOfMemory|out of memory|MemAlloc", re.I),
+        ErrorClass.RESOURCE,
+        "insufficient memory",
+    ),
+    (
+        re.compile(r"NaN|Inf|Diverge|diverge", re.I),
+        ErrorClass.CONVERGENCE,
+        "magnetization diverged",
+    ),
     (
         re.compile(r"bad parameter|invalid input|value out of range|ReadError", re.I),
         ErrorClass.INPUT,
@@ -135,7 +151,11 @@ _MAGNUMNP_PATTERNS: list[tuple[re.Pattern[str], ErrorClass, str]] = [
         "insufficient memory",
     ),
     (re.compile(r"nan|inf|overflow", re.I), ErrorClass.CONVERGENCE, "numerical divergence"),
-    (re.compile(r"ValueError|KeyError|TypeError", re.I), ErrorClass.INPUT, "Python parameter error"),
+    (
+        re.compile(r"ValueError|KeyError|TypeError", re.I),
+        ErrorClass.INPUT,
+        "Python parameter error",
+    ),
     (
         re.compile(r"ModuleNotFoundError.*magnumnp|ImportError.*magnumnp", re.I),
         ErrorClass.ENGINE_NOT_FOUND,
@@ -176,7 +196,9 @@ def _input_error_hint(stderr: str, stdout: str) -> str:
     # Memory → reduce mesh
     if re.search(r"memory|oom|killed", stderr + stdout, re.I):
         hints.append("Reduce mesh size (try reducing nx/ny/nz by 50%).")
-        hints.append("When using the CPU fallback backend, meshes of 64³ or smaller are recommended.")
+        hints.append(
+            "When using the CPU fallback backend, meshes of 64³ or smaller are recommended."
+        )
 
     # File not found → check path
     if re.search(r"not found|no such file", stderr + stdout, re.I):

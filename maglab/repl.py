@@ -19,6 +19,8 @@ import sys
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from rich.console import Console
+
     from maglab.config import Config
 
 
@@ -185,7 +187,7 @@ def _is_cli_slash_command(cmd: str) -> bool:
     return cmd in CLI_SLASH_ROOTS
 
 
-def _run_cli_slash(parts: list[str], con: object) -> None:
+def _run_cli_slash(parts: list[str], con: Console) -> None:
     """Run a Typer command from the REPL slash surface."""
     import click
     from typer.main import get_command
@@ -353,7 +355,7 @@ def _handle_connect(parts: list[str], config: Config) -> None:
 
 
 def _connect_api_provider(
-    con: object,
+    con: Console,
     config: Config,
     *,
     provider: str,
@@ -386,7 +388,7 @@ def _connect_api_provider(
     )
 
 
-def _print_turn_separator(con: object) -> None:
+def _print_turn_separator(con: Console) -> None:
     """Print a readable separator between REPL turns."""
     try:
         con.print()

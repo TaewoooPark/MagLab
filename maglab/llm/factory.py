@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from maglab.config import Config
 from maglab.llm.backends.factory import BackendStatus, backend_label, create_backend
-from maglab.llm.base import Message, Role
+from maglab.llm.base import LLMBackend, Message, Role
 
 
-def create_llm_backend(config: Config) -> object:
+def create_llm_backend(config: Config) -> LLMBackend:
     """Create the configured LLM backend."""
     return create_backend(config)
 

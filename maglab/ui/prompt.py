@@ -145,7 +145,7 @@ def _prompt_choice(
         return explicit_value
 
     completer = WordCompleter(list(choices), ignore_case=True, sentence=True)
-    session = PromptSession(completer=completer, complete_while_typing=True)
+    session: PromptSession = PromptSession(completer=completer, complete_while_typing=True)
 
     def _show_completions() -> None:
         try:

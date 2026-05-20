@@ -151,9 +151,7 @@ def parse_tb2j_output(
             r1, r2, r3 = (r_parts + [0, 0, 0])[:3]
             dist = float(m_inline.group(4))
             j_iso = float(m_inline.group(5))
-            pair = ExchangePair(
-                i=i, j=j, distance_ang=dist, J_meV=j_iso, R=(r1, r2, r3)
-            )
+            pair = ExchangePair(i=i, j=j, distance_ang=dist, J_meV=j_iso, R=(r1, r2, r3))
             exchange_pairs.append(pair)
             continue
 

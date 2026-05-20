@@ -82,10 +82,8 @@ class CurieTemperatureModel(EffectModel):
     def references(self) -> list[str]:
         return [
             "Kittel, C., Introduction to Solid State Physics, 8th ed. Wiley, 2004. Chapter 15.",
-            "Collins, M. F. et al., Phys. Rev. 179, 417 (1969). "
-            "DOI: 10.1103/PhysRev.179.417",
-            "Hansen, P. et al., Phys. Rev. B 40, 11950 (1989). "
-            "DOI: 10.1103/PhysRevB.40.11950",
+            "Collins, M. F. et al., Phys. Rev. 179, 417 (1969). DOI: 10.1103/PhysRev.179.417",
+            "Hansen, P. et al., Phys. Rev. B 40, 11950 (1989). DOI: 10.1103/PhysRevB.40.11950",
         ]
 
     @property
@@ -245,10 +243,7 @@ class CurieTemperatureModel(EffectModel):
                 idx = sign_changes[0]
                 # Linear interpolation of zero crossing
                 T_comp = float(
-                    T[idx]
-                    + (T[idx + 1] - T[idx])
-                    * (-M_net[idx])
-                    / (M_net[idx + 1] - M_net[idx])
+                    T[idx] + (T[idx + 1] - T[idx]) * (-M_net[idx]) / (M_net[idx + 1] - M_net[idx])
                 )
             else:
                 T_comp = float("nan")

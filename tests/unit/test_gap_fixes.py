@@ -76,9 +76,13 @@ class TestSOTHarmonicHallXiFitting:
         xi_known = 0.15
         H_ext = 1.0
         phi = np.linspace(0, 2 * np.pi, 80)
-        V_2w = (H_DL_true / H_ext) * np.cos(phi) + (H_FL_true / H_ext) * np.cos(2 * phi) * np.cos(phi)
+        V_2w = (H_DL_true / H_ext) * np.cos(phi) + (H_FL_true / H_ext) * np.cos(2 * phi) * np.cos(
+            phi
+        )
 
-        result = model.fit({"phi": phi, "V_2omega": V_2w}, geometry={"H_ext": H_ext, "xi": xi_known})
+        result = model.fit(
+            {"phi": phi, "V_2omega": V_2w}, geometry={"H_ext": H_ext, "xi": xi_known}
+        )
         assert result.success
         # xi stored from geometry
         assert abs(result.params["xi"] - xi_known) < 1e-10, "xi from geometry not stored"
@@ -99,7 +103,7 @@ class TestSOTHarmonicHallXiFitting:
         # Synthetic 1omega: c[0]=R_AHE/2=0.5, c[1]=R_PHE=0.1
         # Hayashi xi = R_PHE / (2*R_AHE) = 0.1 / (2*1.0) = 0.05
         R_AHE_half = 0.5  # c[0]; full R_AHE = 2 * R_AHE_half = 1.0
-        R_PHE = 0.1       # c[1]
+        R_PHE = 0.1  # c[1]
         R_AHE = 2.0 * R_AHE_half
         xi_expected = R_PHE / (2.0 * R_AHE)  # = 0.1 / 2.0 = 0.05 (Hayashi 2014)
         V_1w = R_AHE_half * np.cos(phi) + R_PHE * np.sin(2 * phi) * np.sin(phi)
@@ -123,9 +127,10 @@ class TestSOTHarmonicHallXiFitting:
         assert "H_DL" in result.params, "H_DL (corrected) missing from FitResult.params"
         assert "H_FL" in result.params, "H_FL (corrected) missing from FitResult.params"
         # With xi=0 (default) correction is identity
-        assert abs(result.params["H_DL"] - result.params["H_DL_raw"]) < 1e-4 * abs(
-            result.params["H_DL_raw"]
-        ) + 1e-10
+        assert (
+            abs(result.params["H_DL"] - result.params["H_DL_raw"])
+            < 1e-4 * abs(result.params["H_DL_raw"]) + 1e-10
+        )
 
     def test_forward_is_deterministic(self) -> None:
         """forward() is deterministic (same input → same output)."""
@@ -144,7 +149,9 @@ class TestSOTHarmonicHallXiFitting:
         H_FL_true = 2.0
         H_ext = 1.0
         phi = np.linspace(0, 2 * np.pi, 80)
-        V_2w = (H_DL_true / H_ext) * np.cos(phi) + (H_FL_true / H_ext) * np.cos(2 * phi) * np.cos(phi)
+        V_2w = (H_DL_true / H_ext) * np.cos(phi) + (H_FL_true / H_ext) * np.cos(2 * phi) * np.cos(
+            phi
+        )
         result = model.fit({"phi": phi, "V_2omega": V_2w}, geometry={"H_ext": H_ext})
         assert result.success
         _assert_recovery("H_DL_raw", H_DL_true, result.params["H_DL_raw"])
@@ -183,8 +190,8 @@ class TestSOTXiEstimatorR7Regression:
         phi = np.linspace(0, 2 * np.pi, 200)
 
         # Known physical parameters
-        R_AHE = 2.0    # ohm (full DC amplitude)
-        R_PHE = 0.3    # ohm
+        R_AHE = 2.0  # ohm (full DC amplitude)
+        R_PHE = 0.3  # ohm
         xi_hayashi = R_PHE / (2.0 * R_AHE)  # = 0.075
 
         # Build V_1omega: c[0] = R_AHE/2, c[1] = R_PHE
@@ -258,8 +265,7 @@ class TestSOTXiEstimatorR7Regression:
             xi_fit = result.params["xi"]
             rel_err = abs(xi_fit - xi_true) / abs(xi_true)
             assert rel_err < 0.01, (
-                f"ratio={ratio}: xi_fit={xi_fit:.6f}, xi_true={xi_true:.6f}, "
-                f"rel_err={rel_err:.4f}"
+                f"ratio={ratio}: xi_fit={xi_fit:.6f}, xi_true={xi_true:.6f}, rel_err={rel_err:.4f}"
             )
 
 
@@ -421,8 +427,15 @@ class TestDeviceFoMNewTypes:
     def test_all_seven_devices_listed(self) -> None:
         """list_devices() returns all 7 registered device types."""
         devices = list_devices()
-        expected = {"sot-mram", "stt-mram", "racetrack", "mtj", "spin-valve-sensor",
-                    "spin-orbit-logic", "magnon"}
+        expected = {
+            "sot-mram",
+            "stt-mram",
+            "racetrack",
+            "mtj",
+            "spin-valve-sensor",
+            "spin-orbit-logic",
+            "magnon",
+        }
         assert expected.issubset(set(devices)), f"Missing devices: {expected - set(devices)}"
 
     # --- MTJ ---
@@ -470,7 +483,9 @@ class TestDeviceFoMNewTypes:
         H_sat = 2e3
         result = spin_valve_sensor_fom(GMR=GMR, H_sat=H_sat)
         expected_S_H = GMR / H_sat
-        assert abs(result.foms["field_sensitivity_S_H"]["value"] - expected_S_H) / expected_S_H < 1e-10
+        assert (
+            abs(result.foms["field_sensitivity_S_H"]["value"] - expected_S_H) / expected_S_H < 1e-10
+        )
 
     def test_spin_valve_sensor_dispatch(self) -> None:
         """compute_fom('spin-valve-sensor') dispatches correctly."""
@@ -614,9 +629,7 @@ class TestR8PhysicsFixes:
         """
         result = magnon_device_fom()  # YIG defaults: A=4 pJ/m, Ms=1.4e5 A/m
         v_g = result.foms["spin_wave_group_velocity_v_g"]["value"]
-        assert 1.0 < v_g < 1e5, (
-            f"v_g = {v_g:.4g} m/s is outside the physical 1–1e5 m/s range"
-        )
+        assert 1.0 < v_g < 1e5, f"v_g = {v_g:.4g} m/s is outside the physical 1–1e5 m/s range"
 
     def test_magnon_vg_formula_4gamma_A_k_over_Ms(self) -> None:
         """v_g = 4·γ·A·k/Ms exactly matches the correct dispersion derivative."""
@@ -652,9 +665,9 @@ class TestR8PhysicsFixes:
         H_sat = 2e3
         R_sq = 20.0
         noise_floor = 1e-9  # [Ω/√Hz] resistance noise
-        S_H = GMR / H_sat   # [m/A]
+        S_H = GMR / H_sat  # [m/A]
         NEF_Am_expected = noise_floor / (S_H * R_sq)  # [A/m/√Hz]
-        NEF_T_expected = NEF_Am_expected * MU_0        # [T/√Hz]
+        NEF_T_expected = NEF_Am_expected * MU_0  # [T/√Hz]
         result = spin_valve_sensor_fom(GMR=GMR, H_sat=H_sat, R_sq=R_sq, noise_floor=noise_floor)
         NEF_T_actual = result.foms["noise_equivalent_field_T_sqrtHz"]["value"]
         assert abs(NEF_T_actual - NEF_T_expected) / NEF_T_expected < 1e-10
@@ -830,10 +843,12 @@ class TestLLG2SublatticeModel:
         gamma = abs(GAMMA_E)
         import math
 
-        f_afmr_data = np.array([
-            (gamma / (2.0 * math.pi)) * MU_0 * math.sqrt(2.0 * H_E_true * float(ha))
-            for ha in H_A_arr
-        ])
+        f_afmr_data = np.array(
+            [
+                (gamma / (2.0 * math.pi)) * MU_0 * math.sqrt(2.0 * H_E_true * float(ha))
+                for ha in H_A_arr
+            ]
+        )
 
         result = model.fit({"H_A_sweep": H_A_arr, "f_afmr": f_afmr_data})
         assert result.success

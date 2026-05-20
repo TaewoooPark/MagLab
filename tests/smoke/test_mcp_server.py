@@ -40,7 +40,9 @@ def test_p0_tools_registered(mcp_server) -> None:
     tools = asyncio.run(mcp_server.list_tools())
     tool_names = {t.name for t in tools}
     for expected in _P0_TOOLS:
-        assert expected in tool_names, f"Tool not registered: {expected!r}\nRegistered: {tool_names}"
+        assert expected in tool_names, (
+            f"Tool not registered: {expected!r}\nRegistered: {tool_names}"
+        )
 
 
 @pytest.mark.smoke
@@ -297,7 +299,11 @@ def test_instr_ingest_manual_missing_file(mcp_server) -> None:
     )
     assert result is not None
     content_str = str(result)
-    assert "false" in content_str.lower() or "not found" in content_str.lower() or "error" in content_str.lower()
+    assert (
+        "false" in content_str.lower()
+        or "not found" in content_str.lower()
+        or "error" in content_str.lower()
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -453,9 +459,7 @@ def test_sim_run_multi_scale_spec_returns_structured_error(mcp_server) -> None:
     escaped sim_run as an unhandled exception reaching the MCP host.  After the fix,
     sim_run catches it and returns {"ok": False, "error": "..."}.
     """
-    result = asyncio.run(
-        mcp_server.call_tool("sim_run", {"spec_dict": _MULTI_SCALE_SPEC})
-    )
+    result = asyncio.run(mcp_server.call_tool("sim_run", {"spec_dict": _MULTI_SCALE_SPEC}))
     assert result is not None
     content_str = str(result)
     # The tool must return a structured error dict, not raise.

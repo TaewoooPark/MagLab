@@ -253,7 +253,11 @@ class MetaReviewer:
         elif overall_mean >= 6.0:
             return "Minor Revision"
         elif overall_mean >= 4.5:
-            return "Major Revision" if n_dissents == 0 else "Major Revision (dissents must be resolved)"
+            return (
+                "Major Revision"
+                if n_dissents == 0
+                else "Major Revision (dissents must be resolved)"
+            )
         else:
             return "Reject"
 

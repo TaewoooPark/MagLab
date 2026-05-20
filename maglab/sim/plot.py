@@ -376,9 +376,7 @@ def run_sim_overlay(
         from maglab.sim.spec import MultiScaleSpec
         from maglab.sim.validate import validate
     except ImportError:
-        warnings.warn(
-            "Cannot load sim module. Skipping simulation overlay.", stacklevel=2
-        )
+        warnings.warn("Cannot load sim module. Skipping simulation overlay.", stacklevel=2)
         return []
 
     try:

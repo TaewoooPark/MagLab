@@ -224,7 +224,9 @@ class TestTemperatureLimit:
 
     def test_temperature_over_limit_rejected(self):
         """A temperature command exceeding the limit must be rejected."""
-        profile = SafetyProfile(model="cryo-controller", max_temperature_k=400.0, requires_init=False)
+        profile = SafetyProfile(
+            model="cryo-controller", max_temperature_k=400.0, requires_init=False
+        )
         checker = SafetyChecker(profile)
         cmds = ["*RST", "TEMP 9999"]
         result = checker.check_scpi_sequence(cmds)
@@ -234,20 +236,28 @@ class TestTemperatureLimit:
 
     def test_temperature_boundary_accepted(self):
         """A temperature command at the exact limit boundary must be accepted."""
-        profile = SafetyProfile(model="cryo-controller", max_temperature_k=400.0, requires_init=False)
+        profile = SafetyProfile(
+            model="cryo-controller", max_temperature_k=400.0, requires_init=False
+        )
         checker = SafetyChecker(profile)
         cmds = ["*RST", "TEMP 400.0"]
         result = checker.check_scpi_sequence(cmds)
-        temp_errs = [v for v in result.violations if v.violation_type == ViolationType.TEMPERATURE_OVER]
+        temp_errs = [
+            v for v in result.violations if v.violation_type == ViolationType.TEMPERATURE_OVER
+        ]
         assert not temp_errs, f"Boundary temperature was rejected: {temp_errs}"
 
     def test_temperature_within_limit_accepted(self):
         """A temperature command well within the limit must be accepted."""
-        profile = SafetyProfile(model="cryo-controller", max_temperature_k=400.0, requires_init=False)
+        profile = SafetyProfile(
+            model="cryo-controller", max_temperature_k=400.0, requires_init=False
+        )
         checker = SafetyChecker(profile)
         cmds = ["*RST", "TEMP 300.0"]
         result = checker.check_scpi_sequence(cmds)
-        temp_errs = [v for v in result.violations if v.violation_type == ViolationType.TEMPERATURE_OVER]
+        temp_errs = [
+            v for v in result.violations if v.violation_type == ViolationType.TEMPERATURE_OVER
+        ]
         assert not temp_errs
 
     def test_temperature_no_limit_profile_passes(self):
@@ -256,12 +266,16 @@ class TestTemperatureLimit:
         checker = SafetyChecker(profile)
         cmds = ["*RST", "TEMP 9999"]
         result = checker.check_scpi_sequence(cmds)
-        temp_errs = [v for v in result.violations if v.violation_type == ViolationType.TEMPERATURE_OVER]
+        temp_errs = [
+            v for v in result.violations if v.violation_type == ViolationType.TEMPERATURE_OVER
+        ]
         assert not temp_errs, "Unlimited temperature profile incorrectly rejected a command."
 
     def test_sour_temp_prefix_rejected(self):
         """SOUR:TEMP prefix must also be checked for temperature limit."""
-        profile = SafetyProfile(model="cryo-controller", max_temperature_k=350.0, requires_init=False)
+        profile = SafetyProfile(
+            model="cryo-controller", max_temperature_k=350.0, requires_init=False
+        )
         checker = SafetyChecker(profile)
         cmds = ["*RST", "SOUR:TEMP 500"]
         result = checker.check_scpi_sequence(cmds)
@@ -271,7 +285,9 @@ class TestTemperatureLimit:
 
     def test_temp_in_script_rejected(self):
         """A Python script containing a temperature command over the limit is rejected."""
-        profile = SafetyProfile(model="cryo-controller", max_temperature_k=400.0, requires_init=False)
+        profile = SafetyProfile(
+            model="cryo-controller", max_temperature_k=400.0, requires_init=False
+        )
         checker = SafetyChecker(profile)
         script = """
 import pyvisa

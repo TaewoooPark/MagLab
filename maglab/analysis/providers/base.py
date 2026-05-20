@@ -78,7 +78,9 @@ def get_effect(effect_name: str) -> EffectModel:
     """
     all_effects = get_all_effects()
     if effect_name not in all_effects:
-        raise KeyError(f"Unknown effect: '{effect_name}'. Registered effects: {list(all_effects.keys())}")
+        raise KeyError(
+            f"Unknown effect: '{effect_name}'. Registered effects: {list(all_effects.keys())}"
+        )
     return all_effects[effect_name]
 
 

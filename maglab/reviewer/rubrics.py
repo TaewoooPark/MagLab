@@ -339,7 +339,9 @@ def _make_prx_rubric() -> Rubric:
         dimensions=list(_BASE_DIMENSIONS),
         novelty_threshold=8.0,
         significance_threshold=8.0,
-        focus=("Broad impact within and beyond physics. Conceptually new frameworks. Experimental, theoretical, and computational disciplines."),
+        focus=(
+            "Broad impact within and beyond physics. Conceptually new frameworks. Experimental, theoretical, and computational disciplines."
+        ),
         rejection_criteria=RejectionCriteria(
             criteria=[
                 "No conceptual novelty — only a technical improvement",

@@ -32,7 +32,6 @@ from maglab.literature.keywords import (
 # ---------------------------------------------------------------------------
 
 
-
 class TestWeightedKeyword:
     def test_creation(self):
         kw = WeightedKeyword(

@@ -377,7 +377,9 @@ def atomistic_to_micro(
         # Oracle A validation
         A_result = check_exchange_stiffness(max(A_target, 1e-30))
         if not A_result:
-            raise HandoffPhysicsError(f"Exchange stiffness oracle validation failed: {A_result.reason}")
+            raise HandoffPhysicsError(
+                f"Exchange stiffness oracle validation failed: {A_result.reason}"
+            )
 
         params["A_Jm"] = A_target
 
@@ -542,7 +544,9 @@ def micro_to_device(
     # H_k_eff = H_k_crys + H_k_shape  (Slonczewski thin-film perpendicular switching criterion)
     # Ref: Slonczewski, J. Magn. Magn. Mater. 159, L1 (1996)
     H_k_crys = (2.0 * K_Jm3) / (MU_0 * Ms_Am) if Ms_Am > 0 else 0.0
-    H_k_shape = Ms_Am  # thin-film perpendicular demagnetization field [A/m] (N_z=1 monolayer approximation)
+    H_k_shape = (
+        Ms_Am  # thin-film perpendicular demagnetization field [A/m] (N_z=1 monolayer approximation)
+    )
     H_k = H_k_crys + H_k_shape
 
     # Critical current density estimate (STT, Slonczewski 1996)
@@ -609,7 +613,10 @@ def micro_to_device(
                 units="s",
                 provenance_type=ProvenanceType.SIMULATED,
                 source_ref=source_ref,
-                conditions={"formula": "t_sw ≈ 1/(α×γ×H_k)", "assumption": "macrospin WKB approximation"},
+                conditions={
+                    "formula": "t_sw ≈ 1/(α×γ×H_k)",
+                    "assumption": "macrospin WKB approximation",
+                },
             )
         )
 

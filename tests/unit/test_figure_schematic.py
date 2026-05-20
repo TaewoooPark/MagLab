@@ -442,7 +442,9 @@ class TestR5Finding2PanelIdSanitization:
         try:
             ET.fromstring(svg)
         except ET.ParseError as exc:
-            raise AssertionError(f"SVG is not valid XML after sanitization: {exc}\n{svg[:400]}") from exc
+            raise AssertionError(
+                f"SVG is not valid XML after sanitization: {exc}\n{svg[:400]}"
+            ) from exc
 
     def test_empty_svg_double_dash_sanitized(self) -> None:
         """_empty_svg() with panel_id containing '--' must yield valid XML."""

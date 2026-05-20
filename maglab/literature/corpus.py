@@ -146,7 +146,12 @@ class CorpusDB:
         query *and* stripping the prefix inside the SQL expression so that
         records inserted with a URL prefix are also found (fix for F-10).
         """
-        doi_norm = doi.lower().replace("https://doi.org/", "").replace("http://doi.org/", "").replace("doi:", "")
+        doi_norm = (
+            doi.lower()
+            .replace("https://doi.org/", "")
+            .replace("http://doi.org/", "")
+            .replace("doi:", "")
+        )
         row = self._conn.execute(
             "SELECT * FROM records WHERE LOWER(REPLACE(REPLACE(REPLACE(doi, 'https://doi.org/', ''), 'http://doi.org/', ''), 'doi:', '')) = ?",
             (doi_norm,),

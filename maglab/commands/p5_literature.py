@@ -185,7 +185,9 @@ def _build_evidence_matrix(
         with console.status("[dim]Searching OpenAlex (search-scout) …[/]"):
             records = oa.search(query, max_results=20)
     except ImportError:
-        console.print("[yellow]pyalex not installed — skipping live search. Evidence matrix will be empty.[/]")
+        console.print(
+            "[yellow]pyalex not installed — skipping live search. Evidence matrix will be empty.[/]"
+        )
     except Exception as exc:  # noqa: BLE001
         console.print(f"[yellow]OpenAlex search failed: {exc} — evidence matrix will be empty.[/]")
 
@@ -279,8 +281,7 @@ def lit_authors(
             )
         except ImportError as exc:
             console.print(
-                f"[red]Missing dependency:[/] {exc}\n"
-                "Install with: pip install maglab[literature]"
+                f"[red]Missing dependency:[/] {exc}\nInstall with: pip install maglab[literature]"
             )
             raise typer.Exit(1) from exc
         except Exception as exc:  # noqa: BLE001
@@ -539,8 +540,7 @@ def review_command(
         from maglab.reviewer.panel import PersonaSpec, ReviewPanel
     except ImportError as exc:
         console.print(
-            f"[red]Missing dependency:[/] {exc}\n"
-            "Install with: pip install maglab[reviewer]"
+            f"[red]Missing dependency:[/] {exc}\nInstall with: pip install maglab[reviewer]"
         )
         raise typer.Exit(1) from exc
 
@@ -549,8 +549,7 @@ def review_command(
         author_ids = ["persona-A", "persona-B", "persona-C"]
 
     personas = [
-        PersonaSpec(author_id=aid, author_name=aid, paper_count=0)
-        for aid in author_ids[:3]
+        PersonaSpec(author_id=aid, author_name=aid, paper_count=0) for aid in author_ids[:3]
     ]
 
     try:
@@ -618,9 +617,7 @@ def review_command(
             console.print("[bold yellow]Dissent items (score spread ≥3 pts):[/]")
             for d in meta.dissents:
                 scores_str = ", ".join(f"{name}: {score:.0f}" for name, score in d.scores)
-                console.print(
-                    f"  [{d.dimension.value}]  spread={d.range_:.1f} pts  ({scores_str})"
-                )
+                console.print(f"  [{d.dimension.value}]  spread={d.range_:.1f} pts  ({scores_str})")
                 console.print(f"    {d.rationale[:120]}")
         else:
             console.print("[dim]No significant dissents (all score spreads < 3 pts).[/]")
@@ -654,9 +651,7 @@ def lab_note(
     tags: list[str] | None = typer.Option(  # noqa: B008
         None, "--tag", help="Tag (may be repeated)."
     ),
-    notebook_dir: str = typer.Option(
-        "notebook", "--dir", "-d", help="ELN notebook directory."
-    ),
+    notebook_dir: str = typer.Option("notebook", "--dir", "-d", help="ELN notebook directory."),
     draft: bool = typer.Option(False, "--draft", help="Mark entry as auto-draft (unconfirmed)."),
 ) -> None:
     """Create an ELN entry in the notebook directory (§13.5, B1).
@@ -674,8 +669,7 @@ def lab_note(
     except ValueError:
         valid = [m.value for m in MeasurementType]
         console.print(
-            f"[red]Unknown measurement type:[/] {measurement_type!r}. "
-            f"Valid: {', '.join(valid)}"
+            f"[red]Unknown measurement type:[/] {measurement_type!r}. Valid: {', '.join(valid)}"
         )
         raise typer.Exit(1) from None
 
@@ -696,7 +690,9 @@ def lab_note(
 
     status = "[yellow](draft)[/]" if entry.is_draft else "[green]✓[/]"
     console.print(f"{status} ELN entry created: [bold]{entry.entry_id}[/]")
-    console.print(f"  Date: {entry.date}  |  Sample: {entry.sample or '—'}  |  Type: {entry.measurement_type}")
+    console.print(
+        f"  Date: {entry.date}  |  Sample: {entry.sample or '—'}  |  Type: {entry.measurement_type}"
+    )
     console.print(f"  Notebook dir: {nb_dir.resolve()}")
 
 
@@ -727,9 +723,7 @@ def lab_note_list(
         "-t",
         help="Filter by measurement type (general·magnetotransport·fmr·moke·vsm).",
     ),
-    notebook_dir: str = typer.Option(
-        "notebook", "--dir", "-d", help="ELN notebook directory."
-    ),
+    notebook_dir: str = typer.Option("notebook", "--dir", "-d", help="ELN notebook directory."),
 ) -> None:
     """List ELN entries with optional date / tag / sample / type filters (§13.5, T-P5-17).
 
@@ -751,7 +745,9 @@ def lab_note_list(
         try:
             parsed_from = _date.fromisoformat(date_from)
         except ValueError:
-            console.print(f"[red]Invalid --date-from format:[/] {date_from!r} (expected YYYY-MM-DD)")
+            console.print(
+                f"[red]Invalid --date-from format:[/] {date_from!r} (expected YYYY-MM-DD)"
+            )
             raise typer.Exit(1) from None
     if date_to:
         try:
@@ -768,8 +764,7 @@ def lab_note_list(
         except ValueError:
             valid = [m.value for m in MeasurementType]
             console.print(
-                f"[red]Unknown measurement type:[/] {measurement_type!r}. "
-                f"Valid: {', '.join(valid)}"
+                f"[red]Unknown measurement type:[/] {measurement_type!r}. Valid: {', '.join(valid)}"
             )
             raise typer.Exit(1) from None
 
@@ -843,7 +838,9 @@ def lab_plan(
             raise typer.Exit(1) from exc
 
     console.print(f"[bold]Measurement Plan — goal:[/] {plan.goal}")
-    console.print(f"  Steps: {len(plan.steps)}  |  Estimated total: {plan.total_estimated_hours:.1f} h")
+    console.print(
+        f"  Steps: {len(plan.steps)}  |  Estimated total: {plan.total_estimated_hours:.1f} h"
+    )
     console.print()
 
     table = Table(title="Measurement steps", show_lines=False)
@@ -864,7 +861,9 @@ def lab_plan(
     console.print(table)
 
     if plan.doe_design:
-        console.print(f"\n[cyan]DOE design ({doe_type}):[/] {len(plan.doe_design.get('points', []))} points")
+        console.print(
+            f"\n[cyan]DOE design ({doe_type}):[/] {len(plan.doe_design.get('points', []))} points"
+        )
 
     # Save checklist YAML
     if output:
@@ -926,7 +925,9 @@ def explain_command(
 
     with console.status("[dim]Running anomaly explanation engine (D2) …[/]"):
         try:
-            result = explain_anomaly(data, min_candidates=min_candidates, rag_search_fn=_rag_search_fn)
+            result = explain_anomaly(
+                data, min_candidates=min_candidates, rag_search_fn=_rag_search_fn
+            )
         except Exception as exc:  # noqa: BLE001
             console.print(f"[red]Explanation engine failed:[/] {exc}")
             raise typer.Exit(1) from exc

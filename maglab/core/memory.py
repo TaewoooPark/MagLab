@@ -440,10 +440,7 @@ class ResearchPool:
         docs = [f"{r.summary} {' '.join(r.topic_tags)}" for r in records]
         vectors, idf = _tfidf_vectors(docs)
         q_vec = _tfidf_query_vector(query, idf)
-        scored = [
-            (rec, _cosine(q_vec, vec))
-            for rec, vec in zip(records, vectors, strict=True)
-        ]
+        scored = [(rec, _cosine(q_vec, vec)) for rec, vec in zip(records, vectors, strict=True)]
         ranked = sorted(
             (rs for rs in scored if rs[1] > min_score),
             key=lambda rs: rs[1],

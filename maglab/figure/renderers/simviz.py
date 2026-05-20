@@ -225,7 +225,9 @@ def render_2d(
 
             sl.mpl(ax=ax, scalar_kw={"cmap": colormap})
         except Exception as exc:
-            warnings.warn(f"discretisedfield mpl() failed: {exc}. Falling back to numpy render.", stacklevel=2)
+            warnings.warn(
+                f"discretisedfield mpl() failed: {exc}. Falling back to numpy render.", stacklevel=2
+            )
             _render_2d_numpy(field, ax, plane, plane_index, colormap)
     else:
         # numpy fallback
@@ -330,7 +332,8 @@ def render_hsl(
             ax.set_title("Magnetization HSL color wheel (skyrmion standard)")
         except Exception as exc:
             warnings.warn(
-                f"discretisedfield mpl.lightness() failed: {exc}. Falling back to direct HSL.", stacklevel=2
+                f"discretisedfield mpl.lightness() failed: {exc}. Falling back to direct HSL.",
+                stacklevel=2,
             )
             _render_hsl_direct(field, ax, plane, plane_index)
     else:
@@ -570,8 +573,7 @@ def render_3d(
     """
     if not _PV_AVAILABLE:
         warnings.warn(
-            "PyVista is not installed. Skipping 3D render.\n"
-            "Install with: pip install pyvista",
+            "PyVista is not installed. Skipping 3D render.\nInstall with: pip install pyvista",
             UserWarning,
             stacklevel=2,
         )

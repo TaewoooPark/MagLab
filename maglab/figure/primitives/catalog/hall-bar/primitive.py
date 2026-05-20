@@ -22,7 +22,12 @@ class HallBarPrimitive:
         "Convention: current direction (x), Hall voltage (y), magnetic field (z)."
     )
     parameters: list[dict[str, Any]] = [
-        {"name": "width_um", "type": "float", "default": 20.0, "description": "Hall bar width (μm)"},
+        {
+            "name": "width_um",
+            "type": "float",
+            "default": 20.0,
+            "description": "Hall bar width (μm)",
+        },
         {
             "name": "length_um",
             "type": "float",
@@ -55,9 +60,7 @@ class HallBarPrimitive:
         },
         {"name": "label", "type": "str", "default": "", "description": "Material label"},
     ]
-    physics_convention: str = (
-        "Current along x, Hall voltage along y, magnetic field along z (right-hand coordinate system). Follows Néel convention."
-    )
+    physics_convention: str = "Current along x, Hall voltage along y, magnetic field along z (right-hand coordinate system). Follows Néel convention."
     references: list[str] = ["doi:10.1103/PhysRevLett.88.117601"]
     provenance: dict[str, Any] = {
         "source": "handwritten",

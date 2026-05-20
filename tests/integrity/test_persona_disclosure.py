@@ -388,17 +388,19 @@ class TestF02DOICaseNormalization:
         # verified_dois stores lowercase (as connectors normalise on ingest)
         verified = {"10.1103/physrevlett.132.156801"}
         violations = check_fabricated_citations(text, verified_dois=verified)
-        fabricated = [v for v in violations if v.violation == DisclosureViolation.FABRICATED_CITATION]
-        assert fabricated == [], (
-            f"Mixed-case DOI falsely flagged as fabricated: {fabricated}"
-        )
+        fabricated = [
+            v for v in violations if v.violation == DisclosureViolation.FABRICATED_CITATION
+        ]
+        assert fabricated == [], f"Mixed-case DOI falsely flagged as fabricated: {fabricated}"
 
     def test_uppercase_doi_not_flagged_when_verified_lowercase(self):
         """Fully uppercased DOI still matches lowercase entry."""
         text = "DOI: 10.1103/PHYSREVLETT.132.156801"
         verified = {"10.1103/physrevlett.132.156801"}
         violations = check_fabricated_citations(text, verified_dois=verified)
-        fabricated = [v for v in violations if v.violation == DisclosureViolation.FABRICATED_CITATION]
+        fabricated = [
+            v for v in violations if v.violation == DisclosureViolation.FABRICATED_CITATION
+        ]
         assert fabricated == []
 
     def test_truly_unverified_doi_still_flagged(self):
@@ -406,7 +408,9 @@ class TestF02DOICaseNormalization:
         text = "DOI: 10.1234/fake.999"
         verified = {"10.1103/physrevlett.132.156801"}
         violations = check_fabricated_citations(text, verified_dois=verified)
-        fabricated = [v for v in violations if v.violation == DisclosureViolation.FABRICATED_CITATION]
+        fabricated = [
+            v for v in violations if v.violation == DisclosureViolation.FABRICATED_CITATION
+        ]
         assert len(fabricated) >= 1
 
     def test_persona_guard_mixed_case_doi_passes(self):
@@ -423,7 +427,9 @@ class TestF02DOICaseNormalization:
             "The result is supported by DOI: 10.1103/PhysRevLett.132.156801."
         )
         result = guard.guard(compliant, raise_on_violation=False)
-        fabricated = [v for v in result.violations if v.violation == DisclosureViolation.FABRICATED_CITATION]
+        fabricated = [
+            v for v in result.violations if v.violation == DisclosureViolation.FABRICATED_CITATION
+        ]
         assert fabricated == [], result.summary()
 
 
@@ -443,7 +449,9 @@ class TestF06ArXivValidation:
             verified_dois={"10.1103/valid.001"},
             verified_arxivs={"2305.00001"},
         )
-        fabricated = [v for v in violations if v.violation == DisclosureViolation.FABRICATED_CITATION]
+        fabricated = [
+            v for v in violations if v.violation == DisclosureViolation.FABRICATED_CITATION
+        ]
         assert len(fabricated) >= 1
         assert any("2305.99999" in v.excerpt for v in fabricated)
 
@@ -455,7 +463,9 @@ class TestF06ArXivValidation:
             verified_dois=set(),
             verified_arxivs={"2305.00001"},
         )
-        fabricated = [v for v in violations if v.violation == DisclosureViolation.FABRICATED_CITATION]
+        fabricated = [
+            v for v in violations if v.violation == DisclosureViolation.FABRICATED_CITATION
+        ]
         assert fabricated == []
 
     def test_arxiv_without_verified_set_not_flagged(self):
@@ -463,7 +473,9 @@ class TestF06ArXivValidation:
         text = "[AI Reviewer] Reference: arXiv:2305.99999."
         violations = check_fabricated_citations(text, verified_dois=None, verified_arxivs=None)
         # No DOI-only citation pattern check triggers — arXiv ID counts as ref
-        fabricated = [v for v in violations if v.violation == DisclosureViolation.FABRICATED_CITATION]
+        fabricated = [
+            v for v in violations if v.violation == DisclosureViolation.FABRICATED_CITATION
+        ]
         assert fabricated == []
 
 
@@ -498,8 +510,7 @@ class TestN01ArXivValidationViaPersonaGuard:
         )
         result = guard.guard(bad_text, raise_on_violation=False)
         fabricated = [
-            v for v in result.violations
-            if v.violation == DisclosureViolation.FABRICATED_CITATION
+            v for v in result.violations if v.violation == DisclosureViolation.FABRICATED_CITATION
         ]
         assert len(fabricated) >= 1, (
             "Fabricated arXiv ID arXiv:9999.99999 was not caught by PersonaGuard.guard(). "
@@ -523,8 +534,7 @@ class TestN01ArXivValidationViaPersonaGuard:
         )
         result = guard.guard(good_text, raise_on_violation=False)
         fabricated = [
-            v for v in result.violations
-            if v.violation == DisclosureViolation.FABRICATED_CITATION
+            v for v in result.violations if v.violation == DisclosureViolation.FABRICATED_CITATION
         ]
         assert fabricated == [], (
             f"Verified arXiv ID arXiv:2305.12345 was incorrectly flagged: {fabricated}"
@@ -546,8 +556,7 @@ class TestN01ArXivValidationViaPersonaGuard:
         )
         result = guard.guard(text, raise_on_violation=False)
         fabricated = [
-            v for v in result.violations
-            if v.violation == DisclosureViolation.FABRICATED_CITATION
+            v for v in result.violations if v.violation == DisclosureViolation.FABRICATED_CITATION
         ]
         assert fabricated == [], (
             "ArXiv ID should not be flagged when verified_arxivs was not supplied to PersonaGuard."
@@ -639,8 +648,7 @@ class TestF01VerifiedDoisDefaultNone:
         )
         result = guard.guard(review_with_doi, raise_on_violation=False)
         fabricated = [
-            v for v in result.violations
-            if v.violation == DisclosureViolation.FABRICATED_CITATION
+            v for v in result.violations if v.violation == DisclosureViolation.FABRICATED_CITATION
         ]
         assert fabricated == [], (
             f"Real DOI was falsely flagged as fabricated when verified_dois=None: {fabricated}. "
@@ -664,8 +672,7 @@ class TestF01VerifiedDoisDefaultNone:
         )
         result = guard.guard(review_with_unlisted_doi, raise_on_violation=False)
         fabricated = [
-            v for v in result.violations
-            if v.violation == DisclosureViolation.FABRICATED_CITATION
+            v for v in result.violations if v.violation == DisclosureViolation.FABRICATED_CITATION
         ]
         assert len(fabricated) >= 1, (
             "Unlisted DOI was not rejected when verified_dois was a populated set."

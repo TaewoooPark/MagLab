@@ -275,7 +275,11 @@ def run_loop_a(
         # Checkpoint: persist round state to disk so progress survives a process restart.
         if state_path is not None and engine.state is not None:
             save_state(engine.state, state_path)
-            log.debug("[Loop A] Checkpoint saved after round %d (state_path=%s)", current_round, state_path)
+            log.debug(
+                "[Loop A] Checkpoint saved after round %d (state_path=%s)",
+                current_round,
+                state_path,
+            )
 
         if reason is not None:
             stop_reason_str = reason.value

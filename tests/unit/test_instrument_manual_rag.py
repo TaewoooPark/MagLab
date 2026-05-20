@@ -136,8 +136,12 @@ def test_scpi_embedder_returns_list():
 def test_scpi_index_build_and_search():
     """Search should work after building the index."""
     chunks = [
-        SCPIChunk(cmd=":SENS:VOLT", description="Voltage measurement", page=1, section_path="3 > Sense"),
-        SCPIChunk(cmd=":SOUR:CURR", description="Current source", page=2, section_path="4 > Source"),
+        SCPIChunk(
+            cmd=":SENS:VOLT", description="Voltage measurement", page=1, section_path="3 > Sense"
+        ),
+        SCPIChunk(
+            cmd=":SOUR:CURR", description="Current source", page=2, section_path="4 > Source"
+        ),
         SCPIChunk(
             cmd=":FREQ:CENT", description="Frequency center", page=3, section_path="5 > Frequency"
         ),
@@ -161,8 +165,15 @@ def test_scpi_index_build_and_search():
 def test_scpi_index_save_and_load():
     """The index should be saved and reloaded correctly."""
     chunks = [
-        SCPIChunk(cmd=":MEAS:VOLT?", description="Voltage measurement query", page=1, section_path=""),
-        SCPIChunk(cmd=":CONF:CURR", description="Current measurement configuration", page=2, section_path=""),
+        SCPIChunk(
+            cmd=":MEAS:VOLT?", description="Voltage measurement query", page=1, section_path=""
+        ),
+        SCPIChunk(
+            cmd=":CONF:CURR",
+            description="Current measurement configuration",
+            page=2,
+            section_path="",
+        ),
     ]
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -322,9 +333,7 @@ class TestR5Finding1SqliteConnectionSafety:
             fake_conn = _FakeConn()
 
             with (
-                patch(
-                    "maglab.instrument.manual_rag.sqlite3.connect", return_value=fake_conn
-                ),
+                patch("maglab.instrument.manual_rag.sqlite3.connect", return_value=fake_conn),
                 pytest.raises(sqlite3.OperationalError, match="simulated read error"),
             ):
                 index.load()
@@ -359,14 +368,54 @@ class TestR6Finding2TFIDFFallbackVocabPersistence:
     def _make_corpus_chunks(self) -> list[SCPIChunk]:
         """Return a diverse set of chunks to build a multi-term vocabulary."""
         return [
-            SCPIChunk(cmd=":SENS:VOLT:RANG", description="Set the voltage measurement range", page=1, section_path="3 > Sense"),
-            SCPIChunk(cmd=":SENS:CURR:RANG", description="Set the current measurement range", page=2, section_path="3 > Sense"),
-            SCPIChunk(cmd=":SOUR:VOLT", description="Set source voltage output level", page=3, section_path="4 > Source"),
-            SCPIChunk(cmd=":SOUR:CURR", description="Set source current output level", page=4, section_path="4 > Source"),
-            SCPIChunk(cmd=":FREQ:CENT", description="Set center frequency for sweep", page=5, section_path="5 > Frequency"),
-            SCPIChunk(cmd=":TRIG:SOUR", description="Select trigger source", page=6, section_path="6 > Trigger"),
-            SCPIChunk(cmd=":DISP:UPD", description="Update display refresh", page=7, section_path="7 > Display"),
-            SCPIChunk(cmd=":MEAS:POW?", description="Query measured power level", page=8, section_path="8 > Measure"),
+            SCPIChunk(
+                cmd=":SENS:VOLT:RANG",
+                description="Set the voltage measurement range",
+                page=1,
+                section_path="3 > Sense",
+            ),
+            SCPIChunk(
+                cmd=":SENS:CURR:RANG",
+                description="Set the current measurement range",
+                page=2,
+                section_path="3 > Sense",
+            ),
+            SCPIChunk(
+                cmd=":SOUR:VOLT",
+                description="Set source voltage output level",
+                page=3,
+                section_path="4 > Source",
+            ),
+            SCPIChunk(
+                cmd=":SOUR:CURR",
+                description="Set source current output level",
+                page=4,
+                section_path="4 > Source",
+            ),
+            SCPIChunk(
+                cmd=":FREQ:CENT",
+                description="Set center frequency for sweep",
+                page=5,
+                section_path="5 > Frequency",
+            ),
+            SCPIChunk(
+                cmd=":TRIG:SOUR",
+                description="Select trigger source",
+                page=6,
+                section_path="6 > Trigger",
+            ),
+            SCPIChunk(
+                cmd=":DISP:UPD",
+                description="Update display refresh",
+                page=7,
+                section_path="7 > Display",
+            ),
+            SCPIChunk(
+                cmd=":MEAS:POW?",
+                description="Query measured power level",
+                page=8,
+                section_path="8 > Measure",
+            ),
         ]
 
     @staticmethod
@@ -590,9 +639,15 @@ class TestR7Finding2EmbedderMismatchWarning:
 
     def _make_corpus_chunks(self) -> list[SCPIChunk]:
         return [
-            SCPIChunk(cmd=":SENS:VOLT", description="Voltage measurement range", page=1, section_path=""),
-            SCPIChunk(cmd=":SOUR:CURR", description="Current source level", page=2, section_path=""),
-            SCPIChunk(cmd=":TRIG:SOUR", description="Trigger source selection", page=3, section_path=""),
+            SCPIChunk(
+                cmd=":SENS:VOLT", description="Voltage measurement range", page=1, section_path=""
+            ),
+            SCPIChunk(
+                cmd=":SOUR:CURR", description="Current source level", page=2, section_path=""
+            ),
+            SCPIChunk(
+                cmd=":TRIG:SOUR", description="Trigger source selection", page=3, section_path=""
+            ),
         ]
 
     def test_meta_table_written_on_build(self) -> None:
@@ -756,14 +811,54 @@ class TestR8Finding1TFIDFDimProbeOrder:
 
     def _make_corpus_chunks(self) -> list[SCPIChunk]:
         return [
-            SCPIChunk(cmd=":SENS:VOLT:RANG", description="Set the voltage measurement range", page=1, section_path="3 > Sense"),
-            SCPIChunk(cmd=":SENS:CURR:RANG", description="Set the current measurement range", page=2, section_path="3 > Sense"),
-            SCPIChunk(cmd=":SOUR:VOLT", description="Set source voltage output level", page=3, section_path="4 > Source"),
-            SCPIChunk(cmd=":SOUR:CURR", description="Set source current output level", page=4, section_path="4 > Source"),
-            SCPIChunk(cmd=":FREQ:CENT", description="Set center frequency for sweep", page=5, section_path="5 > Frequency"),
-            SCPIChunk(cmd=":TRIG:SOUR", description="Select trigger source", page=6, section_path="6 > Trigger"),
-            SCPIChunk(cmd=":DISP:UPD", description="Update display refresh", page=7, section_path="7 > Display"),
-            SCPIChunk(cmd=":MEAS:POW?", description="Query measured power level", page=8, section_path="8 > Measure"),
+            SCPIChunk(
+                cmd=":SENS:VOLT:RANG",
+                description="Set the voltage measurement range",
+                page=1,
+                section_path="3 > Sense",
+            ),
+            SCPIChunk(
+                cmd=":SENS:CURR:RANG",
+                description="Set the current measurement range",
+                page=2,
+                section_path="3 > Sense",
+            ),
+            SCPIChunk(
+                cmd=":SOUR:VOLT",
+                description="Set source voltage output level",
+                page=3,
+                section_path="4 > Source",
+            ),
+            SCPIChunk(
+                cmd=":SOUR:CURR",
+                description="Set source current output level",
+                page=4,
+                section_path="4 > Source",
+            ),
+            SCPIChunk(
+                cmd=":FREQ:CENT",
+                description="Set center frequency for sweep",
+                page=5,
+                section_path="5 > Frequency",
+            ),
+            SCPIChunk(
+                cmd=":TRIG:SOUR",
+                description="Select trigger source",
+                page=6,
+                section_path="6 > Trigger",
+            ),
+            SCPIChunk(
+                cmd=":DISP:UPD",
+                description="Update display refresh",
+                page=7,
+                section_path="7 > Display",
+            ),
+            SCPIChunk(
+                cmd=":MEAS:POW?",
+                description="Query measured power level",
+                page=8,
+                section_path="8 > Measure",
+            ),
         ]
 
     @staticmethod

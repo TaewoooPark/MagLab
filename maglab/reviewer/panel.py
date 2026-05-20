@@ -271,9 +271,7 @@ class ReviewPanel:
         rag_summary = ""
         if rag_results:
             chunk = rag_results[0].chunk
-            rag_summary = (
-                f"\nRelevant corpus reference: {chunk.title} (DOI: {chunk.doi})\nExcerpt: {chunk.text[:100]}..."
-            )
+            rag_summary = f"\nRelevant corpus reference: {chunk.title} (DOI: {chunk.doi})\nExcerpt: {chunk.text[:100]}..."
 
         return (
             f"[AI Reviewer — Corpus Model] "

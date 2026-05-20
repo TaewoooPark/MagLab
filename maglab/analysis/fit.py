@@ -89,7 +89,9 @@ def run_fit(
 
     # leastsq often converges even with success=False — allow if covar is present
     if not result.success and method == "leastsq" and result.covar is None:
-        raise FitConvergenceError(f"Fitting did not converge: {result.message}. Review initial values and bounds.")
+        raise FitConvergenceError(
+            f"Fitting did not converge: {result.message}. Review initial values and bounds."
+        )
 
     # Extract parameters and uncertainties
     params_out: dict[str, float] = {}

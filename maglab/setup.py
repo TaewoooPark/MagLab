@@ -74,11 +74,13 @@ FEATURES: dict[str, FeatureSetup] = {
         slash="/setup-literature",
         imports=("pyalex", "semanticscholar", "arxiv", "habanero", "sklearn", "keybert", "yake"),
         setup_commands=(
-            "maglab lit search \"spin orbit torque\"",
-            "maglab lit authors \"orbital Hall effect ferromagnet\"",
+            'maglab lit search "spin orbit torque"',
+            'maglab lit authors "orbital Hall effect ferromagnet"',
             "maglab lit journal prl",
         ),
-        notes=("OpenAlex works best when you set a contact email in your shell or config workflow.",),
+        notes=(
+            "OpenAlex works best when you set a contact email in your shell or config workflow.",
+        ),
         aliases=("lit",),
     ),
     "simulation": FeatureSetup(
@@ -132,7 +134,7 @@ FEATURES: dict[str, FeatureSetup] = {
         imports=("bibtexparser", "pylatex", "pptx", "docx"),
         binaries=("latexmk",),
         setup_commands=(
-            "maglab write \"verified results summary\" --journal prl --dry-run",
+            'maglab write "verified results summary" --journal prl --dry-run',
             "maglab comms abstract --help",
             "maglab present slides --help",
         ),
@@ -156,7 +158,9 @@ FEATURES: dict[str, FeatureSetup] = {
         slash="/setup-gateway",
         imports=("slack_bolt", "telegram", "discord"),
         setup_commands=("maglab gateway setup", "maglab gateway status"),
-        notes=("Platform bot tokens are configured in the terminal and stored outside source files.",),
+        notes=(
+            "Platform bot tokens are configured in the terminal and stored outside source files.",
+        ),
     ),
     "mcp": FeatureSetup(
         key="mcp",
@@ -216,7 +220,9 @@ def render_setup(feature_name: str | None = None, *, console: Console | None = N
         con.print(f"  [dim]uv tool fallback:[/] {escape(UV_TOOL_INSTALL)}")
         con.print(f"  [dim]dev editable fallback:[/] {escape(DEV_INSTALL)}")
         con.print(f"  [dim]pip fallback:[/] {escape(PIP_INSTALL)}")
-        con.print("  [dim]dev editable fallback keeps the command tied to this clone; pipx/uv tool is global.[/]")
+        con.print(
+            "  [dim]dev editable fallback keeps the command tied to this clone; pipx/uv tool is global.[/]"
+        )
         con.print()
         render_feature_table(con)
         con.print("\nUse [cyan]/setup <feature>[/] or [cyan]maglab setup <feature>[/] for details.")

@@ -278,9 +278,7 @@ class TestLoopCCriticRevisionAIDisclosure:
                 f"Draft tex (first 300 chars): {draft_result.tex[:300]!r}"
             )
 
-    def test_critic_revised_draft_has_human_review_marker_and_disclosure(
-        self, tmp_path
-    ) -> None:
+    def test_critic_revised_draft_has_human_review_marker_and_disclosure(self, tmp_path) -> None:
         """Critic-revised drafts must have both HUMAN_REVIEW_MARKER and _AI_DISCLOSURE.
 
         Verifies that both bookend markers are present in the same draft, consistent

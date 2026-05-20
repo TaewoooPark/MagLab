@@ -5,8 +5,9 @@ on:
     branches: [main]
   pull_request:
 
-# Install only core + dev for validation (no extras — PLAN §18 "core install requires no GPU or LLM").
-# `uv run` attempts to universally lock all extras, so venv binaries are called directly instead.
+# Install the research bundle plus dev tools so the full test suite can exercise
+# optional MagLab subsystems. `uv run` attempts to universally lock all extras,
+# so venv binaries are called directly instead.
 jobs:
   test:
     strategy:
@@ -21,10 +22,10 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
 
-      - name: Create venv & install (core + dev)
+      - name: Create venv & install (research + dev)
         run: |
           uv venv --python ${{ matrix.python }}
-          uv pip install -e ".[dev]"
+          uv pip install -e ".[research,dev]"
 
       - name: Lint (ruff)
         run: .venv/bin/ruff check .
@@ -39,4 +40,4 @@ jobs:
         run: .venv/bin/maglab --help
 
       - name: Unit + golden tests
-        run: .venv/bin/pytest
+        run: env -u NO_COLOR PYVISTA_OFF_SCREEN=true MAGLAB_SKIP_PYVISTA_3D=1 MPLBACKEND=Agg .venv/bin/pytest

@@ -191,7 +191,11 @@ def stt_mram_fom(
             "unit": "A/m²",
             "formula": "j_c=2αeμ₀M_s t H_k/(ħP)",
         },
-        "TMR_ratio": {"value": float(TMR), "unit": "dimensionless", "formula": "TMR=(R_AP-R_P)/R_P"},
+        "TMR_ratio": {
+            "value": float(TMR),
+            "unit": "dimensionless",
+            "formula": "TMR=(R_AP-R_P)/R_P",
+        },
         "R_AP": {"value": float(R_AP), "unit": "Ohm", "formula": "R_AP=R_P(1+TMR)"},
     }
 
@@ -233,7 +237,11 @@ def racetrack_fom(
     v_drive = 1e-12 * j_drive  # simple proportionality (spin transfer velocity)
 
     foms: dict[str, dict[str, Any]] = {
-        "Walker_breakdown_field_H_W": {"value": float(H_W), "unit": "A/m", "formula": "H_W=αK_⊥/(2μ₀M_s)"},
+        "Walker_breakdown_field_H_W": {
+            "value": float(H_W),
+            "unit": "A/m",
+            "formula": "H_W=αK_⊥/(2μ₀M_s)",
+        },
         "max_DW_velocity_below_Walker": {
             "value": float(v_max_walker),
             "unit": "m/s",
@@ -491,8 +499,7 @@ def spin_valve_sensor_fom(
             "bandwidth": bandwidth,
         },
         references=[
-            "Dieny, B. et al., Phys. Rev. B 43, 1297 (1991). "
-            "DOI: 10.1103/PhysRevB.43.1297",
+            "Dieny, B. et al., Phys. Rev. B 43, 1297 (1991). DOI: 10.1103/PhysRevB.43.1297",
             "Freitas, P. P. et al., J. Phys.: Condens. Matter 19, 165221 (2007). "
             "DOI: 10.1088/0953-8984/19/16/165221",
         ],
@@ -790,7 +797,9 @@ def compute_fom(device: str, **kwargs: Any) -> DeviceFoMResult:
         KeyError: Unknown device name.
     """
     if device not in _DEVICE_FOM_REGISTRY:
-        raise KeyError(f"Unknown device: '{device}'. Supported: {list(_DEVICE_FOM_REGISTRY.keys())}")
+        raise KeyError(
+            f"Unknown device: '{device}'. Supported: {list(_DEVICE_FOM_REGISTRY.keys())}"
+        )
     return _DEVICE_FOM_REGISTRY[device](**kwargs)
 
 

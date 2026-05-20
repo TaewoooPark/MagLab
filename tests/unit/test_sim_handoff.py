@@ -195,7 +195,9 @@ class TestAtomisticToMicro:
         a_300 = result_300.params.get("A_Jm_at_T", result_300.params.get("A_Jm"))
 
         if a_0 is not None and a_300 is not None:
-            assert a_0 >= a_300, f"A(0K)={a_0:.3e} < A(300K)={a_300:.3e}: expected temperature decrease"
+            assert a_0 >= a_300, (
+                f"A(0K)={a_0:.3e} < A(300K)={a_300:.3e}: expected temperature decrease"
+            )
 
     def test_anisotropy_callen_callen_scaling(self) -> None:
         """K(T) = K(0) × (Ms(T)/Ms(0))^n scaling must be applied.
@@ -243,8 +245,7 @@ class TestAtomisticToMicro:
         assumptions_text = " ".join(result.assumptions).lower()
         # A(T) temperature dependence assumption
         assert any(
-            kw in assumptions_text
-            for kw in ["chikazumi", "hinzke", "spin-wave", "a(t)", "callen"]
+            kw in assumptions_text for kw in ["chikazumi", "hinzke", "spin-wave", "a(t)", "callen"]
         )
 
 

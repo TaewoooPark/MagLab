@@ -197,7 +197,9 @@ class TestSubagentRunner:
     def test_run_success(self, tmp_agents_dir: Path) -> None:
         _write_agent(tmp_agents_dir, "test-agent")
         defs = load_subagent_defs(tmp_agents_dir)
-        backend = _make_mock_backend('{"status": "success", "result": "validation passed", "warnings": []}')
+        backend = _make_mock_backend(
+            '{"status": "success", "result": "validation passed", "warnings": []}'
+        )
         runner = SubagentRunner(defs, backend)
         result = runner.run("test-agent", "test task")
         assert result["status"] == "success"

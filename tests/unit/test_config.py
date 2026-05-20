@@ -143,9 +143,7 @@ def test_theme_set_preserves_other_config_keys(tmp_path: Path) -> None:
     with cfg_file.open("rb") as fh:
         roundtripped = tomllib.load(fh)
 
-    assert roundtripped.get("ui", {}).get("theme") == "mono", (
-        "theme was not updated"
-    )
+    assert roundtripped.get("ui", {}).get("theme") == "mono", "theme was not updated"
     assert roundtripped.get("backend", {}).get("mode") == "local", (
         "F1 regression: [backend] section was silently discarded by theme set"
     )

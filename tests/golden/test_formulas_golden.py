@@ -44,7 +44,7 @@ class TestExchangeLengthGolden:
         """
         # parameters: Hubert & Schäfer Table A.2
         A = 1.3e-11  # J/m
-        Ms = 8.0e5   # A/m (800 emu/cm3)
+        Ms = 8.0e5  # A/m (800 emu/cm3)
         l_ex = F.exchange_length(A, Ms)
         l_ex_nm = l_ex * 1e9
 
@@ -75,7 +75,7 @@ class TestExchangeLengthGolden:
                 l_ex = √(2 × 1.05e-11 / 7.940e5) = √(2.646e-17) ≈ 5.14 nm.
         """
         A = 1.05e-11  # J/m
-        Ms = 7.95e5   # A/m
+        Ms = 7.95e5  # A/m
         l_ex_nm = F.exchange_length(A, Ms) * 1e9
         golden_nm = 5.14  # nm — hand calculation
         assert abs(l_ex_nm - golden_nm) < 0.3, (
@@ -123,7 +123,7 @@ class TestBlochWallWidthGolden:
             Some literature reports 200–300 nm range.
         """
         A = 4.0e-12  # J/m
-        K = 610.0    # J/m³  (|K₁|)
+        K = 610.0  # J/m³  (|K₁|)
         delta_nm = F.bloch_wall_width(A, K) * 1e9
 
         # Independent hand calculation:
@@ -143,7 +143,7 @@ class TestBlochWallWidthGolden:
             Δ = π√(1.3e-11 / 100) = π × √(1.3e-13) = π × 3.606e-7 ≈ 1133 nm.
         """
         A = 1.3e-11  # J/m
-        K = 100.0    # J/m³  (representative residual anisotropy)
+        K = 100.0  # J/m³  (representative residual anisotropy)
         delta_nm = F.bloch_wall_width(A, K) * 1e9
         golden_nm = 1133.0
         assert abs(delta_nm - golden_nm) < 50.0, (
@@ -164,7 +164,7 @@ class TestBlochWallWidthGolden:
             Independent hand calculation: 17.68 nm.
         """
         A = 1.3e-11  # J/m
-        K = 4.1e5    # J/m³
+        K = 4.1e5  # J/m³
         delta_nm = F.bloch_wall_width(A, K) * 1e9
         # independent hand calculation (golden value):
         # A/K = 3.171e-17, √(A/K) = 5.628e-9 m, Δ = π×5.628e-9 = 17.68 nm
@@ -312,9 +312,9 @@ class TestSkyrmionGolden:
                 = 1e-6 / 1e-6 = 1.0 (boundary).
         """
         A = 5e-12
-        D = 1e-3   # J/m²
-        K = 5e4    # J/m³ (K_eff ≈ K when Ms→0)
-        Ms = 0.0   # K_eff = K - μ₀Ms²/2, simplified with Ms→0
+        D = 1e-3  # J/m²
+        K = 5e4  # J/m³ (K_eff ≈ K when Ms→0)
+        Ms = 0.0  # K_eff = K - μ₀Ms²/2, simplified with Ms→0
         result = F.skyrmion_stability_criterion(D, A, K, Ms)
         # κ = D²/(4AK_eff) = 1e-6 / (4 × 5e-12 × 5e4) = 1.0
         golden_kappa = 1.0
@@ -409,7 +409,7 @@ class TestSpinWaveGolden:
                         = 5.723e-6 rad·m²/s
               ω_ex = 5.723e-6 × (1e8)² = 5.723e10 rad/s → f = 9.11 GHz.
         """
-        k = 1e8    # rad/m
+        k = 1e8  # rad/m
         A = 1.3e-11
         Ms = 8e5
         H_ext = 0.0  # exchange term only

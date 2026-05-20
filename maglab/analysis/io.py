@@ -190,5 +190,7 @@ def dataframe_to_arrays(
     """
     missing = [c for c in columns if c not in df.columns]
     if missing:
-        raise KeyError(f"Required columns not found: {missing}. Available columns: {list(df.columns)}")
+        raise KeyError(
+            f"Required columns not found: {missing}. Available columns: {list(df.columns)}"
+        )
     return {col: df[col].to_numpy(dtype=float) for col in columns}

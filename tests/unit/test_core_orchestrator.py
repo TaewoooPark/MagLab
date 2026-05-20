@@ -465,7 +465,9 @@ class TestModelRouterIntegration:
         self, budget: BudgetTracker, checkpoint: CheckpointStore
     ) -> None:
         """When model_router=None, behaviour is unchanged (single backend)."""
-        orch = Orchestrator(backend=_make_backend(), budget_tracker=budget, checkpoint_store=checkpoint)
+        orch = Orchestrator(
+            backend=_make_backend(), budget_tracker=budget, checkpoint_store=checkpoint
+        )
         assert orch._model_router is None
 
     def test_model_passed_to_backend_when_router_present(
@@ -506,15 +508,19 @@ class TestModelRouterIntegration:
         self, budget: BudgetTracker, checkpoint: CheckpointStore
     ) -> None:
         """process_node uses the 'build' stage model when a router is configured."""
-        router = ModelRouter(routing_config={"build": "claude-haiku-4-5", "default": "claude-opus-4-7"})
+        router = ModelRouter(
+            routing_config={"build": "claude-haiku-4-5", "default": "claude-opus-4-7"}
+        )
         backend = _make_backend(
-            json.dumps({
-                "result": "done",
-                "analysis": "ok",
-                "score": 0.9,
-                "goal_achieved": True,
-                "children": [],
-            })
+            json.dumps(
+                {
+                    "result": "done",
+                    "analysis": "ok",
+                    "score": 0.9,
+                    "goal_achieved": True,
+                    "children": [],
+                }
+            )
         )
         orch = Orchestrator(
             backend=backend,
@@ -552,9 +558,7 @@ class TestManifestLoader:
         from maglab.core.manifest import load_manifest
 
         data = {
-            "agents": [
-                {"name": "test-agent", "description": "A test agent", "model": "haiku"}
-            ],
+            "agents": [{"name": "test-agent", "description": "A test agent", "model": "haiku"}],
             "skills": [{"name": "test-skill", "path": "skills/test-skill"}],
             "mcp_servers": [{"name": "test-mcp", "command": "python -m test"}],
             "workflows": [{"name": "test-wf", "steps": ["test-agent"]}],
@@ -681,13 +685,15 @@ class TestGatewayNotification:
     ) -> None:
         """A 'research_complete' notification is queued when goal is achieved."""
         runner = self._make_gateway_runner()
-        goal_response = json.dumps({
-            "result": "done",
-            "analysis": "ok",
-            "score": 0.9,
-            "goal_achieved": True,
-            "children": [],
-        })
+        goal_response = json.dumps(
+            {
+                "result": "done",
+                "analysis": "ok",
+                "score": 0.9,
+                "goal_achieved": True,
+                "children": [],
+            }
+        )
         backend = _make_backend(content=goal_response)
         orch = Orchestrator(
             backend=backend,
@@ -750,9 +756,19 @@ class TestToolCallIdThreading:
 
             call_count = 0
 
-            def complete(self, messages, *, model=None, tools=None,
-                         temperature=None, max_tokens=4096, stop=None, **kwargs):
+            def complete(
+                self,
+                messages,
+                *,
+                model=None,
+                tools=None,
+                temperature=None,
+                max_tokens=4096,
+                stop=None,
+                **kwargs,
+            ):
                 from maglab.llm.base import LLMResponse, UsageStats
+
                 CapturingBackend.call_count += 1
                 captured_messages.append(list(messages))
                 if CapturingBackend.call_count == 1:
@@ -784,8 +800,7 @@ class TestToolCallIdThreading:
         assert len(tool_msgs) >= 1, "Second call must contain at least one TOOL-role message"
         for tm in tool_msgs:
             assert tm.tool_call_id is not None, (
-                f"TOOL-role message must carry tool_call_id; got None. "
-                f"Message: {tm!r}"
+                f"TOOL-role message must carry tool_call_id; got None. Message: {tm!r}"
             )
             assert tm.tool_call_id == "tc-abc123", (
                 f"tool_call_id must match originating call id; "
@@ -831,9 +846,7 @@ class TestOrchestratorClose:
             response = orch.respond("test")
         assert isinstance(response, str)  # __exit__ must not raise
 
-    def test_close_does_not_raise(
-        self, budget: BudgetTracker, checkpoint: CheckpointStore
-    ) -> None:
+    def test_close_does_not_raise(self, budget: BudgetTracker, checkpoint: CheckpointStore) -> None:
         """close() must succeed without raising."""
         orch = Orchestrator(budget_tracker=budget, checkpoint_store=checkpoint)
         orch.close()  # must not raise

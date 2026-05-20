@@ -184,9 +184,7 @@ class TestSlackAdapter:
         assert any(
             kw in combined
             for kw in ("skip", "signing_secret", "hmac", "verification", "not configured")
-        ), (
-            f"F3: WARNING message does not describe the skipped verification. Got: {combined!r}"
-        )
+        ), f"F3: WARNING message does not describe the skipped verification. Got: {combined!r}"
 
     def test_configured_secret_rejects_missing_signature(self) -> None:
         """R2 regression: with signing_secret configured, a request carrying no

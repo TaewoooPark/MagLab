@@ -74,4 +74,4 @@ def test_factory_creates_delegated_codex_backend_from_config() -> None:
 
     assert isinstance(backend, DelegatedCLIBackend)
     assert backend.cli == "codex"
-    assert backend.default_model is None
+    assert backend.default_model == ""

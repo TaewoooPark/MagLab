@@ -62,9 +62,7 @@ class MeasurementGeometryPrimitive:
             "description": "Diagram size (SVG units)",
         },
     ]
-    physics_convention: str = (
-        "Right-hand coordinate system. x=current, y=Hall voltage, z=out-of-plane. θ is the in-plane angle, φ is the out-of-plane angle."
-    )
+    physics_convention: str = "Right-hand coordinate system. x=current, y=Hall voltage, z=out-of-plane. θ is the in-plane angle, φ is the out-of-plane angle."
     references: list[str] = ["doi:10.1103/PhysRevB.89.144425"]
     provenance: dict[str, Any] = {
         "source": "handwritten",

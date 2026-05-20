@@ -727,7 +727,12 @@ def _register_instrument_tools(mcp: FastMCP) -> None:
         try:
             p = Path(pdf_path)
             if not p.exists():
-                return {"ok": False, "chunk_count": 0, "model_key": "", "error": f"File not found: {pdf_path}"}
+                return {
+                    "ok": False,
+                    "chunk_count": 0,
+                    "model_key": "",
+                    "error": f"File not found: {pdf_path}",
+                }
 
             # Cache the local file
             searcher = ManualSearcher()
@@ -991,7 +996,9 @@ def _register_resources(mcp: FastMCP) -> None:
                         continue
                     pdfs = sorted(model_dir.glob("*.pdf"))
                     sha_file = model_dir / "sha256.txt"
-                    sha256 = sha_file.read_text(encoding="utf-8").strip() if sha_file.is_file() else None
+                    sha256 = (
+                        sha_file.read_text(encoding="utf-8").strip() if sha_file.is_file() else None
+                    )
                     for pdf in pdfs:
                         entries.append(
                             {

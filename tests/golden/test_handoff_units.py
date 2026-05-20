@@ -135,7 +135,9 @@ class TestExchangeStiffnessGolden:
         # Order-of-magnitude check (literature ≈ 1.5–2.5 × 10⁻¹¹)
         log10_a = math.log10(a_ex)
         # A is expected in the 10⁻¹² – 10⁻¹⁰ range (±1 decade allowed)
-        assert -12 < log10_a < -10, f"A = {a_ex:.3e} J/m is outside the expected range (10⁻¹² – 10⁻¹⁰)."
+        assert -12 < log10_a < -10, (
+            f"A = {a_ex:.3e} J/m is outside the expected range (10⁻¹² – 10⁻¹⁰)."
+        )
 
 
 # ---------------------------------------------------------------------------

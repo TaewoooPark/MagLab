@@ -317,6 +317,14 @@ class SCPIEmbedder:
                     "Install with: pip install sentence-transformers for higher-quality embeddings."
                 )
                 self._model = _TFIDFFallback()
+            except Exception as exc:  # noqa: BLE001 - model cache/network failures vary by backend
+                log.warning(
+                    "sentence-transformers model '%s' could not be loaded (%s) — "
+                    "using TF-IDF fallback embeddings.",
+                    self._model_name,
+                    exc,
+                )
+                self._model = _TFIDFFallback()
         return self._model
 
     def embed(self, texts: list[str]) -> list[list[float]]:
@@ -331,7 +339,7 @@ class SCPIEmbedder:
         model = self._load_model()
         if hasattr(model, "encode"):
             vecs = model.encode(texts, show_progress_bar=False)
-            return [v.tolist() for v in vecs]
+            return [v.tolist() if hasattr(v, "tolist") else list(v) for v in vecs]
         return model.embed(texts)
 
 
@@ -432,9 +440,7 @@ class SCPIIndex:
             )
             # Persist embedder identity in a metadata table so load() can detect
             # cross-class mismatches (e.g. sentence-transformers build → TF-IDF load).
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)"
-            )
+            conn.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)")
             conn.execute("DELETE FROM chunks")
             conn.execute(
                 "INSERT OR REPLACE INTO meta (key, value) VALUES ('embedder_class', ?)",
@@ -454,9 +460,7 @@ class SCPIIndex:
             # overrides.
             conn.commit()
 
-        log.debug(
-            "Embedder metadata persisted: class=%s, dim=%d", embedder_class, vec_dim
-        )
+        log.debug("Embedder metadata persisted: class=%s, dim=%d", embedder_class, vec_dim)
 
         # Persist the TF-IDF fallback vocabulary so that a new session can
         # restore it via load() and produce same-dimension query vectors.
@@ -507,9 +511,7 @@ class SCPIIndex:
                     vocab: dict[str, int] = json.loads(vocab_path.read_text(encoding="utf-8"))
                     model._vocab = vocab
                     model._fitted = True
-                    log.debug(
-                        "TF-IDF vocabulary restored: %d terms ← %s", len(vocab), vocab_path
-                    )
+                    log.debug("TF-IDF vocabulary restored: %d terms ← %s", len(vocab), vocab_path)
                 except (json.JSONDecodeError, OSError) as exc:
                     log.warning("Could not restore TF-IDF vocabulary from %s: %s", vocab_path, exc)
 
@@ -684,8 +686,6 @@ class ManualRAGPipeline:
         """
         index = self.get_index(model_key)
         if index is None:
-            log.warning(
-                "Index not found for: %s. Run `ingest()` first.", model_key
-            )
+            log.warning("Index not found for: %s. Run `ingest()` first.", model_key)
             return []
         return index.search(query, k=k)

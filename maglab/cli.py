@@ -90,7 +90,9 @@ def _root_callback(
 # auth
 # ---------------------------------------------------------------------------
 
-auth_app = typer.Typer(name="auth", help="LLM credential management (API key · delegated CLI · local).")
+auth_app = typer.Typer(
+    name="auth", help="LLM credential management (API key · delegated CLI · local)."
+)
 app.add_typer(auth_app)
 
 
@@ -231,8 +233,7 @@ def _configure_api_provider(
             console.print(f"[green]✓[/] API key saved in [bold]{location}[/].")
 
     console.print(
-        "Restart MagLab to load this backend. "
-        f"Default model: [bold]{config.backend.api.model}[/]"
+        f"Restart MagLab to load this backend. Default model: [bold]{config.backend.api.model}[/]"
     )
 
 
@@ -362,7 +363,9 @@ def auth_claude(
     )
     console.print(f"[green]✓[/] Configured Claude delegated CLI backend in [bold]{saved}[/].")
     if exe_status == "missing":
-        console.print("[yellow]Claude CLI was not found on PATH.[/] Install/authenticate it, then restart MagLab.")
+        console.print(
+            "[yellow]Claude CLI was not found on PATH.[/] Install/authenticate it, then restart MagLab."
+        )
     else:
         console.print("Claude CLI executable found. Restart MagLab to use it.")
 
@@ -383,7 +386,9 @@ def auth_gemini_cli(
     )
     console.print(f"[green]✓[/] Configured Gemini delegated CLI backend in [bold]{saved}[/].")
     if exe_status == "missing":
-        console.print("[yellow]Gemini CLI was not found on PATH.[/] Install/authenticate it, then restart MagLab.")
+        console.print(
+            "[yellow]Gemini CLI was not found on PATH.[/] Install/authenticate it, then restart MagLab."
+        )
     else:
         console.print("Gemini CLI executable found. Restart MagLab to use it.")
 
@@ -407,7 +412,9 @@ def auth_ollama(
 # physics
 # ---------------------------------------------------------------------------
 
-physics_app = typer.Typer(name="physics", help="Deterministic physics calculations (formulas · units · oracle).")
+physics_app = typer.Typer(
+    name="physics", help="Deterministic physics calculations (formulas · units · oracle)."
+)
 app.add_typer(physics_app)
 
 
@@ -416,7 +423,9 @@ _PARAMS_ARG = typer.Argument(None, help="Parameter key=value list.")
 
 @physics_app.command("compute")
 def physics_compute(
-    formula: str = typer.Argument(..., help="Formula name (exchange_length·bloch_wall_width, etc.)."),
+    formula: str = typer.Argument(
+        ..., help="Formula name (exchange_length·bloch_wall_width, etc.)."
+    ),
     params: list[str] | None = _PARAMS_ARG,
 ) -> None:
     """Compute a physics quantity using a deterministic formula."""
@@ -567,9 +576,7 @@ def mat_show(
 
 @mat_app.command("build")
 def mat_build(
-    stack: str = typer.Argument(
-        ..., help='Layer stack string, e.g. "Ta(5)/CoFeB(1)/MgO(2)".'
-    ),
+    stack: str = typer.Argument(..., help='Layer stack string, e.g. "Ta(5)/CoFeB(1)/MgO(2)".'),
     online: bool = typer.Option(
         False, "--online", help="Query online databases (Materials Project / OPTIMADE)."
     ),
@@ -1144,7 +1151,9 @@ app.add_typer(sim_app)
 
 @sim_app.command("micro")
 def sim_micro(
-    material: str = typer.Option("Permalloy", "--material", "-m", help="Material ID (e.g. Permalloy)."),
+    material: str = typer.Option(
+        "Permalloy", "--material", "-m", help="Material ID (e.g. Permalloy)."
+    ),
     nx: int = typer.Option(64, "--nx", help="Number of cells in x direction."),
     ny: int = typer.Option(64, "--ny", help="Number of cells in y direction."),
     nz: int = typer.Option(1, "--nz", help="Number of cells in z direction."),
@@ -1152,7 +1161,9 @@ def sim_micro(
     engine: str = typer.Option(
         "auto", "--engine", "-e", help="Solver engine (auto·magnumnp·oommf·mumax3)."
     ),
-    t_ns: float = typer.Option(0.0, "--t-ns", help="Simulation time [ns]. 0 means static relaxation."),
+    t_ns: float = typer.Option(
+        0.0, "--t-ns", help="Simulation time [ns]. 0 means static relaxation."
+    ),
     output: str | None = typer.Option(None, "--output", "-o", help="Output file path stem."),
 ) -> None:
     """Run a micromagnetic simulation.
@@ -1304,9 +1315,13 @@ def sim_job(
 
 @sim_app.command("dft")
 def sim_dft(
-    structure: str = typer.Option("bcc_fe", "--structure", "-s", help="Structure ID (e.g. bcc_fe)."),
+    structure: str = typer.Option(
+        "bcc_fe", "--structure", "-s", help="Structure ID (e.g. bcc_fe)."
+    ),
     engine: str = typer.Option("qe", "--engine", "-e", help="DFT engine (vasp·qe·fleur)."),
-    calc_type: str = typer.Option("scf", "--calc-type", "-c", help="Calculation type (scf·jij·mae·dmi)."),
+    calc_type: str = typer.Option(
+        "scf", "--calc-type", "-c", help="Calculation type (scf·jij·mae·dmi)."
+    ),
     output_dir: str = typer.Option(
         "./dft_run", "--output-dir", "-o", help="Input file output directory."
     ),
@@ -1371,12 +1386,16 @@ def sim_dft(
 
 @sim_app.command("atomistic")
 def sim_atomistic(
-    engine: str = typer.Option("vampire", "--engine", "-e", help="Atomistic engine (vampire·spirit)."),
+    engine: str = typer.Option(
+        "vampire", "--engine", "-e", help="Atomistic engine (vampire·spirit)."
+    ),
     j_ij_k: float = typer.Option(
         398.0, "--j-ij-k", help="1NN exchange coupling constant [K] (default: bcc Fe Pajda 2001)."
     ),
     t_max_k: float = typer.Option(1300.0, "--t-max-k", help="Maximum temperature [K]."),
-    output_dir: str = typer.Option("./atomistic_run", "--output-dir", "-o", help="Output directory."),
+    output_dir: str = typer.Option(
+        "./atomistic_run", "--output-dir", "-o", help="Output directory."
+    ),
     mock: bool = typer.Option(True, "--mock/--real", help="Mock mode (default: True)."),
 ) -> None:
     """[P3] Generate atomistic simulation input files and parse results.
@@ -1449,7 +1468,9 @@ def sim_pipeline(
     target_temp_k: float = typer.Option(300.0, "--target-temp", help="Target temperature [K]."),
     dft_engine: str = typer.Option("qe", "--dft-engine", help="DFT engine."),
     atomistic_engine: str = typer.Option("vampire", "--atomistic-engine", help="Atomistic engine."),
-    backend: str = typer.Option("mock", "--backend", "-b", help="Execution backend (mock·hpc·gpu)."),
+    backend: str = typer.Option(
+        "mock", "--backend", "-b", help="Execution backend (mock·hpc·gpu)."
+    ),
     work_dir: str = typer.Option("./pipeline_run", "--work-dir", "-w", help="Working directory."),
 ) -> None:
     """[P3] Run the DFT → atomistic → micromagnetic → device multiscale pipeline.
@@ -1754,7 +1775,9 @@ def figure_compose_cmd(
 @figure_app.command("export")
 def figure_export_cmd(
     spec_path: str = typer.Argument(..., help="FigureSpec JSON file path."),
-    output: str | None = typer.Option(None, "--output", "-o", help="Output file stem (no extension)."),
+    output: str | None = typer.Option(
+        None, "--output", "-o", help="Output file stem (no extension)."
+    ),
     formats: list[str] | None = typer.Option(  # noqa: B008
         None, "--format", "-f", help="Export format list (default: pdf,svg)."
     ),
@@ -1824,7 +1847,9 @@ def instr_callback(ctx: typer.Context) -> None:
 
 @instr_app.command("scaffold")
 def instr_scaffold(
-    model: str = typer.Argument(..., help="Instrument model name (★ user confirmation required — no guessing)."),
+    model: str = typer.Argument(
+        ..., help="Instrument model name (★ user confirmation required — no guessing)."
+    ),
     iface: str = typer.Option("GPIB", "--iface", "-i", help="Interface (GPIB·USB·TCPIP·SERIAL)."),
     output: str | None = typer.Option(None, "--output", "-o", help="Output file path."),
     gpib_addr: int = typer.Option(1, "--gpib-addr", help="GPIB address (for GPIB interface)."),
@@ -1848,7 +1873,9 @@ def instr_scaffold(
             options={"gpib_addr": gpib_addr},
         )
 
-    console.print(f"[green]✓[/] Skeleton generated: [bold]{out_path}[/]  ({len(code.splitlines())} lines)")
+    console.print(
+        f"[green]✓[/] Skeleton generated: [bold]{out_path}[/]  ({len(code.splitlines())} lines)"
+    )
     console.print(
         f"  [yellow]★[/] Before running, pass safety validation with [bold]maglab instr check {out_path}[/]."
     )
@@ -1873,7 +1900,9 @@ def instr_scpi(
 @instr_app.command("script")
 def instr_script(
     model: str = typer.Argument(..., help="Instrument model name (★ user confirmation required)."),
-    description: str = typer.Option(..., "--description", "-d", help="Experiment description (natural language)."),
+    description: str = typer.Option(
+        ..., "--description", "-d", help="Experiment description (natural language)."
+    ),
     iface: str = typer.Option("GPIB", "--iface", "-i", help="Interface."),
     output: str | None = typer.Option(None, "--output", "-o", help="Output file path."),
     sweep_start: float = typer.Option(0.0, "--start", help="Sweep start value."),
@@ -1956,7 +1985,9 @@ def instr_check(
 @instr_app.command("ingest")
 def instr_ingest(
     model: str = typer.Argument(..., help="Instrument model name (★ user confirmation required)."),
-    manufacturer: str = typer.Option("", "--manufacturer", "-mfr", help="Manufacturer name (optional)."),
+    manufacturer: str = typer.Option(
+        "", "--manufacturer", "-mfr", help="Manufacturer name (optional)."
+    ),
     manual_path: str | None = typer.Option(
         None, "--manual-path", "-p", help="Local PDF file path (web search used if omitted)."
     ),
@@ -2003,7 +2034,10 @@ def instr_ingest(
 def instr_implement(
     description: str = typer.Argument(..., help="Experiment description in natural language."),
     instruments: str = typer.Option(
-        ..., "--instruments", "-i", help="Comma-separated model name list. ★ User confirmation required."
+        ...,
+        "--instruments",
+        "-i",
+        help="Comma-separated model name list. ★ User confirmation required.",
     ),
     safety_model: str = typer.Option("generic", "--safety-model", help="Safety profile key."),
     output_dir: str = typer.Option("outputs", "--output-dir", "-o", help="Output directory."),

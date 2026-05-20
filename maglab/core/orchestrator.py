@@ -539,9 +539,7 @@ class Orchestrator:
             try:
                 # Pass stage_model as the `model` kwarg so the backend can
                 # override its default; backends that ignore the kwarg are unaffected.
-                response = self._backend.complete(
-                    msg_objects, max_tokens=4096, model=stage_model
-                )
+                response = self._backend.complete(msg_objects, max_tokens=4096, model=stage_model)
             except Exception as exc:  # noqa: BLE001
                 log.warning("Backend call error: %s", exc)
                 return f"[Error] Backend call failed: {exc}"
@@ -869,9 +867,7 @@ class Orchestrator:
             )
             # GatewayRunner exposes notification_queue; put_nowait is sync
             self._gateway_runner.notification_queue.put_nowait(event)
-            log.info(
-                "Gateway notification queued: task_id=%s status=%s", task_id, result.status
-            )
+            log.info("Gateway notification queued: task_id=%s status=%s", task_id, result.status)
         except Exception as exc:  # noqa: BLE001
             log.warning("Failed to send gateway notification: %s", exc)
 
