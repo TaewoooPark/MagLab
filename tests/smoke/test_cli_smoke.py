@@ -56,6 +56,19 @@ def test_workspace_status_shows_current_folder_paths() -> None:
 
 
 @pytest.mark.smoke
+def test_instr_skillgen_creates_workspace_skill() -> None:
+    with runner.isolated_filesystem():
+        result = runner.invoke(
+            app,
+            ["instr", "skillgen", "SR830", "--manufacturer", "SRS"],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Instrument Skill Generated" in result.output
+        assert Path(".maglab/skills/srs-sr830/SKILL.md").is_file()
+
+
+@pytest.mark.smoke
 def test_doctor_json_reports_workspace_and_features() -> None:
     result = runner.invoke(app, ["doctor", "--no-sim", "--json"])
     assert result.exit_code == 0, result.output

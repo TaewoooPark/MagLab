@@ -119,6 +119,7 @@ _BASE_SLASH_COMMANDS: CommandTree = {
         "script": None,
         "check": None,
         "ingest": None,
+        "skillgen": None,
         "implement": None,
     },
     "/fit": None,
@@ -246,7 +247,7 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
         (
             HelpEntry("/figure spec|render|compose|export|primitives", "figure production"),
             HelpEntry(
-                "/instr scaffold|scpi|script|check|ingest|implement",
+                "/instr scaffold|scpi|script|check|ingest|skillgen|implement",
                 "instrument and manual workflows",
             ),
             HelpEntry("/mcp list|serve|add|enable|disable", "MCP tools"),

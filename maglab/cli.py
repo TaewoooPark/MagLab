@@ -2070,7 +2070,7 @@ def figure_export_cmd(
 
 instr_app = typer.Typer(
     name="instr",
-    help="[P4] Instrument code generation (scaffold·scpi·script·check·ingest·implement).",
+    help="[P4] Instrument code generation (scaffold·scpi·script·check·ingest·skillgen·implement).",
     invoke_without_command=True,
 )
 app.add_typer(instr_app)
@@ -2083,7 +2083,7 @@ def instr_callback(ctx: typer.Context) -> None:
         console.print(
             "[bold cyan][P4] maglab instr[/] — instrument code generation workflow\n"
             "\n"
-            "Subcommands: scaffold · scpi · script · check · ingest · implement\n"
+            "Subcommands: scaffold · scpi · script · check · ingest · skillgen · implement\n"
             "Help: [bold]maglab instr --help[/]"
         )
 
@@ -2271,6 +2271,70 @@ def instr_ingest(
         index = pipeline.ingest(model_key, search_result.pdf_path)
 
     console.print(f"[green]✓[/] RAG index built: {index.chunk_count} chunks → {index._db_path}")
+
+
+@instr_app.command("skillgen")
+def instr_skillgen(
+    model: str = typer.Argument(..., help="Instrument model name (★ user-confirmed)."),
+    manufacturer: str = typer.Option(
+        ...,
+        "--manufacturer",
+        "-mfr",
+        help="Manufacturer name. Required so MagLab does not guess the instrument identity.",
+    ),
+    model_key: str | None = typer.Option(
+        None,
+        "--model-key",
+        help="Manual RAG index key. Defaults to <manufacturer>-<model>.",
+    ),
+    safety_model: str = typer.Option("generic", "--safety-model", help="Safety profile key."),
+    output_dir: str | None = typer.Option(
+        None,
+        "--output-dir",
+        "-o",
+        help="Skill root directory. Default: .maglab/skills in the current workspace.",
+    ),
+) -> None:
+    """Generate a workspace-local instrument SKILL.md package from the manual index."""
+    from pathlib import Path
+
+    from maglab.instrument.skillgen import SkillGenerator
+
+    output_root = Path(output_dir) if output_dir else None
+    workspace_skill_root = Path.cwd() / ".maglab" / "skills"
+    gen = SkillGenerator(output_root=output_root)
+    with console.status(f"[dim]Generating instrument skill for {manufacturer} {model}…[/]"):
+        try:
+            pkg = gen.generate(
+                model=model,
+                manufacturer=manufacturer,
+                model_key=model_key,
+                safety_model=safety_model,
+            )
+        except Exception as exc:  # noqa: BLE001
+            console.print(f"[red]Skill generation failed:[/] {exc}")
+            raise typer.Exit(1) from exc
+
+    table = Table(title="Instrument Skill Generated", show_lines=False)
+    table.add_column("Field", style="cyan")
+    table.add_column("Value")
+    table.add_row("name", pkg.name)
+    table.add_row("directory", str(pkg.skill_dir))
+    table.add_row("manual chunks", str(pkg.chunk_count))
+    table.add_row("safety-critical", str(pkg.disable_model_invocation))
+    console.print(table)
+    in_workspace_skill_root = pkg.skill_dir.resolve().is_relative_to(
+        workspace_skill_root.resolve()
+    )
+    if output_root is None or in_workspace_skill_root:
+        console.print(
+            "[green]✓[/] Skill is now discoverable in this workspace via `maglab skill list`."
+        )
+    else:
+        console.print(
+            "[yellow]Generated outside the default skill search path.[/] Move it under "
+            "`.maglab/skills` or `~/.local/share/maglab/skills` for automatic discovery."
+        )
 
 
 @instr_app.command("implement")

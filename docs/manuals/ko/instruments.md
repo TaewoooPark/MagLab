@@ -21,6 +21,7 @@ maglab instr script "Keithley 2400" --description "field sweep Hall voltage meas
 maglab instr check hall_sweep.py
 
 maglab instr ingest "Keithley 2400" --manufacturer Keithley --manual-path manuals/keithley_2400.pdf
+maglab instr skillgen "Keithley 2400" --manufacturer Keithley --safety-model keithley-2400
 maglab instr implement "Measure Hall voltage while sweeping field" --instruments "Keithley 2400,Lakeshore 335"
 ```
 
@@ -37,10 +38,11 @@ Instrument 명령은 의도적으로 보수적으로 설계되어 있습니다.
 ## 일반적인 workflow
 
 1. `instr ingest`로 instrument manual을 수집합니다.
-2. driver를 scaffold하거나 measurement script를 생성합니다.
-3. 생성 script에 `instr check`를 실행합니다.
-4. address, current/voltage/temperature limit, timing, shutdown을 검토합니다.
-5. 실제 lab environment에 맞게 수정한 뒤 실행합니다.
+2. `instr skillgen`으로 현재 workspace 전용 instrument skill을 생성합니다.
+3. driver를 scaffold하거나 measurement script를 생성합니다.
+4. 생성 script에 `instr check`를 실행합니다.
+5. address, current/voltage/temperature limit, timing, shutdown을 검토합니다.
+6. 실제 lab environment에 맞게 수정한 뒤 실행합니다.
 
 ## Manual RAG
 
@@ -49,7 +51,11 @@ safety constraint가 애매할 때 유용합니다.
 
 ```sh
 maglab instr ingest "SR830" --manufacturer Stanford --manual-path manuals/sr830.pdf
+maglab instr skillgen "SR830" --manufacturer Stanford
 ```
+
+생성된 skill은 기본적으로 `.maglab/skills`에 저장됩니다. 따라서 전역 설치된
+MagLab package를 수정하지 않고, 현재 연구 workspace와 함께 이동합니다.
 
 ## 다음 단계
 

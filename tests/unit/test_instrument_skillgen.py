@@ -87,6 +87,15 @@ def test_skill_generator_creates_directory():
         assert pkg.skill_dir.is_dir()
 
 
+def test_skill_generator_default_output_is_workspace_local(tmp_path: Path, monkeypatch):
+    """Generated skills should default to the current workspace, not the package bundle."""
+    monkeypatch.chdir(tmp_path)
+    gen = SkillGenerator()
+    pkg = gen.generate(model="SR830", manufacturer="SRS")
+    assert pkg.skill_dir == tmp_path / ".maglab" / "skills" / "srs-sr830"
+    assert pkg.ok
+
+
 def test_skill_generator_skill_md_exists():
     """SKILL.md file should be created."""
     with tempfile.TemporaryDirectory() as tmpdir:

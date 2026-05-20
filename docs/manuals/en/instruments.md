@@ -21,6 +21,7 @@ maglab instr script "Keithley 2400" --description "field sweep Hall voltage meas
 maglab instr check hall_sweep.py
 
 maglab instr ingest "Keithley 2400" --manufacturer Keithley --manual-path manuals/keithley_2400.pdf
+maglab instr skillgen "Keithley 2400" --manufacturer Keithley --safety-model keithley-2400
 maglab instr implement "Measure Hall voltage while sweeping field" --instruments "Keithley 2400,Lakeshore 335"
 ```
 
@@ -37,10 +38,11 @@ Instrument commands are intentionally conservative:
 ## Typical Workflow
 
 1. Collect the instrument manual with `instr ingest`.
-2. Scaffold a driver or generate a measurement script.
-3. Run `instr check` against the generated script.
-4. Review addresses, current/voltage/temperature limits, timing, and shutdown.
-5. Only then adapt the script for the real lab environment.
+2. Generate a workspace-local instrument skill with `instr skillgen`.
+3. Scaffold a driver or generate a measurement script.
+4. Run `instr check` against the generated script.
+5. Review addresses, current/voltage/temperature limits, timing, and shutdown.
+6. Only then adapt the script for the real lab environment.
 
 ## Manual RAG
 
@@ -49,7 +51,12 @@ non-obvious command names or safety constraints.
 
 ```sh
 maglab instr ingest "SR830" --manufacturer Stanford --manual-path manuals/sr830.pdf
+maglab instr skillgen "SR830" --manufacturer Stanford
 ```
+
+Generated skills are written to `.maglab/skills` by default, so they travel
+with the current research workspace instead of modifying the installed MagLab
+package.
 
 ## Handoff
 

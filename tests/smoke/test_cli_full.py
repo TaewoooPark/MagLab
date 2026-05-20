@@ -86,6 +86,13 @@ _SUBAPP_HELP_ARGS: list[list[str]] = [
     ["figure", "primitives", "show", "--help"],
     # P4 — instr
     ["instr", "--help"],
+    ["instr", "scaffold", "--help"],
+    ["instr", "scpi", "--help"],
+    ["instr", "script", "--help"],
+    ["instr", "check", "--help"],
+    ["instr", "ingest", "--help"],
+    ["instr", "skillgen", "--help"],
+    ["instr", "implement", "--help"],
     # P2 — fit · analyze · device
     ["fit", "--help"],
     ["analyze", "--help"],

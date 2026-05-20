@@ -6,7 +6,7 @@ open-standard skill package.
 
 Generated file structure:
 ```
-skills/<manufacturer>-<model>/
+.maglab/skills/<manufacturer>-<model>/
   SKILL.md          — frontmatter + body (SKILL.md open standard)
   SCPI_REFERENCE.md — full SCPI command table
   LIMITS.md         — safety limits and interlocks
@@ -104,11 +104,12 @@ class SkillGenerator:
         """Initialize the generator.
 
         Args:
-            output_root: Skill output root (default: skills/ in the repo root).
+            output_root: Skill output root (default: .maglab/skills in the current workspace).
             rag_pipeline: RAG pipeline; uses the default pipeline when None.
         """
-        # Default output_root: skills/ directory at the package root
-        self._output_root = output_root or (Path(__file__).parent.parent.parent / "skills")
+        # Generated instrument skills are workspace-local by default. A globally
+        # installed MagLab package is not a writable project workspace.
+        self._output_root = output_root or (Path.cwd() / ".maglab" / "skills")
         self._rag = rag_pipeline or ManualRAGPipeline()
 
     def generate(

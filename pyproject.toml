@@ -78,6 +78,31 @@ maglab = "maglab.__main__:main"
 [tool.hatch.build.targets.wheel]
 packages = ["maglab"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"MAGLAB.md" = "MAGLAB.md"
+"harness.manifest.json" = "harness.manifest.json"
+"agents" = "agents"
+"skills" = "skills"
+"themes" = "themes"
+"docs/manuals" = "docs/manuals"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/MAGLAB.md",
+  "/PLAN.md",
+  "/README.md",
+  "/README.ko.md",
+  "/agents",
+  "/docs/manuals",
+  "/harness.manifest.json",
+  "/maglab",
+  "/plan",
+  "/pyproject.toml",
+  "/skills",
+  "/tests",
+  "/themes",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

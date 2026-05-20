@@ -168,6 +168,7 @@ maglab sim pipeline --structure bcc_fe --scales dft,atomistic,micro,device --bac
 
 ```sh
 maglab instr ingest "Keithley 2400" --manufacturer Keithley --manual-path manuals/keithley_2400.pdf
+maglab instr skillgen "Keithley 2400" --manufacturer Keithley --safety-model keithley-2400
 maglab instr script "Keithley 2400" --description "field sweep Hall voltage measurement" --output hall_sweep.py
 maglab instr check hall_sweep.py
 ```
@@ -202,7 +203,7 @@ analyze   load · model · consistency · symmetry
 device    fom
 figure    spec · render · compose · export
           primitives list · show
-instr     scaffold · scpi · script · check · ingest · implement
+instr     scaffold · scpi · script · check · ingest · skillgen · implement
 lit       search · authors · keywords · journal · graph
 lab       note · note-list · plan
 review    MANUSCRIPT
