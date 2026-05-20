@@ -326,13 +326,25 @@ def _is_ignored_workspace_path(path: Path, root: Path) -> bool:
     read_only=True,
     description="Summarize the active MagLab workspace before project-specific work.",
 )
-def workspace_context(max_entries: int = 60, max_maglab_chars: int = 2_000) -> dict[str, Any]:
+def workspace_context(
+    max_entries: int = 60,
+    max_maglab_chars: int = 2_000,
+    max_depth: int | None = None,
+    entry_type: str = "all",
+) -> dict[str, Any]:
     """Summarize the active MagLab workspace before project-specific work."""
     from maglab.workspace import workspace_context as _workspace_context
 
-    context = _workspace_context(max_entries=max_entries, max_maglab_chars=max_maglab_chars)
+    context = _workspace_context(
+        max_entries=max_entries,
+        max_maglab_chars=max_maglab_chars,
+        max_depth=max_depth,
+        entry_type=entry_type,
+    )
     data = context.to_dict()
     data["ok"] = True
+    data["entry_type"] = entry_type
+    data["max_depth"] = max_depth
     data["prompt"] = context.to_prompt()
     return data
 
@@ -341,7 +353,11 @@ def workspace_context(max_entries: int = 60, max_maglab_chars: int = 2_000) -> d
     read_only=True,
     description="List visible files in the active MagLab workspace.",
 )
-def workspace_tree(max_entries: int = 80) -> dict[str, Any]:
+def workspace_tree(
+    max_entries: int = 80,
+    max_depth: int | None = None,
+    entry_type: str = "all",
+) -> dict[str, Any]:
     """List visible files in the active MagLab workspace."""
     from maglab.workspace import iter_workspace_entries, workspace_root
 
@@ -349,7 +365,14 @@ def workspace_tree(max_entries: int = 80) -> dict[str, Any]:
     return {
         "ok": True,
         "root": str(root),
-        "entries": iter_workspace_entries(root, max_entries=max_entries),
+        "entry_type": entry_type,
+        "max_depth": max_depth,
+        "entries": iter_workspace_entries(
+            root,
+            max_entries=max_entries,
+            max_depth=max_depth,
+            entry_type=entry_type,
+        ),
     }
 
 

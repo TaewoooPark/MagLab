@@ -11,6 +11,7 @@ keeps that distinction explicit:
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -73,6 +74,37 @@ _PROJECT_CONTEXT_DIRS = (
     "src",
     "maglab",
 )
+
+_DOC_DIR_NAMES = {"docs", "manuals", "plan", "notes", "papers", "paper", "references"}
+_DOC_SUFFIXES = {".md", ".rst", ".txt", ".tex", ".bib", ".pdf"}
+_CODE_DIR_NAMES = {"maglab", "src", "tests", "scripts", "notebooks", "examples"}
+_CODE_SUFFIXES = {
+    ".py",
+    ".ipynb",
+    ".toml",
+    ".cfg",
+    ".ini",
+    ".yaml",
+    ".yml",
+    ".json",
+    ".sh",
+}
+_DATA_DIR_NAMES = {"data", "materials", "figures", "outputs", "results", "simulations"}
+_DATA_FILE_NAMES = {"figure_spec.json", "pipeline_result.json"}
+_DATA_SUFFIXES = {
+    ".csv",
+    ".tsv",
+    ".h5",
+    ".hdf5",
+    ".dat",
+    ".npy",
+    ".npz",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".svg",
+    ".eps",
+}
 
 
 @dataclass(frozen=True)
@@ -158,8 +190,82 @@ def workspace_info(path: Path | None = None) -> WorkspaceInfo:
     )
 
 
+def _is_ignored_relative_path(rel_posix: str) -> bool:
+    """Return True when a relative path is intentionally hidden by default."""
+    parts = rel_posix.split("/")
+    if any(part in _IGNORED_NAMES for part in parts):
+        return True
+    return any(
+        rel_posix == prefix or rel_posix.startswith(f"{prefix}/")
+        for prefix in _IGNORED_REL_PREFIXES
+    )
+
+
+def _matches_entry_type(rel: Path, *, is_dir: bool, entry_type: str | None) -> bool:
+    """Return True if a relative path matches a workspace tree filter."""
+    if entry_type is None or entry_type in {"", "all"}:
+        return True
+    normalized = entry_type.lower().strip()
+    if normalized == "changed":
+        return True
+    parts = set(rel.parts)
+    suffix = rel.suffix.lower()
+    if normalized == "docs":
+        return bool(parts & _DOC_DIR_NAMES) or suffix in _DOC_SUFFIXES
+    if normalized == "code":
+        return bool(parts & _CODE_DIR_NAMES) or suffix in _CODE_SUFFIXES
+    if normalized == "data":
+        return (
+            bool(parts & _DATA_DIR_NAMES)
+            or rel.name in _DATA_FILE_NAMES
+            or suffix in _DATA_SUFFIXES
+        )
+    raise ValueError("entry_type must be one of: all, docs, code, data, changed")
+
+
+def _changed_workspace_entries(
+    base: Path, *, include_ignored: bool, max_entries: int
+) -> tuple[list[str], bool]:
+    """Return git changed/untracked paths visible to MagLab."""
+    try:
+        proc = subprocess.run(
+            ["git", "status", "--porcelain=v1", "--untracked-files=all", "--"],
+            cwd=base,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return [], False
+    if proc.returncode != 0:
+        return [], False
+
+    entries: list[str] = []
+    for line in proc.stdout.splitlines():
+        if not line:
+            continue
+        rel_posix = line[3:].strip()
+        if " -> " in rel_posix:
+            rel_posix = rel_posix.rsplit(" -> ", 1)[1]
+        rel_posix = rel_posix.strip('"')
+        if not rel_posix:
+            continue
+        if not include_ignored and _is_ignored_relative_path(rel_posix):
+            continue
+        marker = "/" if (base / rel_posix).is_dir() else ""
+        entries.append(f"{rel_posix}{marker}")
+        if len(entries) >= max_entries:
+            return entries, True
+    return entries, False
+
+
 def _workspace_entries_with_status(
-    root: Path | None = None, *, max_entries: int = 80
+    root: Path | None = None,
+    *,
+    max_entries: int = 80,
+    max_depth: int | None = None,
+    entry_type: str | None = None,
+    include_ignored: bool = False,
 ) -> tuple[list[str], bool]:
     """Return a compact tree and whether it was truncated.
 
@@ -167,6 +273,11 @@ def _workspace_entries_with_status(
     ``Path.rglob`` so ignored heavy folders are never descended into.
     """
     base = workspace_root(root)
+    if entry_type and entry_type.lower().strip() == "changed":
+        return _changed_workspace_entries(
+            base, include_ignored=include_ignored, max_entries=max_entries
+        )
+
     entries: list[str] = []
     truncated = False
     stack: list[Path] = [base]
@@ -178,32 +289,46 @@ def _workspace_entries_with_status(
             continue
         dirs: list[Path] = []
         for path in children:
-            if path.name in _IGNORED_NAMES:
+            if not include_ignored and path.name in _IGNORED_NAMES:
                 continue
             try:
                 rel = path.relative_to(base)
             except ValueError:
                 continue
             rel_posix = rel.as_posix()
-            if any(
-                rel_posix == prefix or rel_posix.startswith(f"{prefix}/")
-                for prefix in _IGNORED_REL_PREFIXES
-            ):
+            if not include_ignored and _is_ignored_relative_path(rel_posix):
+                continue
+            depth = len(rel.parts)
+            if max_depth is not None and depth > max_depth:
                 continue
             marker = "/" if path.is_dir() else ""
-            entries.append(f"{rel_posix}{marker}")
-            if len(entries) >= max_entries:
-                truncated = True
-                return entries, truncated
-            if path.is_dir():
+            if _matches_entry_type(rel, is_dir=path.is_dir(), entry_type=entry_type):
+                entries.append(f"{rel_posix}{marker}")
+                if len(entries) >= max_entries:
+                    truncated = True
+                    return entries, truncated
+            if path.is_dir() and (max_depth is None or depth < max_depth):
                 dirs.append(path)
         stack.extend(reversed(dirs))
     return entries, truncated
 
 
-def iter_workspace_entries(root: Path | None = None, *, max_entries: int = 80) -> list[str]:
+def iter_workspace_entries(
+    root: Path | None = None,
+    *,
+    max_entries: int = 80,
+    max_depth: int | None = None,
+    entry_type: str | None = None,
+    include_ignored: bool = False,
+) -> list[str]:
     """Return a compact, deterministic file tree for prompt/context display."""
-    entries, _truncated = _workspace_entries_with_status(root, max_entries=max_entries)
+    entries, _truncated = _workspace_entries_with_status(
+        root,
+        max_entries=max_entries,
+        max_depth=max_depth,
+        entry_type=entry_type,
+        include_ignored=include_ignored,
+    )
     return entries
 
 
@@ -234,10 +359,19 @@ def workspace_context(
     *,
     max_entries: int = 60,
     max_maglab_chars: int = 2_000,
+    max_depth: int | None = None,
+    entry_type: str | None = None,
+    include_ignored: bool = False,
 ) -> WorkspaceContext:
     """Collect bounded workspace context for first-turn prompts and tools."""
     info = workspace_info(root)
-    entries, truncated = _workspace_entries_with_status(info.root, max_entries=max_entries)
+    entries, truncated = _workspace_entries_with_status(
+        info.root,
+        max_entries=max_entries,
+        max_depth=max_depth,
+        entry_type=entry_type,
+        include_ignored=include_ignored,
+    )
     return WorkspaceContext(
         root=info.root,
         maglab_md=info.maglab_md,

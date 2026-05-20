@@ -171,7 +171,9 @@ def _ux_contract_report(
                 f"cwd={workspace['root']}; MAGLAB.md="
                 f"{workspace.get('maglab_md') or 'not initialized'}"
             ),
-            command="maglab workspace status · maglab workspace tree · maglab workspace init",
+            command=(
+                "maglab workspace brief · maglab workspace tree --summary · maglab workspace init"
+            ),
         ),
         UXDoctor(
             key="llm-files",

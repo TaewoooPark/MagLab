@@ -13,6 +13,8 @@ maglab -p "Plan a reproducible SOT analysis workflow for Pt/CoFeB/MgO"
 maglab doctor
 maglab doctor --smoke
 maglab workspace brief
+maglab workspace tree --summary --type docs --max-depth 2
+maglab workspace tree --changed
 ```
 
 The REPL is the natural-language surface. It should route work into deterministic
@@ -24,6 +26,10 @@ external solvers, and simulation readiness without printing secrets.
 By default it performs fast registration checks; add `--smoke` when you want a
 live LLM sentinel prompt to verify that delegated CLI/API output is parsed as
 plain model content.
+
+Use `workspace brief` before asking project-specific questions. Use
+`workspace tree --type docs|code|data`, `--max-depth`, and `--changed` when the
+folder is large and you want MagLab or the model to focus on the right slice.
 
 ## Credentials and Configuration
 

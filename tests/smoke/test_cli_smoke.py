@@ -80,6 +80,47 @@ def test_workspace_tree_json_reports_visible_entries() -> None:
 
 
 @pytest.mark.smoke
+def test_workspace_tree_filters_docs_code_data() -> None:
+    with runner.isolated_filesystem():
+        Path("README.md").write_text("# Demo\n", encoding="utf-8")
+        Path("maglab").mkdir()
+        Path("maglab/cli.py").write_text("print('x')\n", encoding="utf-8")
+        Path("data").mkdir()
+        Path("data/sample.csv").write_text("x,y\n0,0\n", encoding="utf-8")
+
+        docs = runner.invoke(app, ["workspace", "tree", "--type", "docs", "--json"])
+        code = runner.invoke(app, ["workspace", "tree", "--type", "code", "--json"])
+        data = runner.invoke(app, ["workspace", "tree", "--type", "data", "--json"])
+
+    assert docs.exit_code == 0, docs.output
+    assert code.exit_code == 0, code.output
+    assert data.exit_code == 0, data.output
+    assert "README.md" in json.loads(docs.output)["entries"]
+    assert "maglab/cli.py" in json.loads(code.output)["entries"]
+    assert "data/sample.csv" in json.loads(data.output)["entries"]
+
+
+@pytest.mark.smoke
+def test_workspace_tree_depth_and_all_flags() -> None:
+    with runner.isolated_filesystem():
+        Path(".maglab/runtime").mkdir(parents=True)
+        Path(".maglab/runtime/budget.db").write_text("x\n", encoding="utf-8")
+        Path("a/b").mkdir(parents=True)
+        Path("a/b/c.md").write_text("# deep\n", encoding="utf-8")
+
+        shallow = runner.invoke(app, ["workspace", "tree", "--max-depth", "1", "--json"])
+        default = runner.invoke(app, ["workspace", "tree", "--json"])
+        full = runner.invoke(app, ["workspace", "tree", "--all", "--json"])
+
+    assert shallow.exit_code == 0, shallow.output
+    assert default.exit_code == 0, default.output
+    assert full.exit_code == 0, full.output
+    assert all("/" not in entry.rstrip("/") for entry in json.loads(shallow.output)["entries"])
+    assert all(".maglab/runtime" not in entry for entry in json.loads(default.output)["entries"])
+    assert any(".maglab/runtime" in entry for entry in json.loads(full.output)["entries"])
+
+
+@pytest.mark.smoke
 def test_workspace_brief_prioritizes_key_paths() -> None:
     with runner.isolated_filesystem():
         Path("README.md").write_text("# Demo\n", encoding="utf-8")

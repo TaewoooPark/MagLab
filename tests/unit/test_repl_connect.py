@@ -87,11 +87,21 @@ def test_direct_setup_feature_slash_routes_to_feature_setup() -> None:
     assert "console" in kwargs
 
 
-def test_help_slash_renders_command_tree() -> None:
+def test_help_slash_renders_quick_help_by_default() -> None:
+    cfg = Config()
+
+    with patch("maglab.commands.tree.render_quick_help") as mock_render:
+        keep_running = _handle_slash("/help", cfg)
+
+    assert keep_running is True
+    mock_render.assert_called_once()
+
+
+def test_help_all_slash_renders_command_tree() -> None:
     cfg = Config()
 
     with patch("maglab.commands.tree.render_slash_help") as mock_render:
-        keep_running = _handle_slash("/help", cfg)
+        keep_running = _handle_slash("/help all", cfg)
 
     assert keep_running is True
     mock_render.assert_called_once()

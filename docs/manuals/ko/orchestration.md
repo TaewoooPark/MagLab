@@ -13,6 +13,8 @@ maglab -p "Plan a reproducible SOT analysis workflow for Pt/CoFeB/MgO"
 maglab doctor
 maglab doctor --smoke
 maglab workspace brief
+maglab workspace tree --summary --type docs --max-depth 2
+maglab workspace tree --changed
 ```
 
 REPL은 자연어 표면입니다. deterministic tool, notebook, literature workflow,
@@ -24,6 +26,10 @@ configured backend, optional research extra, 외부 solver, simulation readiness
 기본 doctor는 빠른 등록 상태 확인만 수행합니다. 실제 LLM sentinel prompt까지
 보내 delegated CLI/API 출력이 순수 model content로 parse되는지 검증하려면
 `maglab doctor --smoke`를 사용하세요.
+
+프로젝트 질문을 하기 전에는 `workspace brief`로 현재 폴더를 먼저 요약하세요.
+폴더가 크면 `workspace tree --type docs|code|data`, `--max-depth`,
+`--changed`로 MagLab이나 모델이 볼 범위를 좁힐 수 있습니다.
 
 ## Credential과 configuration
 

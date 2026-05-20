@@ -1430,11 +1430,22 @@ def workspace_status(
 @workspace_app.command("brief")
 def workspace_brief(
     max_entries: int = typer.Option(20, "--max", "-n", help="Maximum visible entries."),
+    entry_type: str = typer.Option(
+        "all",
+        "--type",
+        help="Filter visible entries: all·docs·code·data·changed.",
+    ),
+    changed: bool = typer.Option(False, "--changed", help="Show git changed/untracked paths."),
 ) -> None:
     """Show a one-screen summary of the active workspace."""
     from maglab.workspace import workspace_context
 
-    context = workspace_context(max_entries=max_entries)
+    selected_type = "changed" if changed else entry_type
+    try:
+        context = workspace_context(max_entries=max_entries, entry_type=selected_type)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(2) from exc
     console.print(f"[bold]Workspace:[/] {context.root}")
     console.print(
         "[bold]MAGLAB.md:[/] "
@@ -1469,6 +1480,18 @@ def workspace_init() -> None:
 @workspace_app.command("tree")
 def workspace_tree(
     max_entries: int = typer.Option(80, "--max", "-n", help="Maximum entries to display."),
+    max_depth: int | None = typer.Option(
+        None,
+        "--max-depth",
+        help="Maximum directory depth to walk from the workspace root.",
+    ),
+    entry_type: str = typer.Option(
+        "all",
+        "--type",
+        help="Filter visible entries: all·docs·code·data·changed.",
+    ),
+    changed: bool = typer.Option(False, "--changed", help="Show git changed/untracked paths."),
+    include_ignored: bool = typer.Option(False, "--all", help="Include normally hidden paths."),
     summary: bool = typer.Option(
         False,
         "--summary",
@@ -1480,9 +1503,24 @@ def workspace_tree(
     from maglab.workspace import workspace_context, workspace_root
 
     root = workspace_root()
-    context = workspace_context(root, max_entries=max_entries)
+    selected_type = "changed" if changed else entry_type
+    try:
+        context = workspace_context(
+            root,
+            max_entries=max_entries,
+            max_depth=max_depth,
+            entry_type=selected_type,
+            include_ignored=include_ignored,
+        )
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(2) from exc
     if json_output:
-        print(json.dumps(context.to_dict(), indent=2, ensure_ascii=False))
+        payload = context.to_dict()
+        payload["entry_type"] = selected_type
+        payload["max_depth"] = max_depth
+        payload["include_ignored"] = include_ignored
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
         return
 
     console.print(f"[bold]Workspace:[/] {root}")

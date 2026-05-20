@@ -44,7 +44,19 @@ _BASE_SLASH_COMMANDS: CommandTree = {
     "/quit": None,
     "/exit": None,
     "/reset": {"config": None, "defaults": None},
-    "/workspace": {"status": None, "init": None, "tree": None, "brief": None},
+    "/workspace": {
+        "status": None,
+        "init": None,
+        "brief": {
+            "--type": {"all": None, "docs": None, "code": None, "data": None, "changed": None}
+        },
+        "tree": {
+            "--summary": None,
+            "--changed": None,
+            "--all": None,
+            "--type": {"all": None, "docs": None, "code": None, "data": None, "changed": None},
+        },
+    },
     "/install": None,
     "/manual": {"en": None, "ko": None},
     "/doctor": None,
@@ -207,7 +219,10 @@ HELP_SECTIONS: tuple[HelpEntry, ...] = (
             HelpEntry("/workspace status", "show current folder, config, data, cache paths"),
             HelpEntry("/workspace brief", "summarize the active folder in one screen"),
             HelpEntry("/workspace init", "create a local MAGLAB.md workspace marker"),
-            HelpEntry("/workspace tree", "show the files MagLab sees in this folder"),
+            HelpEntry(
+                "/workspace tree --type docs|code|data --changed",
+                "show filtered files MagLab sees in this folder",
+            ),
             HelpEntry("/setup <feature>", "show package and external-tool setup guidance"),
             HelpEntry("/report inventory", "list generated manuscript, slide, and poster files"),
             HelpEntry("/prov summary", "list provenance sidecars and optional W3C PROV DB stats"),

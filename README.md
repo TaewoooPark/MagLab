@@ -91,6 +91,8 @@ cd ~/research/my_spintronics_project
 maglab workspace init
 maglab workspace status
 maglab workspace brief
+maglab workspace tree --summary --type docs --max-depth 2
+maglab workspace tree --changed
 maglab
 ```
 
@@ -252,7 +254,7 @@ manual    [topic] --lang en|ko
 config    show · path · restore · reset
 install
 doctor
-workspace status · init · tree
+workspace status · brief · init · tree
 theme     list · set
 version · info
 ```

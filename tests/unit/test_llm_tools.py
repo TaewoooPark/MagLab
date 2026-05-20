@@ -89,6 +89,26 @@ def test_workspace_context_prunes_ignored_heavy_directories(
     assert all(".playwright-mcp" not in entry for entry in result["entries"])
 
 
+def test_workspace_tree_tool_supports_type_and_depth_filters(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "analysis.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "sample.csv").write_text("x,y\n0,0\n", encoding="utf-8")
+
+    docs = call_tool("workspace_tree", {"entry_type": "docs", "max_depth": 1})
+    code = call_tool("workspace_tree", {"entry_type": "code"})
+    data = call_tool("workspace_tree", {"entry_type": "data"})
+
+    assert docs["ok"] is True
+    assert docs["entries"] == ["README.md"]
+    assert "src/analysis.py" in code["entries"]
+    assert "data/sample.csv" in data["entries"]
+
+
 def test_workspace_search_returns_line_matches(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
