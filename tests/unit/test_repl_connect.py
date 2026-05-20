@@ -59,7 +59,7 @@ def test_connect_direct_provider_slash_updates_routing(tmp_path: Path) -> None:
     assert cfg.backend.mode == "api"
     assert cfg.backend.api.provider == "qwen"
     assert cfg.backend.api.model == "qwen3.5-plus"
-    assert cfg.routing.plan == "dashscope/qwen3.6-plus"
+    assert cfg.routing.plan == "dashscope/qwen3.6-max-preview"
     mock_store.assert_called_once_with("qwen", "dash-key")
 
 
@@ -116,6 +116,29 @@ def test_workspace_slash_dispatches_to_cli_command() -> None:
     assert keep_running is True
     args, _ = mock_run.call_args
     assert args[0] == ["/workspace", "status"]
+
+
+def test_skill_create_slash_dispatches_to_cli_command() -> None:
+    cfg = Config()
+
+    with patch("maglab.repl._run_cli_slash") as mock_run:
+        keep_running = _handle_slash('/skill create demo --description "Demo skill"', cfg)
+
+    assert keep_running is True
+    args, _ = mock_run.call_args
+    assert args[0] == ["/skill", "create", "demo", "--description", "Demo skill"]
+
+
+def test_skill_list_slash_uses_fast_catalog_view(capsys) -> None:
+    cfg = Config()
+
+    with patch("maglab.repl._run_cli_slash") as mock_run:
+        keep_running = _handle_slash("/skill list", cfg)
+
+    assert keep_running is True
+    mock_run.assert_not_called()
+    output = capsys.readouterr().out
+    assert output.strip()
 
 
 def test_workspace_startup_note_reports_folder_context(tmp_path: Path, monkeypatch) -> None:

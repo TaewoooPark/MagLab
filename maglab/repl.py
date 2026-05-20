@@ -139,7 +139,7 @@ def _handle_slash(line: str, config: Config) -> bool:
         _handle_setup(parts, cmd)
         return True
 
-    if cmd == "/skill":
+    if cmd == "/skill" and (len(parts) == 1 or parts[1] == "list"):
         try:
             from maglab.core.skills import SkillLoader
 

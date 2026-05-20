@@ -49,10 +49,14 @@ def test_provider_profile_contains_maglab_secret_envs() -> None:
 def test_model_choices_include_current_provider_defaults() -> None:
     assert model_choices("anthropic")[0] == "claude-opus-4-7"
     assert model_choices("grok")[0] == "xai/grok-4.3"
+    assert all("grok-4.20" not in model for model in model_choices("grok"))
     assert "deepseek/deepseek-v4-pro" in model_choices("deepseek")
     assert model_choices("qwen")[0] == "dashscope/qwen3.6-plus"
+    assert "dashscope/qwen3.6-max-preview" in model_choices("qwen")
     assert "moonshot/kimi-k2.6" in model_choices("kimi")
+    assert all("kimi-k2-thinking" not in model for model in model_choices("kimi"))
     assert "gemini/gemini-3.5-flash" in model_choices("gemini")
+    assert "gemini/gemini-3-flash-preview" in model_choices("gemini")
     assert model_choices("openai")[0] == "gpt-5.5"
     assert "gpt-5.5" in delegated_model_choices("codex")
 
