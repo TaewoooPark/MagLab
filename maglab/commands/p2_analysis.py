@@ -16,6 +16,7 @@ Design basis: plan/04-analysis.md §11, plan/11-appendices.md Appendix A,
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -154,7 +155,98 @@ def register(app: typer.Typer) -> None:
     """Attach P2 analysis commands to the root maglab app."""
     app.add_typer(analyze_app)
     app.add_typer(device_app)
-    app.command("fit")(fit_command)
+    app.command("fit")(_make_fit_command())
+
+
+def _make_fit_command():
+    """Build a fresh Typer command so tests can register P2 on multiple apps."""
+
+    def command(
+        effect: Annotated[
+            str,
+            typer.Option(
+                "--effect",
+                "-e",
+                help="Effect name (e.g. anomalous_hall, fmr_kittel, stfmr). "
+                "Pass 'list' to see all registered effects.",
+            ),
+        ],
+        data: Annotated[Path, typer.Argument(help="CSV data file path.")],
+        geometry: Annotated[
+            str | None,
+            typer.Option(
+                "--geometry",
+                "-g",
+                help="Measurement geometry JSON string (optional, effect-specific).",
+            ),
+        ] = None,
+        method: Annotated[
+            str,
+            typer.Option(
+                "--method",
+                "-m",
+                help="lmfit minimisation method (leastsq · least_squares · nelder).",
+            ),
+        ] = "leastsq",
+        discover: Annotated[
+            bool,
+            typer.Option(
+                "--discover",
+                help=(
+                    "Run the deterministic bilevel inner loop: use the selected effect model form, "
+                    "multi-start initial values, and report AIC/BIC. No LLM proposes numbers."
+                ),
+            ),
+        ] = False,
+        init_grid_json: Annotated[
+            str | None,
+            typer.Option(
+                "--init-grid",
+                help="JSON initial-value grid for --discover, e.g. '{\"R_H\":[-1e-10,0,1e-10]}'.",
+            ),
+        ] = None,
+        max_attempts: Annotated[
+            int,
+            typer.Option(
+                "--max-attempts",
+                help="Maximum deterministic inner-loop attempts for --discover.",
+            ),
+        ] = 10,
+        x_col: Annotated[
+            str | None,
+            typer.Option(
+                "--x-col",
+                help="Independent-variable column for --discover. Defaults to the first required column.",
+            ),
+        ] = None,
+        y_col: Annotated[
+            str | None,
+            typer.Option(
+                "--y-col",
+                help="Dependent-variable column for --discover. Defaults to the last required column.",
+            ),
+        ] = None,
+        show_refs: Annotated[
+            bool,
+            typer.Option("--refs", help="Print primary literature references."),
+        ] = False,
+    ) -> None:
+        fit_command(
+            effect=effect,
+            data=data,
+            geometry=geometry,
+            method=method,
+            discover=discover,
+            init_grid_json=init_grid_json,
+            max_attempts=max_attempts,
+            x_col=x_col,
+            y_col=y_col,
+            show_refs=show_refs,
+        )
+
+    command.__name__ = "fit_command"
+    command.__doc__ = fit_command.__doc__
+    return command
 
 
 # ===========================================================================
@@ -163,16 +255,16 @@ def register(app: typer.Typer) -> None:
 
 
 def fit_command(
-    effect: str = _FIT_EFFECT_OPT,
-    data: Path = _FIT_DATA_ARG,
-    geometry: str | None = _FIT_GEO_OPT,
-    method: str = _FIT_METHOD_OPT,
-    discover: bool = _FIT_DISCOVER_OPT,
-    init_grid_json: str | None = _FIT_INIT_GRID_OPT,
-    max_attempts: int = _FIT_MAX_ATTEMPTS_OPT,
-    x_col: str | None = _FIT_X_COL_OPT,
-    y_col: str | None = _FIT_Y_COL_OPT,
-    show_refs: bool = _FIT_REFS_OPT,
+    effect: str,
+    data: Path,
+    geometry: str | None = None,
+    method: str = "leastsq",
+    discover: bool = False,
+    init_grid_json: str | None = None,
+    max_attempts: int = 10,
+    x_col: str | None = None,
+    y_col: str | None = None,
+    show_refs: bool = False,
 ) -> None:
     """[P2] Fit a known effect model to experimental data.
 
