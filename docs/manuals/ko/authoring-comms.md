@@ -42,9 +42,11 @@ maglab present templates
 maglab present templates --detail
 maglab present templates --kind poster
 maglab present slides "Main results and verified figures" --template aps-12min --format beamer --n-slides 10
+maglab present slides "Main results and verified figures" --template aps-12min --format beamer --dry-run
 maglab present slides "Main results and verified figures" --format pptx
 maglab present poster "Main results and verified figures" --size A0 --format svg
 maglab present poster "Main results and verified figures" --template aps-march-poster --format svg
+maglab present poster "Main results and verified figures" --template aps-march-poster --format svg --dry-run
 maglab present poster "Main results and verified figures" --size A0 --format beamerposter
 ```
 
@@ -52,6 +54,11 @@ Template profile은 APS March/April contributed oral talk(발표 10분 + 질문 
 긴 seminar deck, internal update, APS March/April 96 x 48 inch poster board,
 A0 SVG/PDF poster, A0 beamerposter LaTeX source를 포함합니다. `--detail`을
 붙이면 각 profile의 설치된 source file과 public reference URL이 함께 출력됩니다.
+
+`--dry-run`도 형식이 맞는 skeleton을 씁니다. Beamer/Marp/PPTX deck,
+SVG/beamerposter poster layout, `HUMAN_REVIEW_REQUIRED.txt`를 만들지만 LLM은
+호출하지 않습니다. 모든 `[FILL]` 필드는 발표나 제출 전에 검증된 내용으로
+교체해야 합니다.
 
 ## 추천 입력 패키지
 

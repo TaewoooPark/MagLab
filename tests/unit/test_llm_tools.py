@@ -17,10 +17,16 @@ def test_bundled_llm_tools_are_registered() -> None:
     assert "workspace_read_file" in names
     assert "workspace_search" in names
     assert "physics_compute" in names
+    assert "material_build" in names
+    assert "list_effects" in names
+    assert "fit_effect" in names
+    assert "symmetry_allowed" in names
     assert "sim_validate" in names
     assert "sim_doctor" in names
     assert "maglab_doctor" in names
     assert "figure_render" in names
+    assert "figure_list_primitives" in names
+    assert "figure_show_primitive" in names
 
 
 def test_tool_schema_preserves_dict_parameters() -> None:
@@ -129,3 +135,43 @@ def test_physics_compute_tool_returns_deterministic_result() -> None:
     assert result["ok"] is True
     assert result["formula"] == "exchange_length"
     assert result["result"] > 0
+
+
+def test_material_build_tool_uses_offline_sources() -> None:
+    result = call_tool("material_build", {"stack": "Permalloy(5)/MgO(2)"})
+
+    assert result["ok"] is True
+    assert result["stack_str"] == "Permalloy(5)/MgO(2)"
+    assert result["layers"]
+
+
+def test_analysis_tools_list_fit_and_symmetry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    csv_path = tmp_path / "hall.csv"
+    csv_path.write_text("B,rho_xy\n-1,-2e-10\n0,0\n1,2e-10\n", encoding="utf-8")
+
+    listed = call_tool("list_effects", {})
+    fit = call_tool("fit_effect", {"effect": "ordinary_hall", "data_path": "hall.csv"})
+    symmetry = call_tool("symmetry_allowed", {"point_group": "m3m"})
+
+    assert listed["ok"] is True
+    assert any(effect["name"] == "ordinary_hall" for effect in listed["effects"])
+    assert fit["ok"] is True
+    assert fit["path"] == "hall.csv"
+    assert "R_H" in fit["params"]
+    assert symmetry["ok"] is True
+    assert symmetry["ahe_allowed"] is True
+
+
+def test_figure_primitive_tools_expose_catalog() -> None:
+    listed = call_tool("figure_list_primitives", {"query": "hall", "max_results": 5})
+
+    assert listed["ok"] is True
+    assert listed["primitives"]
+    first_name = listed["primitives"][0]["name"]
+
+    shown = call_tool("figure_show_primitive", {"name": first_name})
+    assert shown["ok"] is True
+    assert shown["name"] == first_name

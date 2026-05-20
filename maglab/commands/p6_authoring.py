@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Annotated
 
 import typer
@@ -117,17 +118,11 @@ def write_command(
     if dry_run:
         # Create directory skeleton + marker without any LLM calls.
         _write_human_review_marker(out_dir)
-        (out_dir / "main.tex").write_text(
-            f"% HUMAN REVIEW REQUIRED\n"
-            f"% Dry-run stub — journal={journal}\n"
-            f"% Results context: {results[:200]}\n"
-            f"% Fill in sections before submission.\n",
-            encoding="utf-8",
-        )
+        _write_dry_run_manuscript(out_dir / "main.tex", results=results, journal=journal)
         console.print(f"[green]Dry-run complete.[/] Output directory: [bold]{out_dir}[/]")
         console.print(
-            "[yellow]HUMAN REVIEW REQUIRED[/] — this is an AI-drafted stub. "
-            "Replace with real content before use."
+            "[yellow]HUMAN REVIEW REQUIRED[/] — compile-ready skeleton only. "
+            "Replace [FILL] fields and verify all claims before use."
         )
         return
 
@@ -933,14 +928,18 @@ def present_slides(
 
     if dry_run:
         _write_human_review_marker(out_dir)
-        (out_dir / f"slides.{_slide_extension(fmt)}").write_text(
-            "% HUMAN REVIEW REQUIRED\n"
-            f"% Dry-run stub - format={fmt}, template={template}, "
-            f"n_slides={resolved_n_slides}\n",
-            encoding="utf-8",
+        _write_dry_run_slides(
+            out_dir / f"slides.{_slide_extension(fmt)}",
+            results=results,
+            fmt=fmt,
+            template=template,
+            n_slides=resolved_n_slides,
         )
         console.print(f"[green]Dry-run complete.[/] Output: [bold]{out_dir}[/]")
-        console.print("[bold yellow]HUMAN REVIEW REQUIRED[/] — AI draft, verify before presenting.")
+        console.print(
+            "[bold yellow]HUMAN REVIEW REQUIRED[/] — format-valid skeleton, "
+            "verify before presenting."
+        )
         return
 
     try:
@@ -1047,13 +1046,18 @@ def present_poster(
 
     if dry_run:
         _write_human_review_marker(out_dir)
-        (out_dir / f"poster.{_poster_extension(fmt)}").write_text(
-            "HUMAN REVIEW REQUIRED\n"
-            f"Dry-run poster stub - format={fmt}, template={template}, size={resolved_size}\n",
-            encoding="utf-8",
+        _write_dry_run_poster(
+            out_dir,
+            results=results,
+            size=resolved_size,
+            fmt=fmt,
+            template=template,
+            title=title or "[FILL: poster title]",
         )
         console.print(f"[green]Dry-run complete.[/] Output: [bold]{out_dir}[/]")
-        console.print("[bold yellow]HUMAN REVIEW REQUIRED[/] — AI draft, verify before printing.")
+        console.print(
+            "[bold yellow]HUMAN REVIEW REQUIRED[/] — format-valid skeleton, verify before printing."
+        )
         return
 
     try:
@@ -1213,6 +1217,255 @@ def _write_human_review_marker(directory: Path) -> None:
         "Per COPE guidelines, AI tools are not listed as authors.\n",
         encoding="utf-8",
     )
+
+
+def _write_dry_run_manuscript(path: Path, *, results: str, journal: str) -> None:
+    """Write a minimal valid manuscript skeleton without any LLM call."""
+    summary = _latex_escape_text(results.strip() or "[FILL: verified result summary]")
+    path.write_text(
+        "\\documentclass[11pt]{article}\n"
+        "\\usepackage[margin=1in]{geometry}\n"
+        "\\usepackage{graphicx}\n"
+        "\\usepackage{siunitx}\n"
+        "\\usepackage{hyperref}\n"
+        "\\title{[FILL: manuscript title]}\n"
+        "\\author{[FILL: author list]}\n"
+        "\\date{\\today}\n\n"
+        "\\begin{document}\n"
+        "\\maketitle\n\n"
+        "\\noindent\\textbf{HUMAN REVIEW REQUIRED.} "
+        "This is a MagLab dry-run skeleton. Replace all [FILL] fields, "
+        "attach verified citations, and bind every number to a DataPoint before use.\n\n"
+        "\\begin{abstract}\n"
+        "[FILL: journal-specific abstract. Include only verified quantitative claims.]\n"
+        "\\end{abstract}\n\n"
+        "\\section{Introduction}\n"
+        "[FILL: motivation, material system, and research gap.]\n\n"
+        "\\section{Methods}\n"
+        "[FILL: sample growth, device geometry, measurement protocol, fitting/simulation methods.]\n\n"
+        "\\section{Results}\n"
+        f"Researcher-provided context for {journal}: {summary}\n\n"
+        "\\begin{figure}[t]\n"
+        "  \\centering\n"
+        "  \\includegraphics[width=0.82\\linewidth]{[FILL: verified figure path]}\n"
+        "  \\caption{[FILL: provenance-backed caption with DataPoint IDs.]}\n"
+        "\\end{figure}\n\n"
+        "\\section{Discussion}\n"
+        "[FILL: physical interpretation, limitations, controls, uncertainty.]\n\n"
+        "\\section{Data and Code Availability}\n"
+        "[FILL: repository, DOI, provenance ledger, and analysis scripts.]\n\n"
+        "\\section*{Author Contributions}\n"
+        "[FILL: human author contributions. AI tools are not authors.]\n\n"
+        "\\bibliographystyle{unsrt}\n"
+        "\\bibliography{references}\n"
+        "\\end{document}\n",
+        encoding="utf-8",
+    )
+
+
+def _write_dry_run_slides(
+    path: Path,
+    *,
+    results: str,
+    fmt: str,
+    template: str,
+    n_slides: int,
+) -> None:
+    """Write a format-valid slide skeleton without any LLM call."""
+    deck = SimpleNamespace(slides=_dry_run_slide_specs(results, n_slides))
+    normalized = fmt.strip().lower()
+    if normalized == "pptx":
+        _write_pptx_deck(deck, path)
+        return
+    if normalized == "marp":
+        path.write_text(_dry_run_marp(deck.slides, template=template), encoding="utf-8")
+        return
+    if normalized != "beamer":
+        console.print(f"[red]Unknown format:[/] {fmt!r}.  Valid: beamer, pptx, marp")
+        raise typer.Exit(2)
+    path.write_text(_dry_run_beamer(deck.slides, template=template), encoding="utf-8")
+
+
+def _write_dry_run_poster(
+    output_dir: Path,
+    *,
+    results: str,
+    size: str,
+    fmt: str,
+    template: str | None,
+    title: str,
+) -> None:
+    """Write a format-valid poster skeleton without any LLM call."""
+    from maglab.authoring.data_vault import DataVault
+    from maglab.authoring.present.poster_drafter import PosterDrafter
+
+    drafter = PosterDrafter(vault=DataVault(), llm_fn=_dry_run_svg_body)
+    poster = drafter.draft_poster(
+        results=results,
+        size=size,
+        fmt=fmt,
+        template=template,
+        output_dir=output_dir,
+        title=title,
+    )
+    if poster.path.suffix.lower() in {".svg", ".tex"}:
+        marker = f"MagLab dry-run skeleton - format={fmt}, template={template}, size={size}"
+        text = poster.path.read_text(encoding="utf-8")
+        comment = (
+            f"<!-- {marker} -->\n" if poster.path.suffix.lower() == ".svg" else f"% {marker}\n"
+        )
+        poster.path.write_text(text.rstrip() + "\n" + comment, encoding="utf-8")
+
+
+def _dry_run_slide_specs(results: str, n_slides: int) -> list[SimpleNamespace]:
+    """Return a concrete, review-ready slide skeleton."""
+    summary = results.strip() or "[FILL: verified result summary]"
+    base = [
+        (
+            "[FILL: Title]",
+            [
+                "HUMAN REVIEW REQUIRED",
+                "[FILL: material stack, device, or simulation system]",
+                "[FILL: one-sentence physics claim with provenance ID]",
+            ],
+        ),
+        (
+            "Research Question",
+            [
+                "[FILL: bottleneck in magnetism or spintronics workflow]",
+                "[FILL: why this measurement/simulation resolves it]",
+            ],
+        ),
+        (
+            "Methods and Provenance",
+            [
+                "[FILL: growth and device geometry]",
+                "[FILL: measurement protocol / solver / fitting model]",
+                "[FILL: DataPoint IDs and code path]",
+            ],
+        ),
+        ("Verified Result", [summary, "[FILL: uncertainty, units, and source tag]"]),
+        (
+            "Controls",
+            [
+                "[FILL: calibration or negative control]",
+                "[FILL: symmetry / physics oracle check]",
+            ],
+        ),
+        (
+            "Figure Placeholder",
+            [
+                "[FILL: verified vector figure path]",
+                "[FILL: caption with data lineage]",
+            ],
+        ),
+        (
+            "Limitations",
+            [
+                "[FILL: unresolved parameter, model limitation, or sample caveat]",
+                "[FILL: next deterministic check]",
+            ],
+        ),
+        ("Takeaway", ["[FILL: one claim only]", "[FILL: next experiment or decision]"]),
+    ]
+    while len(base) < max(n_slides, 1):
+        base.append(
+            (
+                f"Backup {len(base) + 1}",
+                ["[FILL: supporting data]", "[FILL: provenance-backed note]"],
+            )
+        )
+    return [SimpleNamespace(title=title, bullets=bullets) for title, bullets in base[:n_slides]]
+
+
+def _dry_run_beamer(slides: list[SimpleNamespace], *, template: str) -> str:
+    """Return a minimal valid Beamer document for dry-run slides."""
+    frames = []
+    for slide in slides:
+        bullets = "\n".join(f"    \\item {_latex_escape_text(str(item))}" for item in slide.bullets)
+        frames.append(
+            f"\\begin{{frame}}{{{_latex_escape_text(str(slide.title))}}}\n"
+            "  \\begin{itemize}\n"
+            f"{bullets}\n"
+            "  \\end{itemize}\n"
+            "\\end{frame}"
+        )
+    return (
+        "% HUMAN REVIEW REQUIRED\n"
+        f"% MagLab dry-run skeleton - format=beamer, template={template}, "
+        f"n_slides={len(slides)}\n"
+        "\\documentclass[aspectratio=169]{beamer}\n"
+        "\\usepackage{graphicx}\n"
+        "\\usepackage{siunitx}\n"
+        "\\title{[FILL: presentation title]}\n"
+        "\\author{[FILL: presenter]}\n"
+        f"\\date{{MagLab dry-run skeleton: {template}}}\n\n"
+        "\\begin{document}\n"
+        "\\maketitle\n\n"
+        "\\begin{frame}{Human Review Required}\n"
+        "  Replace all [FILL] fields and verify every number, citation, and figure before presenting.\n"
+        "\\end{frame}\n\n" + "\n\n".join(frames) + "\n\\end{document}\n"
+    )
+
+
+def _dry_run_marp(slides: list[SimpleNamespace], *, template: str) -> str:
+    """Return a minimal valid Marp deck for dry-run slides."""
+    lines = [
+        "---",
+        "marp: true",
+        "theme: default",
+        'title: "[FILL: presentation title]"',
+        "---",
+        "",
+        "# [FILL: presentation title]",
+        "",
+        f"MagLab dry-run skeleton: `{template}`",
+        "",
+        "**HUMAN REVIEW REQUIRED**",
+        "",
+    ]
+    for slide in slides:
+        lines.extend(["---", "", f"## {slide.title}", ""])
+        lines.extend(f"- {item}" for item in slide.bullets)
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _dry_run_svg_body(_system: str, _user: str) -> str:
+    """Fallback SVG body used only when a bundled poster template is unavailable."""
+    return (
+        '<rect x="80" y="80" width="3019" height="4333" fill="#ffffff" stroke="#111111" '
+        'stroke-width="8"/>\n'
+        '<text x="180" y="220" font-size="82" font-family="Arial" font-weight="700">'
+        "[FILL: poster title]</text>\n"
+        '<text x="180" y="360" font-size="38" font-family="Arial">HUMAN REVIEW REQUIRED</text>\n'
+        '<rect x="180" y="520" width="1280" height="1500" fill="#f7f7f7" stroke="#222"/>\n'
+        '<text x="240" y="620" font-size="52" font-family="Arial">Motivation</text>\n'
+        '<text x="240" y="720" font-size="34" font-family="Arial">[FILL: research gap]</text>\n'
+        '<rect x="1700" y="520" width="1280" height="1500" fill="#f7f7f7" stroke="#222"/>\n'
+        '<text x="1760" y="620" font-size="52" font-family="Arial">Verified Results</text>\n'
+        '<text x="1760" y="720" font-size="34" font-family="Arial">[FILL: figure path and DataPoint IDs]</text>\n'
+        '<rect x="180" y="2300" width="2800" height="900" fill="#f7f7f7" stroke="#222"/>\n'
+        '<text x="240" y="2400" font-size="52" font-family="Arial">Takeaway</text>\n'
+        '<text x="240" y="2500" font-size="34" font-family="Arial">[FILL: one provenance-backed claim]</text>'
+    )
+
+
+def _latex_escape_text(text: str) -> str:
+    """Escape a small amount of user text for LaTeX skeletons."""
+    replacements = {
+        "\\": r"\textbackslash{}",
+        "&": r"\&",
+        "%": r"\%",
+        "$": r"\$",
+        "#": r"\#",
+        "_": r"\_",
+        "{": r"\{",
+        "}": r"\}",
+        "~": r"\textasciitilde{}",
+        "^": r"\textasciicircum{}",
+    }
+    return "".join(replacements.get(ch, ch) for ch in text)
 
 
 def _call_llm_or_stub(system: str, user: str) -> str:  # pragma: no cover

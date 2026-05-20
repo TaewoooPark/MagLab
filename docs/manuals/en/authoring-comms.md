@@ -44,9 +44,11 @@ maglab present templates
 maglab present templates --detail
 maglab present templates --kind poster
 maglab present slides "Main results and verified figures" --template aps-12min --format beamer --n-slides 10
+maglab present slides "Main results and verified figures" --template aps-12min --format beamer --dry-run
 maglab present slides "Main results and verified figures" --format pptx
 maglab present poster "Main results and verified figures" --size A0 --format svg
 maglab present poster "Main results and verified figures" --template aps-march-poster --format svg
+maglab present poster "Main results and verified figures" --template aps-march-poster --format svg --dry-run
 maglab present poster "Main results and verified figures" --size A0 --format beamerposter
 ```
 
@@ -55,6 +57,11 @@ talk + 2 minute Q&A), longer seminar decks, internal updates, APS March/April
 96 x 48 inch poster boards, A0 SVG/PDF posters, and A0 beamerposter LaTeX
 source. Use `--detail` to print the installed source file and public reference
 URLs behind each profile.
+
+`--dry-run` still writes format-valid skeletons: Beamer/Marp/PPTX decks,
+SVG/beamerposter poster layouts, and `HUMAN_REVIEW_REQUIRED.txt`. It does not
+call an LLM, and every `[FILL]` field must be replaced with verified content
+before presentation or submission.
 
 ## Recommended Input Pack
 

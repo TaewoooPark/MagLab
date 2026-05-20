@@ -538,6 +538,121 @@ def material_search(query: str) -> list[dict[str, Any]]:
     return [m.model_dump() for m in search(query)]
 
 
+@tool(
+    read_only=True,
+    description="Build an offline magnetic layer stack from bundled/literature material data.",
+)
+def material_build(stack: str) -> dict[str, Any]:
+    """Build an offline magnetic layer stack from bundled/literature material data."""
+    from maglab.physics.material_builder import build_material_stack
+
+    try:
+        result = build_material_stack(stack, use_mp=False, use_optimade=False)
+    except Exception as exc:
+        return {"ok": False, "stack": stack, "error": str(exc)}
+    return {"ok": True, **result.model_dump(mode="json")}
+
+
+@tool(read_only=True, description="List deterministic effect-fitting models available in MagLab.")
+def list_effects() -> dict[str, Any]:
+    """List deterministic effect-fitting models available in MagLab."""
+    from maglab.analysis.providers import get_all_effects
+
+    effects = []
+    for name, model in sorted(get_all_effects().items()):
+        effects.append(
+            {
+                "name": name,
+                "subfield": model.subfield,
+                "parameters": [param.name for param in model.parameters],
+                "required_columns": list(model.measurement_config.required_columns),
+                "geometry": model.measurement_config.geometry,
+            }
+        )
+    return {"ok": True, "effects": effects}
+
+
+@tool(
+    read_only=True,
+    description="Fit a deterministic MagLab effect model to a CSV file inside the active workspace.",
+)
+def fit_effect(
+    effect: str,
+    data_path: str,
+    geometry: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Fit a deterministic MagLab effect model to a CSV file inside the active workspace."""
+    try:
+        root, target = _safe_workspace_path(data_path)
+    except ValueError as exc:
+        return {"ok": False, "effect": effect, "path": data_path, "error": str(exc)}
+    if not target.is_file():
+        return {"ok": False, "effect": effect, "path": data_path, "error": "File not found."}
+
+    try:
+        import pandas as pd  # type: ignore[import-untyped]
+
+        from maglab.analysis.providers import get_effect
+    except ImportError as exc:
+        return {"ok": False, "effect": effect, "path": data_path, "error": str(exc)}
+
+    try:
+        model = get_effect(effect)
+    except KeyError as exc:
+        return {"ok": False, "effect": effect, "path": data_path, "error": str(exc)}
+
+    try:
+        df = pd.read_csv(target)
+    except Exception as exc:
+        return {"ok": False, "effect": effect, "path": data_path, "error": str(exc)}
+
+    missing = [col for col in model.measurement_config.required_columns if col not in df.columns]
+    if missing:
+        return {
+            "ok": False,
+            "effect": effect,
+            "path": target.relative_to(root).as_posix(),
+            "missing_columns": missing,
+            "columns": list(df.columns),
+            "error": "Missing required columns.",
+        }
+
+    try:
+        data = {col: df[col].to_numpy(dtype=float) for col in df.columns}
+        result = model.fit(data, geometry=geometry)
+    except Exception as exc:
+        return {"ok": False, "effect": effect, "path": data_path, "error": str(exc)}
+
+    return {
+        "ok": bool(result.success),
+        "effect": effect,
+        "path": target.relative_to(root).as_posix(),
+        "params": dict(result.params),
+        "uncertainties": dict(result.uncertainties),
+        "chi2": result.chi2,
+        "reduced_chi2": result.reduced_chi2,
+        "provenance_id": result.provenance_id,
+        "message": result.message,
+    }
+
+
+@tool(
+    read_only=True,
+    description="Return symmetry-allowed tensor components for a magnetic point group.",
+)
+def symmetry_allowed(point_group: str) -> dict[str, Any]:
+    """Return symmetry-allowed tensor components for a magnetic point group."""
+    from dataclasses import asdict
+
+    from maglab.analysis.symmetry import allowed_components
+
+    try:
+        comp = allowed_components(point_group)
+    except Exception as exc:
+        return {"ok": False, "point_group": point_group, "error": str(exc)}
+    return {"ok": True, **asdict(comp)}
+
+
 @tool(read_only=True, description="Statically validate a MagLab MultiScaleSpec dictionary.")
 def sim_validate(spec_dict: dict[str, Any]) -> dict[str, Any]:
     """Statically validate a MagLab MultiScaleSpec dictionary."""
@@ -659,3 +774,51 @@ def figure_render(
             pass
 
     return {"ok": True, "path": Path(saved).relative_to(root).as_posix(), "error": None}
+
+
+@tool(read_only=True, description="List or search journal-ready schematic figure primitives.")
+def figure_list_primitives(query: str = "", max_results: int = 30) -> dict[str, Any]:
+    """List or search journal-ready schematic figure primitives."""
+    from maglab.figure.primitives.registry import make_default_registry
+
+    registry = make_default_registry()
+    entries = registry.search(query, max_results=max_results) if query else registry.list_all()
+    return {
+        "ok": True,
+        "query": query,
+        "primitives": [
+            {
+                "name": str(entry.get("name", "")),
+                "category": str(entry.get("category", "")),
+                "tags": list(entry.get("tags", [])),
+                "description": str(entry.get("description", "")),
+                "journal_styles": list(entry.get("journal_styles", [])),
+            }
+            for entry in entries[:max_results]
+        ],
+    }
+
+
+@tool(read_only=True, description="Show metadata for one journal-ready schematic figure primitive.")
+def figure_show_primitive(name: str) -> dict[str, Any]:
+    """Show metadata for one journal-ready schematic figure primitive."""
+    from maglab.figure.primitives.registry import make_default_registry
+
+    registry = make_default_registry()
+    index = {str(entry.get("name", "")): entry for entry in registry.list_all()}
+    entry = index.get(name)
+    if entry is None:
+        return {
+            "ok": False,
+            "name": name,
+            "available": sorted(index),
+            "error": "Primitive not found.",
+        }
+    return {
+        "ok": True,
+        "name": name,
+        "category": str(entry.get("category", "")),
+        "tags": list(entry.get("tags", [])),
+        "description": str(entry.get("description", "")),
+        "journal_styles": list(entry.get("journal_styles", [])),
+    }
