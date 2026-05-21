@@ -28,6 +28,9 @@ gateway.db
 # === Local demo captures ===
 demo/
 
+# === Private implementation notes ===
+impl/
+
 # === Credentials — never commit (PLAN §7.2) ===
 auth.json
 .env
