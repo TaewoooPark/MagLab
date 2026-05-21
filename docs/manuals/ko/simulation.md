@@ -5,6 +5,16 @@
 이 모듈은 물질 파라미터에서 micromagnetic, DFT, atomistic, device scale의
 simulation input/output으로 이동할 때 사용합니다.
 
+## 터미널 실행 화면
+
+실제 MagLab CLI mock backend 다중 스케일 pipeline 실행 화면입니다.
+
+![MagLab 시뮬레이션 pipeline 터미널 캡처](../../assets/terminal/simulation-pipeline.png)
+
+같은 pipeline을 PI 대화형 TUI 안에서 `!` operator로 실행한 화면입니다.
+
+![PI 시뮬레이션 pipeline 터미널 캡처](../../assets/terminal/pi-simulation-pipeline.png)
+
 ## 설치
 
 ```sh

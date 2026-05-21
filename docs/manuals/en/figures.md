@@ -5,6 +5,17 @@
 Use this module when a figure needs to be a reproducible research artifact:
 data-bound, journal-aware, vector-exportable, and inspectable.
 
+## Terminal Walkthrough
+
+Real MagLab CLI figure spec and SVG plot generation:
+
+![MagLab figure render terminal capture](../../assets/terminal/figures-render.png)
+
+The same figure workflow executed inside PI's interactive TUI with the `!`
+operator:
+
+![PI figure render terminal capture](../../assets/terminal/pi-figures-render.png)
+
 ## Install
 
 ```sh

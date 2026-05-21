@@ -5,6 +5,17 @@
 Use this module when you have measured or simulated data and need model-aware
 fitting rather than ad hoc notebooks.
 
+## Terminal Walkthrough
+
+Real MagLab CLI data loading and ordinary Hall fitting:
+
+![MagLab analysis and fitting terminal capture](../../assets/terminal/analysis-fitting.png)
+
+The same analysis workflow executed inside PI's interactive TUI with the `!`
+operator:
+
+![PI analysis and fitting terminal capture](../../assets/terminal/pi-analysis-fitting.png)
+
 ## Install
 
 ```sh

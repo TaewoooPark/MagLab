@@ -5,6 +5,16 @@
 Use this module when you need to move from material parameters to simulation
 inputs and outputs across micromagnetic, DFT, atomistic, and device scales.
 
+## Terminal Walkthrough
+
+Real MagLab CLI multiscale pipeline run in mock backend mode:
+
+![MagLab simulation pipeline terminal capture](../../assets/terminal/simulation-pipeline.png)
+
+The same pipeline executed inside PI's interactive TUI with the `!` operator:
+
+![PI simulation pipeline terminal capture](../../assets/terminal/pi-simulation-pipeline.png)
+
 ## Install
 
 ```sh

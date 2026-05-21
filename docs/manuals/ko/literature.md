@@ -5,6 +5,16 @@
 이 모듈은 "문단을 써줘"가 아니라 "어떤 증거를 찾아야 하고, 무엇을 확인해야
 하며, 어떻게 정리해야 다음 연구 결정을 내릴 수 있는가"를 다룰 때 사용합니다.
 
+## 터미널 실행 화면
+
+실제 MagLab CLI 키워드 추출 화면입니다.
+
+![MagLab 문헌 키워드 터미널 캡처](../../assets/terminal/literature-keywords.png)
+
+같은 workflow를 PI 대화형 TUI 안에서 `!` operator로 실행한 화면입니다.
+
+![PI 문헌 키워드 터미널 캡처](../../assets/terminal/pi-literature-keywords.png)
+
 ## 하는 일
 
 - 논문 폴더나 자유 텍스트에서 weighted keyword를 추출합니다.

@@ -5,6 +5,17 @@
 Use this module when you want structured scientific criticism or mechanism
 candidates for surprising data.
 
+## Terminal Walkthrough
+
+Real MagLab CLI anomaly-explanation run:
+
+![MagLab review and explanation terminal capture](../../assets/terminal/review-explain.png)
+
+The same explanation workflow executed inside PI's interactive TUI with the `!`
+operator:
+
+![PI review and explanation terminal capture](../../assets/terminal/pi-review-explain.png)
+
 ## Install
 
 ```sh

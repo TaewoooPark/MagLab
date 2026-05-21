@@ -5,6 +5,17 @@
 Use this module after you have real results, figures, citations, and notes.
 MagLab can draft scientific text, but every output is for human review.
 
+## Terminal Walkthrough
+
+Real MagLab CLI abstract drafting and report inventory:
+
+![MagLab authoring terminal capture](../../assets/terminal/authoring-abstract.png)
+
+The same authoring workflow executed inside PI's interactive TUI with the `!`
+operator:
+
+![PI authoring terminal capture](../../assets/terminal/pi-authoring-abstract.png)
+
 ## Install
 
 ```sh

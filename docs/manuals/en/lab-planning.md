@@ -5,6 +5,17 @@
 Use this module when you need MagLab to remember what happened and translate a
 research goal into a measurement plan.
 
+## Terminal Walkthrough
+
+Real MagLab CLI ELN note and measurement-plan run:
+
+![MagLab lab notebook terminal capture](../../assets/terminal/lab-notebook.png)
+
+The same lab-planning workflow executed inside PI's interactive TUI with the
+`!` operator:
+
+![PI lab notebook terminal capture](../../assets/terminal/pi-lab-notebook.png)
+
 ## Commands
 
 ```sh

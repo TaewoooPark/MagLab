@@ -7,6 +7,16 @@
 scientific tool과 LLM 오케스트레이션을 같은 터미널 세션에서 사용하는 흐름을
 다룹니다.
 
+## 터미널 실행 화면
+
+실제 MagLab CLI doctor 실행 화면입니다.
+
+![MagLab doctor 터미널 캡처](../../assets/terminal/quickstart-doctor.png)
+
+같은 명령을 PI 대화형 TUI 안에서 `!` operator로 실행한 화면입니다.
+
+![PI doctor 터미널 캡처](../../assets/terminal/pi-quickstart-doctor.png)
+
 ## 기본 모델
 
 MagLab은 세 계층으로 동작합니다.
@@ -130,7 +140,7 @@ maglab setup all
 maglab manual --lang ko
 maglab workspace init
 maglab workspace brief
-maglab physics units 1000 Oe T
+maglab physics units 1000 oe tesla
 maglab physics compute exchange_length A=13e-12 Ms=860e3
 maglab analyze model stfmr
 maglab figure primitives list

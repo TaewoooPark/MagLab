@@ -5,6 +5,16 @@
 그림이 단순한 이미지가 아니라 data-bound, journal-aware, vector-exportable,
 inspectable research artifact가 되어야 할 때 사용합니다.
 
+## 터미널 실행 화면
+
+실제 MagLab CLI FigureSpec 생성과 SVG plot 생성 화면입니다.
+
+![MagLab 그림 생성 터미널 캡처](../../assets/terminal/figures-render.png)
+
+같은 figure workflow를 PI 대화형 TUI 안에서 `!` operator로 실행한 화면입니다.
+
+![PI 그림 생성 터미널 캡처](../../assets/terminal/pi-figures-render.png)
+
 ## 설치
 
 ```sh

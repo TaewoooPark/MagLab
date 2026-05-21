@@ -5,6 +5,16 @@
 구조화된 과학적 비판이 필요하거나, 예상 밖 데이터에 대한 mechanism 후보가
 필요할 때 사용합니다.
 
+## 터미널 실행 화면
+
+실제 MagLab CLI 이상 현상 설명 실행 화면입니다.
+
+![MagLab 리뷰와 설명 터미널 캡처](../../assets/terminal/review-explain.png)
+
+같은 explanation workflow를 PI 대화형 TUI 안에서 `!` operator로 실행한 화면입니다.
+
+![PI 리뷰와 설명 터미널 캡처](../../assets/terminal/pi-review-explain.png)
+
 ## 설치
 
 ```sh

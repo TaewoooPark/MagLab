@@ -5,6 +5,16 @@
 이 모듈은 MagLab의 deterministic core입니다. 물질 파라미터, SI-safe quantity,
 단위 변환, 공식 계산, 기본 물리 plausibility check가 필요할 때 사용합니다.
 
+## 터미널 실행 화면
+
+실제 MagLab CLI 물질 조회, 공식 계산, 단위 변환 화면입니다.
+
+![MagLab 물질과 물리 터미널 캡처](../../assets/terminal/materials-physics.png)
+
+같은 deterministic check를 PI 대화형 TUI 안에서 `!` operator로 실행한 화면입니다.
+
+![PI 물질과 물리 터미널 캡처](../../assets/terminal/pi-materials-physics.png)
+
 ## 하는 일
 
 - curated magnetic material을 list/show합니다.
@@ -23,7 +33,7 @@ maglab mat build "Ta(5)/CoFeB(1)/MgO(2)"
 
 maglab physics compute exchange_length A=13e-12 Ms=860e3
 maglab physics compute bloch_wall_width A=13e-12 K=5e4
-maglab physics units 1000 Oe T
+maglab physics units 1000 oe tesla
 maglab physics oracle alpha=0.01 Ms=860000 T=300
 ```
 

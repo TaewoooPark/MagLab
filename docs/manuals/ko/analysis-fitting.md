@@ -5,6 +5,16 @@
 측정 데이터나 시뮬레이션 데이터가 있고, 임시 notebook이 아니라 모델을 알고
 있는 피팅이 필요할 때 사용합니다.
 
+## 터미널 실행 화면
+
+실제 MagLab CLI 데이터 로드와 ordinary Hall 피팅 화면입니다.
+
+![MagLab 분석과 피팅 터미널 캡처](../../assets/terminal/analysis-fitting.png)
+
+같은 분석 workflow를 PI 대화형 TUI 안에서 `!` operator로 실행한 화면입니다.
+
+![PI 분석과 피팅 터미널 캡처](../../assets/terminal/pi-analysis-fitting.png)
+
 ## 설치
 
 ```sh

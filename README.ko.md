@@ -152,6 +152,24 @@ uv pip install -e ".[research]"
 .venv/bin/python -m maglab doctor
 ```
 
+## 실제 터미널 실행 화면
+
+아래 화면은 mocked output이 아니라 실제 CLI에서 캡처한 결과입니다. 첫 화면은
+MagLab REPL에 처음 들어갔을 때 보이는 헤드라인과 `/help quick` 결과입니다.
+
+![MagLab REPL 헤드라인과 빠른 도움말](docs/assets/terminal/readme-repl-help.png)
+
+MagLab은 PI의 대화형 TUI 안에서도 운용할 수 있습니다. 아래 PI 세션은 Anthropic
+Haiku 모델과 `bash` tool을 켠 상태이며, 시작 화면에서 skill/extension이 충돌
+없이 로드된 것을 보여줍니다.
+
+![PI 대화형 MagLab 시작 화면](docs/assets/terminal/pi-agents.png)
+
+같은 PI 모드에서는 `!` shell operator로 MagLab 명령을 직접 실행할 수 있습니다.
+예를 들어 Haiku-backed one-shot query도 다음처럼 실제 응답을 남깁니다.
+
+![PI 대화형 Haiku one-shot](docs/assets/terminal/pi-orchestration-haiku.png)
+
 이후에는 어떤 연구 폴더에서든 `maglab`을 실행하면 됩니다. MagLab은
 config/data/cache는 전역 사용자 앱 경로에 보관하고, 프로젝트 산출물은 실행한
 폴더를 기준으로 읽고 씁니다.
@@ -170,7 +188,7 @@ LLM key 없이 deterministic tool부터 사용할 수 있습니다.
 
 ```sh
 maglab physics compute exchange_length A=13e-12 Ms=860e3
-maglab physics units 1000 Oe T
+maglab physics units 1000 oe tesla
 maglab mat search Py --json
 maglab mat show Permalloy
 maglab analyze model stfmr

@@ -5,6 +5,16 @@
 실제 결과, 그림, 인용, 노트가 준비된 뒤 사용하는 모듈입니다. MagLab은 과학
 문장을 초안으로 만들 수 있지만, 모든 출력은 human review가 필요합니다.
 
+## 터미널 실행 화면
+
+실제 MagLab CLI abstract drafting과 report inventory 화면입니다.
+
+![MagLab 논문 작성 터미널 캡처](../../assets/terminal/authoring-abstract.png)
+
+같은 authoring workflow를 PI 대화형 TUI 안에서 `!` operator로 실행한 화면입니다.
+
+![PI 논문 작성 터미널 캡처](../../assets/terminal/pi-authoring-abstract.png)
+
 ## 설치
 
 ```sh

@@ -6,6 +6,16 @@ Use this guide when you want MagLab to behave like a global research CLI:
 install once, open any project folder, connect the model provider you prefer,
 and run deterministic scientific tools from the same terminal session.
 
+## Terminal Walkthrough
+
+Real MagLab CLI doctor run:
+
+![MagLab doctor terminal capture](../../assets/terminal/quickstart-doctor.png)
+
+The same command executed inside PI's interactive TUI with the `!` operator:
+
+![PI doctor terminal capture](../../assets/terminal/pi-quickstart-doctor.png)
+
 ## Mental Model
 
 MagLab has three layers:
@@ -132,7 +142,7 @@ maglab setup all
 maglab manual --lang en
 maglab workspace init
 maglab workspace brief
-maglab physics units 1000 Oe T
+maglab physics units 1000 oe tesla
 maglab physics compute exchange_length A=13e-12 Ms=860e3
 maglab analyze model stfmr
 maglab figure primitives list

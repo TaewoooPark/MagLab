@@ -6,6 +6,17 @@ Use this module when the bottleneck is turning an experiment idea into a safe,
 reviewable instrument workflow. MagLab generates and checks scripts, but real
 hardware execution remains a human-controlled Tier 3 action.
 
+## Terminal Walkthrough
+
+Real MagLab CLI driver scaffold, SCPI check, and safety inspection:
+
+![MagLab instrument safety terminal capture](../../assets/terminal/instruments-safety.png)
+
+The same instrument workflow executed inside PI's interactive TUI with the `!`
+operator:
+
+![PI instrument safety terminal capture](../../assets/terminal/pi-instruments-safety.png)
+
 ## Install
 
 ```sh

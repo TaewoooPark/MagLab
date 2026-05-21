@@ -6,6 +6,16 @@
 사용합니다. MagLab은 script를 생성하고 검사하지만, 실제 hardware execution은
 연구자가 통제하는 Tier 3 action입니다.
 
+## 터미널 실행 화면
+
+실제 MagLab CLI driver scaffold, SCPI 확인, safety inspection 화면입니다.
+
+![MagLab 계측기 안전 터미널 캡처](../../assets/terminal/instruments-safety.png)
+
+같은 instrument workflow를 PI 대화형 TUI 안에서 `!` operator로 실행한 화면입니다.
+
+![PI 계측기 안전 터미널 캡처](../../assets/terminal/pi-instruments-safety.png)
+
 ## 설치
 
 ```sh

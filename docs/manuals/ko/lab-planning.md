@@ -5,6 +5,16 @@
 MagLab이 실험 기록을 기억하고, 연구 목표를 measurement plan으로 바꾸게 하고
 싶을 때 사용합니다.
 
+## 터미널 실행 화면
+
+실제 MagLab CLI ELN note와 measurement plan 실행 화면입니다.
+
+![MagLab 연구노트 터미널 캡처](../../assets/terminal/lab-notebook.png)
+
+같은 lab-planning workflow를 PI 대화형 TUI 안에서 `!` operator로 실행한 화면입니다.
+
+![PI 연구노트 터미널 캡처](../../assets/terminal/pi-lab-notebook.png)
+
 ## 명령
 
 ```sh

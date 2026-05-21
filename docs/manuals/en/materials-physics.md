@@ -6,6 +6,17 @@ This is the deterministic core of MagLab. Use it when you need material
 parameters, SI-safe quantities, unit conversion, formula evaluation, or basic
 physical plausibility checks before simulation or fitting.
 
+## Terminal Walkthrough
+
+Real MagLab CLI material lookup, formula evaluation, and unit conversion:
+
+![MagLab materials and physics terminal capture](../../assets/terminal/materials-physics.png)
+
+The same deterministic checks executed inside PI's interactive TUI with the `!`
+operator:
+
+![PI materials and physics terminal capture](../../assets/terminal/pi-materials-physics.png)
+
 ## What It Does
 
 - Lists and shows curated magnetic materials.
@@ -24,7 +35,7 @@ maglab mat build "Ta(5)/CoFeB(1)/MgO(2)"
 
 maglab physics compute exchange_length A=13e-12 Ms=860e3
 maglab physics compute bloch_wall_width A=13e-12 K=5e4
-maglab physics units 1000 Oe T
+maglab physics units 1000 oe tesla
 maglab physics oracle alpha=0.01 Ms=860000 T=300
 ```
 

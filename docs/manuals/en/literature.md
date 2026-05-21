@@ -5,6 +5,16 @@
 Use this module when the research bottleneck is not "write me a paragraph" but
 "find the right evidence, check it, and organize it before I decide what to do."
 
+## Terminal Walkthrough
+
+Real MagLab CLI keyword extraction:
+
+![MagLab literature keyword terminal capture](../../assets/terminal/literature-keywords.png)
+
+The same workflow executed inside PI's interactive TUI with the `!` operator:
+
+![PI literature keyword terminal capture](../../assets/terminal/pi-literature-keywords.png)
+
 ## What It Does
 
 - Extracts weighted keywords from paper folders or free text.

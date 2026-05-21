@@ -156,6 +156,24 @@ uv pip install -e ".[research]"
 .venv/bin/python -m maglab doctor
 ```
 
+## Verified Terminal Runs
+
+The screenshots below are captured from the actual CLI, not mocked output. The
+first view shows the initial MagLab REPL headline and `/help quick` result.
+
+![MagLab REPL headline and quick help](docs/assets/terminal/readme-repl-help.png)
+
+MagLab can also be operated from PI's interactive TUI. The PI session below is
+using the Anthropic Haiku model with the `bash` tool enabled, and its startup
+screen shows the loaded skills/extensions without a skill-conflict warning.
+
+![PI interactive MagLab startup](docs/assets/terminal/pi-agents.png)
+
+The same PI mode can run MagLab commands through the `!` shell operator, for
+example a live Haiku-backed one-shot query:
+
+![PI interactive Haiku one-shot](docs/assets/terminal/pi-orchestration-haiku.png)
+
 After that, open any research folder and run `maglab`. MagLab keeps global
 config/data/cache in your user app directories, but reads and writes project
 artifacts relative to the folder where you launched it.
@@ -174,7 +192,7 @@ Run deterministic tools without an LLM key:
 
 ```sh
 maglab physics compute exchange_length A=13e-12 Ms=860e3
-maglab physics units 1000 Oe T
+maglab physics units 1000 oe tesla
 maglab mat search Py --json
 maglab mat show Permalloy
 maglab analyze model stfmr
