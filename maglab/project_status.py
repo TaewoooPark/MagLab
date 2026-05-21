@@ -109,7 +109,7 @@ def discover_provenance_artifacts(
         artifacts.append(
             _artifact_record(path, root_path, kind=_classify_provenance_artifact(path))
         )
-    artifacts.sort(key=lambda item: item.modified, reverse=True)
+    artifacts.sort(key=_provenance_artifact_sort_key)
     return artifacts[:max_entries]
 
 
@@ -314,6 +314,15 @@ def _classify_provenance_artifact(path: Path) -> str:
     if suffix == ".jsonl":
         return "provenance-jsonl"
     return "provenance-json"
+
+
+def _provenance_artifact_sort_key(item: ArtifactRecord) -> tuple[int, str, str]:
+    kind_priority = {
+        "provenance-json": 0,
+        "provenance-jsonl": 1,
+        "provenance-db": 2,
+    }
+    return (kind_priority.get(item.kind, 99), item.path.lower(), item.modified)
 
 
 def _checkpoint_summary(task_id: str, records: list[CheckpointRecord]) -> TaskCheckpointSummary:
