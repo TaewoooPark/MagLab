@@ -84,6 +84,41 @@ CGS와 SI가 섞이거나, 피팅 파라미터가 물리 범위를 벗어나거�
 | 논문과 커뮤니케이션 | manuscript section, cover letter, revision letter, rebuttal, abstract, grant, email, slides, poster 초안 생성. |
 | 오케스트레이션 | interactive REPL, Ralph loop, MCP server/client, subagent, skill, gateway bot, cost tracking, checkpoint, provenance record로 연구 lifecycle 조율. |
 
+## 구현 상태
+
+이 README는 미래 계획만 적은 문서가 아니라 현재 소스 트리 기준의 사용 설명입니다.
+CLI 진입점은 `maglab/cli.py`에 구현되어 있고, 선택적인 PI/smolagents harness
+표면은 `maglab/commands/harness.py`에서 등록되며, `pyproject.toml`은 `maglab`
+console script를 노출합니다.
+
+checkout에서 실제 코드 경로를 확인하는 가장 직접적인 방법은 다음입니다.
+
+```sh
+.venv/bin/python -m maglab --help
+.venv/bin/python -m maglab harness --help
+.venv/bin/python -m maglab doctor --help
+```
+
+이미 PATH에 오래된 전역 `pipx` 설치본이 있으면 checkout보다 뒤처질 수 있습니다.
+그 경우 이 저장소에서는 위 source command가 기준이고, 다음 섹션의 editable
+install 명령으로 설치본을 갱신하면 됩니다.
+
+현재 구현된 표면은 다음과 같습니다.
+
+| 표면 | 현재 상태 | 메모 |
+|---|---|---|
+| CLI와 REPL | 구현됨 | `maglab`, `maglab -p`, `maglab ask`, `maglab run`이 terminal app과 설정된 backend를 통해 동작합니다. |
+| deterministic physics/material tool | 구현됨 | 공식 계산, 단위 변환, physics oracle, material lookup/search/build, DataPoint 생성은 LLM credential 없이 실행됩니다. |
+| analysis와 fitting | 구현됨 | effect registry, CSV/HDF5 load, model inspect, lmfit 기반 fitting, deterministic discovery, ELN/provenance hook이 연결되어 있습니다. |
+| figure tooling | 구현됨 | FigureSpec 생성, render/compose/export, journal style, primitive catalog가 있습니다. 실제 렌더링은 plotting extra에 의존합니다. |
+| instrument tooling | scaffold와 safety workflow로 구현됨 | PyVISA driver scaffold, SCPI validation, manual ingest/index, skill generation, script generation, static safety check가 있습니다. |
+| literature workflow | optional connector 기반으로 구현됨 | offline keyword extraction은 바로 가능하고, OpenAlex/Semantic Scholar/arXiv/Crossref 경로는 관련 extra와 network/API 준비가 필요합니다. |
+| lab notebook과 planning | 구현됨 | ELN note 생성/목록화와 measurement plan 생성이 active workspace에 artifact를 씁니다. |
+| review, authoring, communications | human-review gate와 함께 구현됨 | manuscript review, anomaly explanation, manuscript/cover-letter/revision/email/abstract/grant/rebuttal, slides, poster 생성은 연구자 검토 대상으로 표시됩니다. |
+| report, provenance, task inspect | 구현됨 | `report inventory`, `prov summary/status/lineage`, `task list/status/scaffold`는 이미 디스크에 남은 artifact를 검사합니다. |
+| PI/smolagents harness | readiness, compile, dry-run, local run, handoff UX로 구현됨 | live local worker는 `.[harness]`, smolagents, LiteLLM provider 설정, credential이 필요합니다. live PI 실행은 별도 PI binary 설치가 필요합니다. |
+| 외부 solver, hardware, gateway | 환경 의존 | MagLab은 입력 생성, spec 검증, readiness check를 담당합니다. MuMax3, OOMMF, VAMPIRE, VISA driver, Slack/Telegram/Discord credential, remote cluster access를 번들하지 않습니다. |
+
 ## 바로 시작하기
 
 먼저 MagLab을 전역 터미널 프로그램으로 설치합니다. 권장 research bundle은
@@ -106,6 +141,15 @@ macOS에서 `pipx`나 Python 3.12가 없다면 아래 경로가 안정적입니�
 uv tool install pipx --python python3.12
 pipx ensurepath
 pipx install --python python3.12 --editable ".[research]"
+```
+
+개발 checkout에서는 저장소 안의 virtualenv로 실행하는 편이 수정 중인 코드와
+가장 정확히 맞습니다.
+
+```sh
+uv pip install -e ".[research]"
+.venv/bin/python -m maglab --help
+.venv/bin/python -m maglab doctor
 ```
 
 이후에는 어떤 연구 폴더에서든 `maglab`을 실행하면 됩니다. MagLab은
@@ -282,18 +326,20 @@ maglab present poster "Key results and figures from the SOT study" --template ap
 ## 명령어 표면
 
 ```text
-maglab                    interactive research agent
-maglab -p "QUERY"         non-interactive one-shot query
+maglab                         interactive research agent
+maglab -p "QUERY"              non-interactive one-shot query
+maglab -p "QUERY" --harness-workflow literature-review
+                               manifest workflow를 통한 one-shot query
 
 auth      codex · claude · gemini-cli · ollama · anthropic · grok · deepseek · qwen · kimi · gemini · openai · set · list · status · test
 physics   compute · units · oracle
-mat       list · show · build
+mat       list · show · search · build
 sim       doctor · micro · validate · plot · job · dft · atomistic · pipeline
 fit       --effect EFFECT DATA.csv
 analyze   load · model · consistency · symmetry
 device    fom
 figure    spec · render · compose · export
-          primitives list · show
+          primitives list · show · ingest
 instr     scaffold · scpi · script · check · ingest · skillgen · implement
 lit       search · authors · keywords · journal · graph
 lab       note · note-list · plan
@@ -308,6 +354,10 @@ hypotheses TOPIC
 mcp       list · serve · add · enable · disable
 agents    list · show
 skill     list
+harness   doctor · compile · run · pi-tool · worker
+report    inventory
+prov      summary · status · lineage
+task      list · status · scaffold
 cost
 manual    [topic] --lang en|ko
 config    show · path · restore · reset
@@ -317,6 +367,12 @@ workspace status · brief · init · tree
 theme     list · set
 version · info
 ```
+
+위 목록은 실무에서 자주 보는 표면을 압축한 것입니다. 정확한 option 이름과 안전
+flag는 `maglab <command> --help`로 확인합니다. 몇몇 명령은 의도적으로 보수적인
+기본값을 가집니다. SSH check는 `--probe-ssh`가 명시되기 전에는 host를 찌르지
+않고, 발표/논문 명령은 생성물을 human-reviewed material로 표시하며, live
+PI/harness 실행은 `--execute-local` 또는 `--execute-pi`를 명시해야 합니다.
 
 ## 아키텍처
 
@@ -368,6 +424,118 @@ maglab/
 `synthesis-editor`, `physics-validator`, `result-analyst`, `experiment-manager`,
 `hypothesis-gen`, `comms-writer`가 정의되어 있습니다.
 
+이 manifest는 현재 세 가지 사용자 표면으로 드러납니다.
+
+- Legacy MagLab CLI/REPL mode: `maglab`, `maglab -p ...`, Ralph, 기존
+  orchestrator는 MagLab의 기존 backend 계층을 사용합니다.
+- Deterministic command: physics, literature, analysis, figure, instrument 관련
+  명령은 구체적인 MagLab 모듈을 실행하며, 기능 자체가 offline이면 LLM key 없이
+  사용할 수 있습니다.
+- PI harness mode: `maglab harness doctor`,
+  `maglab harness compile literature-review`,
+  `maglab harness compile --write`, `maglab harness compile --check`,
+  `maglab harness run literature-review --dry-run --output text`,
+  `maglab harness worker search-scout --task "..."`으로 준비 상태를 확인하고,
+  project-local PI wrapper를 생성/검사하며, workflow와 worker 실행 계획을 볼 수
+  있습니다. `deep-research`는 local context, MCP 검색, citation audit, paper
+  review, physics validation, synthesis를 묶은 end-to-end research workflow이며,
+  CLI에서는 `deepresearch`와 `research` 별칭도 허용합니다. 전체 machine-readable
+  contract가 필요하면 `--output json`을 쓰거나
+  `--output`을 생략합니다. dry-run JSON 출력에는 local worker subprocess 계약용 `local_run_plan`
+  command와 PI `workflow` tool에 넘길 topic-bound
+  `pi_agents_workflow_payload`가 함께 들어갑니다. `--execute-local --local-max-turns 2 --output text`를
+  추가하면 PI 없이 workflow를 local worker 순서대로 실제 실행하며, text mode는
+  worker별 진행 상황을 보여주고 smolagents raw log는 기본으로 숨깁니다. `--pi-handoff`를 추가하면
+  `pi --mode json --no-builtin-tools --tools workflow -p ...` 형태의 실제 handoff
+  command와 prompt도 함께 출력하고, provider credential이 있는 환경에서는
+  `--execute-pi`로 그 handoff를 명시적으로 실행할 수 있습니다. 준비된 run을 `--pi-flow-id`와
+  연결된 W3C PROV activity로 남기려면 `--record-provenance --provenance-db
+  .maglab/harness-provenance.sqlite`를 추가합니다. `maglab harness pi-tool
+  --payload-json ... --output json|text`는 PI가 호출할 수 있는 wrapper를 직접
+  노출하며, harness 결과에는 PI flow, 감지된 PI workflow/session, MagLab
+  provenance id를 묶은 top-level `cross_links` 블록이 들어갑니다. Worker dry-run은
+  model alias, resolved model, LiteLLM config 출처, 도구, 로드/누락된 skill context, runtime availability를
+  보여주며, 요청된 MCP 서버와 dry-run MCP attach 상태도 함께 표시합니다. live worker 실패는 `.[harness]` 설치, provider key 설정,
+  `LITELLM_CONFIG_PATH` 사용 같은 다음 행동을 출력합니다.
+  `maglab mcp list`는 MCP 서버가 어떤 harness workflow에서 쓰이는지와 disabled
+  read-only 연구 connector를 켜는 `maglab mcp enable <name>` 힌트를 함께 보여줍니다.
+
+첫 workflow 최소 경로는 다음과 같습니다.
+
+```sh
+uv pip install -e ".[harness]"
+maglab harness doctor
+maglab harness compile literature-review
+maglab harness run literature-review --topic "SOT switching in CoFeB" --dry-run --output text
+maglab harness run literature-review --topic "SOT switching in CoFeB" --execute-local --local-max-turns 2 --output text
+maglab harness run deepresearch --topic "field-free SOT switching in Ta/CoFeB/MgO" --dry-run --output text
+maglab harness worker citation-auditor --task '{"candidates":[],"session_id":"demo"}' --json
+maglab harness pi-tool --payload-json '{"workflow":"literature-review","input":"SOT switching in CoFeB"}' --output text
+maglab run "SOT switching in CoFeB" --harness-workflow literature-review
+```
+
+`literature-review`는 compact한 5-step survey에 쓰고, `deepresearch`는 local
+context, MCP-backed discovery, citation audit, paper-level review, physics
+plausibility validation, synthesis를 한 번에 묶을 때 사용합니다. Worker prompt에는
+agent가 선언한 MagLab skill 문서(`deep-research`, `literature-search`,
+`citation-audit`, `literature-review`, `physics-oracle`)가 실제로 preload되므로,
+dry-run 계획, local execution, PI handoff에서 같은 integrity gate가 적용됩니다.
+
+Literature workflow는 기존 직접 명령을 기본값으로 유지하되, 같은 entrypoint에서
+harness plan을 opt-in으로 볼 수 있습니다.
+
+```sh
+maglab lit search papers/sot --harness-plan --dry-run --topic "SOT switching in CoFeB"
+maglab lit search papers/sot --harness-plan --harness-json
+```
+
+Harness-plan mode에서 `lit search`는 local keyword를 추출해
+`literature-review` PI payload를 준비합니다. 이 경로는 직접 OpenAlex connector를
+호출하거나 `evidence_matrix.json`을 쓰지 않습니다.
+
+생성된 `.pi/workflows/*.json` 파일은 manifest workflow compile이 안정적인지
+확인하기 위한 정적 drift artifact입니다. live PI 실행 payload가 아니므로,
+구체적인 PI `workflow` tool 호출을 연결할 때는 `harness run --dry-run`의
+`pi_agents_workflow_payload`를 사용합니다.
+
+현재 CLI는 live PI 실행을 가짜로 흉내 내지 않습니다. `--execute-pi`는 생성된 PI
+handoff command를 그대로 실행하며, 실제 성공에는 PI 별도 설치/설정, smolagents,
+LiteLLM provider 설정, harness adapter가 들어 있는 MagLab `harness` extra 환경이
+필요합니다. PI/pi-agents는 PI package 안내에 따라 별도로 설치한 뒤
+`maglab harness doctor`로 확인합니다. project-local `.pi/npm/node_modules/.bin/pi`가
+있으면 MagLab은 그 binary를 우선 사용합니다. provider credential과
+`LITELLM_CONFIG_PATH` 또는 직접 provider key가 준비되기 전에는 deterministic
+command, legacy CLI/REPL, harness dry-run을 fallback으로 사용하세요.
+`LITELLM_CONFIG_PATH`가 설정되면 live worker planning과 execution은 모두 built-in
+alias 대신 그 config 파일을 사용합니다. 번들 `configs/litellm.example.yaml`은 문서용
+예시일 뿐입니다. `harness doctor`는 이 예시 파일만으로는 live-ready라고 표시하지
+않고, 실제 config로 복사하거나 `LITELLM_CONFIG_PATH`를 설정하거나
+`ANTHROPIC_API_KEY` 같은 직접 key를 제공할 때 readiness를 통과시킵니다.
+
+## 런타임 산출물
+
+MagLab은 상태를 chat transcript 안에 숨기지 않고 workspace에 추적 가능한 파일로
+남기도록 설계되어 있습니다. 자주 쓰는 artifact 위치는 다음과 같습니다.
+
+```text
+.maglab/
+├── artifacts/          저장된 harness payload, report, final result
+├── harness-budget.sqlite
+├── harness-provenance.sqlite
+└── mcp.json            workspace MCP server registry가 설정된 경우
+
+notebook/               ELN entry와 fit-linked note
+figures/                render/compose된 figure output
+runs/                   simulation과 workflow run directory
+papers/                 local literature corpus와 evidence matrix
+reports/                manuscript, review, slide, poster output
+```
+
+artifact path는 명령별로 다르고 option으로 바꿀 수 있지만, 의도한 운용 방식은
+같습니다. raw research file은 project 안에 남기고, 생성물은 디스크에서 확인
+가능해야 하며, provenance와 budget record는 inspect 가능해야 하고, LLM-assisted
+text는 human review 대상임을 계속 드러냅니다.
+
 ## 설치 세부 사항
 
 Python 3.11부터 3.13까지 지원합니다.
@@ -384,6 +552,7 @@ uv pip install -e ".[literature]"      # literature APIs and RAG
 uv pip install -e ".[reviewer]"        # reviewer panel support
 uv pip install -e ".[authoring]"       # papers, slides, posters, docs
 uv pip install -e ".[gateway]"         # messaging gateway
+uv pip install -e ".[harness]"         # PI/smolagents harness adapters
 uv pip install -e ".[dev]"             # ruff, mypy, pytest, pre-commit
 ```
 

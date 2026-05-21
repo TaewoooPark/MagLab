@@ -87,6 +87,42 @@ modes.
 | Authoring and communication | Draft manuscript sections, cover letters, revision letters, rebuttals, abstracts, grants, emails, slides, and posters while preserving human review requirements. |
 | Orchestration | Use the interactive REPL, Ralph loops, MCP server/client, subagents, skills, gateway bots, cost tracking, checkpoints, and provenance records to coordinate a full research lifecycle. |
 
+## Implementation Status
+
+This README describes the current source tree, not only a future plan. The CLI
+entry point is implemented in `maglab/cli.py`, the optional PI/smolagents
+harness surface is registered through `maglab/commands/harness.py`, and the
+package metadata in `pyproject.toml` exposes the `maglab` console script.
+
+The best way to check the code path from a checkout is:
+
+```sh
+.venv/bin/python -m maglab --help
+.venv/bin/python -m maglab harness --help
+.venv/bin/python -m maglab doctor --help
+```
+
+If an older global `pipx` install is already on your PATH, it can lag behind the
+checkout until you reinstall or upgrade it. In that case, the source command
+above is the authority for this repository, and the installed command can be
+refreshed with the editable install command in the next section.
+
+Implemented today:
+
+| Surface | Current status | Notes |
+|---|---|---|
+| CLI and REPL | Implemented | `maglab`, `maglab -p`, `maglab ask`, and `maglab run` route through the terminal app and configured backend. |
+| Deterministic physics/material tools | Implemented | Formula evaluation, unit conversion, physics oracle, material lookup/search/build, and DataPoint creation run without LLM credentials. |
+| Analysis and fitting | Implemented | Effect registry, CSV/HDF5 loading, model inspection, lmfit-based fitting, deterministic discovery attempts, and ELN/provenance hooks are wired. |
+| Figure tooling | Implemented | FigureSpec creation, render/compose/export, journal styles, and a primitive catalog are available; real rendering depends on plotting extras. |
+| Instrument tooling | Implemented as scaffold and safety workflow | PyVISA driver scaffolds, SCPI validation, manual ingest/index, skill generation, script generation, and static safety checks are present. |
+| Literature workflow | Implemented with optional connectors | Offline keyword extraction is available; OpenAlex/Semantic Scholar/arXiv/Crossref paths require the relevant extras and network/API availability. |
+| Lab notebook and planning | Implemented | ELN note creation/listing and measurement-plan generation write project artifacts under the active workspace. |
+| Review, authoring, communications | Implemented with human-review gates | Manuscript review, anomaly explanation, manuscript/cover-letter/revision/email/abstract/grant/rebuttal drafting, slides, and posters are marked for researcher review. |
+| Report, provenance, and task inspection | Implemented | `report inventory`, `prov summary/status/lineage`, and `task list/status/scaffold` inspect artifacts already written to disk. |
+| PI/smolagents harness | Implemented as readiness, compile, dry-run, local run, and handoff UX | Live local workers require `.[harness]`, smolagents, LiteLLM provider configuration, and credentials. Live PI execution requires a separately installed PI binary. |
+| External solvers, hardware, gateways | Environment-gated | MagLab prepares inputs, validates specs, and checks readiness; it does not bundle MuMax3, OOMMF, VAMPIRE, VISA drivers, Slack/Telegram/Discord credentials, or remote cluster access. |
+
 ## Start Here
 
 Install MagLab as a global terminal program with the recommended research
@@ -109,6 +145,15 @@ If `pipx` or Python 3.12 is missing on macOS, use this known-good path:
 uv tool install pipx --python python3.12
 pipx ensurepath
 pipx install --python python3.12 --editable ".[research]"
+```
+
+From a development checkout, the repository-local virtual environment is often
+the most faithful way to run the code you are editing:
+
+```sh
+uv pip install -e ".[research]"
+.venv/bin/python -m maglab --help
+.venv/bin/python -m maglab doctor
 ```
 
 After that, open any research folder and run `maglab`. MagLab keeps global
@@ -291,18 +336,20 @@ maglab doctor --feature simulation --sim-backend ssh-gpu --host gpu.example.edu 
 ## Command Surface
 
 ```text
-maglab                    interactive research agent
-maglab -p "QUERY"         non-interactive one-shot query
+maglab                         interactive research agent
+maglab -p "QUERY"              non-interactive one-shot query
+maglab -p "QUERY" --harness-workflow literature-review
+                               one-shot query through a manifest workflow
 
 auth      codex · claude · gemini-cli · ollama · anthropic · grok · deepseek · qwen · kimi · gemini · openai · set · list · status · test
 physics   compute · units · oracle
-mat       list · show · build
+mat       list · show · search · build
 sim       doctor · micro · validate · plot · job · dft · atomistic · pipeline
 fit       --effect EFFECT DATA.csv
 analyze   load · model · consistency · symmetry
 device    fom
 figure    spec · render · compose · export
-          primitives list · show
+          primitives list · show · ingest
 instr     scaffold · scpi · script · check · ingest · skillgen · implement
 lit       search · authors · keywords · journal · graph
 lab       note · note-list · plan
@@ -317,6 +364,10 @@ hypotheses TOPIC
 mcp       list · serve · add · enable · disable
 agents    list · show
 skill     list
+harness   doctor · compile · run · pi-tool · worker
+report    inventory
+prov      summary · status · lineage
+task      list · status · scaffold
 cost
 manual    [topic] --lang en|ko
 config    show · path · restore · reset
@@ -326,6 +377,13 @@ workspace status · brief · init · tree
 theme     list · set
 version · info
 ```
+
+The short list above is intentionally operational rather than exhaustive. Use
+`maglab <command> --help` for option names and safety flags. Several commands
+have deliberately conservative defaults: SSH checks do not probe a host unless
+`--probe-ssh` is explicit, presentation and manuscript commands mark generated
+text as human-reviewed material, and live PI/harness execution must be requested
+with `--execute-local` or `--execute-pi`.
 
 ## Architecture
 
@@ -377,6 +435,123 @@ maglab/
 `synthesis-editor`, `physics-validator`, `result-analyst`, `experiment-manager`,
 `hypothesis-gen`, and `comms-writer`.
 
+That manifest is exposed through three distinct user surfaces:
+
+- Legacy MagLab CLI/REPL mode: `maglab`, `maglab -p ...`, Ralph, and the current
+  orchestrator use MagLab's existing backend layer.
+- Deterministic commands: physics, literature, analysis, figure, instrument, and
+  related commands run concrete MagLab modules and can be used without an LLM
+  key when the feature itself is offline.
+- PI harness mode: `maglab harness doctor`,
+  `maglab harness compile literature-review`, `maglab harness compile --write`,
+  `maglab harness compile --check`,
+  `maglab harness run literature-review --dry-run --output text`, and
+  `maglab harness worker search-scout --task "..."` inspect readiness, generate
+  project-local PI wrappers, check wrapper and manifest drift, and show
+  workflow/worker execution plans. `deep-research` is the MagLab end-to-end
+  research workflow; the ergonomic aliases `deepresearch` and `research` are
+  accepted for CLI use. Use `--output json` or omit `--output` for
+  the full machine-readable contract. The dry-run JSON includes both
+  `local_run_plan` commands for the local worker subprocess contract and a
+  topic-bound `pi_agents_workflow_payload` that can be handed to PI's
+  `workflow` tool. Add `--execute-local --local-max-turns 2 --output text` to
+  run the workflow locally, step by step, without PI; text mode shows
+  per-worker progress and hides raw smolagents logs by default. Add
+  `--pi-handoff` to also emit the concrete
+  `pi --mode json --no-builtin-tools --tools workflow -p ...` handoff command
+  and prompt, or `--execute-pi` to run that handoff explicitly in an
+  environment with provider credentials. Add `--record-provenance --provenance-db
+  .maglab/harness-provenance.sqlite` when you want the prepared run recorded as
+  a W3C PROV activity linked to `--pi-flow-id`. `maglab harness pi-tool
+  --payload-json ... --output json|text` exposes the PI-callable wrapper directly,
+  and harness results include a top-level `cross_links` block for PI flow,
+  detected PI workflow/session, and MagLab provenance ids when present. Worker
+  dry-runs show the model alias, resolved model, LiteLLM config source, tools,
+  loaded/missing skill context, runtime availability, requested MCP servers, and dry-run MCP attach status;
+  live worker failures print next steps for installing
+  `.[harness]`, setting provider keys, or using `LITELLM_CONFIG_PATH`.
+  `maglab mcp list` shows which MCP servers are referenced by harness workflows
+  and prints `maglab mcp enable <name>` hints for disabled read-only research
+  connectors.
+
+Minimal first workflow:
+
+```sh
+uv pip install -e ".[harness]"
+maglab harness doctor
+maglab harness compile literature-review
+maglab harness run literature-review --topic "SOT switching in CoFeB" --dry-run --output text
+maglab harness run literature-review --topic "SOT switching in CoFeB" --execute-local --local-max-turns 2 --output text
+maglab harness run deepresearch --topic "field-free SOT switching in Ta/CoFeB/MgO" --dry-run --output text
+maglab harness worker citation-auditor --task '{"candidates":[],"session_id":"demo"}' --json
+maglab harness pi-tool --payload-json '{"workflow":"literature-review","input":"SOT switching in CoFeB"}' --output text
+maglab run "SOT switching in CoFeB" --harness-workflow literature-review
+```
+
+Use `literature-review` for a compact five-step survey. Use `deepresearch`
+when you want local context, MCP-backed discovery, citation audit,
+paper-level review, physics plausibility validation, and synthesis in one
+six-step workflow. Worker prompts now preload the relevant MagLab skill docs
+declared by the agent, for example `deep-research`, `literature-search`,
+`citation-audit`, `literature-review`, and `physics-oracle`, so the same
+integrity gates are used in dry-run planning, local execution, and PI handoff.
+
+For the literature workflow, the legacy direct command remains the default, but
+you can opt into the harness plan from the existing entrypoint:
+
+```sh
+maglab lit search papers/sot --harness-plan --dry-run --topic "SOT switching in CoFeB"
+maglab lit search papers/sot --harness-plan --harness-json
+```
+
+In harness-plan mode, `lit search` extracts local keywords and prepares the
+`literature-review` PI payload; it does not call the direct OpenAlex connector
+or write `evidence_matrix.json`.
+
+The generated `.pi/workflows/*.json` files are static drift artifacts for
+checking that manifest workflow compilation is stable. They are not the live PI
+execution payload; use the `pi_agents_workflow_payload` from
+`harness run --dry-run` when wiring a concrete PI `workflow` tool call.
+
+Live PI execution is environment-gated and is not faked by the current CLI.
+`--execute-pi` uses the generated PI handoff command; it still requires PI to be
+installed and configured separately, plus a MagLab environment installed with
+the `harness` extra so smolagents, LiteLLM provider configuration, and the
+harness adapters are available. Install PI/pi-agents from the PI package
+instructions, then run `maglab harness doctor`; if a project-local
+`.pi/npm/node_modules/.bin/pi` exists, MagLab prefers that binary. Until provider
+credentials and `LITELLM_CONFIG_PATH` or direct provider keys are ready, use
+deterministic commands, legacy CLI/REPL mode, or harness dry-runs as the fallback.
+When `LITELLM_CONFIG_PATH` is set, live worker planning and execution both use
+that config file instead of the built-in aliases. The bundled
+`configs/litellm.example.yaml` is documentation only; `harness doctor` reports
+readiness incomplete until you copy it to a real config path, set
+`LITELLM_CONFIG_PATH`, or provide a direct key such as `ANTHROPIC_API_KEY`.
+
+## Runtime Artifacts
+
+MagLab is designed to leave a paper trail in the workspace instead of hiding
+state inside a chat transcript. Common artifact locations are:
+
+```text
+.maglab/
+├── artifacts/          saved harness payloads, reports, and final results
+├── harness-budget.sqlite
+├── harness-provenance.sqlite
+└── mcp.json            workspace MCP server registry when configured
+
+notebook/               ELN entries and fit-linked notes
+figures/                rendered or composed figure outputs
+runs/                   simulation and workflow run directories
+papers/                 local literature corpora and evidence matrices
+reports/                manuscript, review, slide, and poster outputs
+```
+
+Artifact paths are command-specific and configurable, but this separation is the
+intended operating model: raw research files stay in the project, generated
+outputs are visible on disk, provenance and budget records are inspectable, and
+LLM-assisted text remains marked for human review.
+
 ## Installation Details
 
 Python 3.11 to 3.13 is supported.
@@ -393,6 +568,7 @@ uv pip install -e ".[literature]"      # literature APIs and RAG
 uv pip install -e ".[reviewer]"        # reviewer panel support
 uv pip install -e ".[authoring]"       # papers, slides, posters, docs
 uv pip install -e ".[gateway]"         # messaging gateway
+uv pip install -e ".[harness]"         # PI/smolagents harness adapters
 uv pip install -e ".[dev]"             # ruff, mypy, pytest, pre-commit
 ```
 
