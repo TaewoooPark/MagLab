@@ -16,11 +16,15 @@
   <img src="https://img.shields.io/github/last-commit/TaewoooPark/MagLab?style=flat-square&labelColor=000000&color=333333" alt="Last commit">
   <img src="https://img.shields.io/github/languages/top/TaewoooPark/MagLab?style=flat-square&labelColor=000000&color=333333" alt="Top language">
   &nbsp;
-  <img src="https://img.shields.io/badge/Python-000000?style=flat-square&logo=python&logoColor=white&labelColor=000000" alt="Python">
-  <img src="https://img.shields.io/badge/NumPy-000000?style=flat-square&logo=numpy&logoColor=white&labelColor=000000" alt="NumPy">
-  <img src="https://img.shields.io/badge/SciPy-000000?style=flat-square&logo=scipy&logoColor=white&labelColor=000000" alt="SciPy">
-  <img src="https://img.shields.io/badge/lmfit-000000?style=flat-square&labelColor=000000&color=333333" alt="lmfit">
-  <img src="https://img.shields.io/badge/Pydantic-000000?style=flat-square&logo=pydantic&logoColor=white&labelColor=000000" alt="Pydantic">
+  <img src="https://img.shields.io/badge/Python-3.11%E2%80%933.13-000000?style=flat-square&logo=python&logoColor=white&labelColor=000000" alt="Python 3.11-3.13">
+  <img src="https://img.shields.io/badge/CLI-Typer_%2B_Rich-000000?style=flat-square&labelColor=000000&color=333333" alt="Typer and Rich CLI">
+  <img src="https://img.shields.io/badge/Data-NumPy_%2B_SciPy_%2B_pandas-000000?style=flat-square&logo=numpy&logoColor=white&labelColor=000000" alt="NumPy, SciPy, pandas">
+  <img src="https://img.shields.io/badge/Fitting-lmfit-000000?style=flat-square&labelColor=000000&color=333333" alt="lmfit">
+  <img src="https://img.shields.io/badge/Models-LiteLLM_%2B_Ollama-000000?style=flat-square&labelColor=000000&color=333333" alt="LiteLLM and Ollama">
+  <img src="https://img.shields.io/badge/Agents-smolagents_%2B_MCP-000000?style=flat-square&labelColor=000000&color=333333" alt="smolagents and MCP">
+  <img src="https://img.shields.io/badge/Simulation-Ubermag_stack-000000?style=flat-square&labelColor=000000&color=333333" alt="Ubermag simulation stack">
+  <img src="https://img.shields.io/badge/Figures-Matplotlib_%2B_PyVista-000000?style=flat-square&labelColor=000000&color=333333" alt="Matplotlib and PyVista">
+  <img src="https://img.shields.io/badge/Instruments-PyVISA-000000?style=flat-square&labelColor=000000&color=333333" alt="PyVISA">
 </p>
 
 ![MagLab research lifecycle](image1.png)
