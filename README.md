@@ -91,6 +91,81 @@ modes.
 | Authoring and communication | Draft manuscript sections, cover letters, revision letters, rebuttals, abstracts, grants, emails, slides, and posters while preserving human review requirements. |
 | Orchestration | Use the interactive REPL, Ralph loops, MCP server/client, subagents, skills, gateway bots, cost tracking, checkpoints, and provenance records to coordinate a full research lifecycle. |
 
+## Pipeline Stack
+
+<p align="center">
+  <sub><strong>Terminal UX</strong></sub><br>
+  <img src="https://img.shields.io/badge/-Python-333333?style=flat-square&logo=python&logoColor=white&labelColor=000000" alt="Python">
+  <img src="https://img.shields.io/badge/-Typer-333333?style=flat-square&logo=typer&logoColor=white&labelColor=000000" alt="Typer">
+  <img src="https://img.shields.io/badge/-Rich-333333?style=flat-square&logo=rich&logoColor=white&labelColor=000000" alt="Rich">
+  <img src="https://img.shields.io/badge/-prompt_toolkit-333333?style=flat-square&labelColor=000000" alt="prompt_toolkit">
+  <img src="https://img.shields.io/badge/-pyfiglet-333333?style=flat-square&labelColor=000000" alt="pyfiglet">
+</p>
+
+<p align="center">
+  <sub><strong>Physics, Data, Fitting</strong></sub><br>
+  <img src="https://img.shields.io/badge/-NumPy-333333?style=flat-square&logo=numpy&logoColor=white&labelColor=000000" alt="NumPy">
+  <img src="https://img.shields.io/badge/-SciPy-333333?style=flat-square&logo=scipy&logoColor=white&labelColor=000000" alt="SciPy">
+  <img src="https://img.shields.io/badge/-pandas-333333?style=flat-square&logo=pandas&logoColor=white&labelColor=000000" alt="pandas">
+  <img src="https://img.shields.io/badge/-lmfit-333333?style=flat-square&labelColor=000000" alt="lmfit">
+  <img src="https://img.shields.io/badge/-Pydantic-333333?style=flat-square&logo=pydantic&logoColor=white&labelColor=000000" alt="Pydantic">
+  <img src="https://img.shields.io/badge/-PROV-333333?style=flat-square&labelColor=000000" alt="PROV">
+</p>
+
+<p align="center">
+  <sub><strong>Literature Intelligence</strong></sub><br>
+  <img src="https://img.shields.io/badge/-OpenAlex-333333?style=flat-square&logo=openalex&logoColor=white&labelColor=000000" alt="OpenAlex">
+  <img src="https://img.shields.io/badge/-Semantic%20Scholar-333333?style=flat-square&logo=semanticscholar&logoColor=white&labelColor=000000" alt="Semantic Scholar">
+  <img src="https://img.shields.io/badge/-arXiv-333333?style=flat-square&logo=arxiv&logoColor=white&labelColor=000000" alt="arXiv">
+  <img src="https://img.shields.io/badge/-Crossref-333333?style=flat-square&logo=crossref&logoColor=white&labelColor=000000" alt="Crossref">
+  <img src="https://img.shields.io/badge/-scikit--learn-333333?style=flat-square&logo=scikitlearn&logoColor=white&labelColor=000000" alt="scikit-learn">
+  <img src="https://img.shields.io/badge/-KeyBERT-333333?style=flat-square&labelColor=000000" alt="KeyBERT">
+  <img src="https://img.shields.io/badge/-LanceDB-333333?style=flat-square&logo=lancedb&logoColor=white&labelColor=000000" alt="LanceDB">
+</p>
+
+<p align="center">
+  <sub><strong>Simulation Handoff</strong></sub><br>
+  <img src="https://img.shields.io/badge/-Ubermag-333333?style=flat-square&labelColor=000000" alt="Ubermag">
+  <img src="https://img.shields.io/badge/-OOMMF-333333?style=flat-square&labelColor=000000" alt="OOMMF">
+  <img src="https://img.shields.io/badge/-micromagneticmodel-333333?style=flat-square&labelColor=000000" alt="micromagneticmodel">
+  <img src="https://img.shields.io/badge/-discretisedfield-333333?style=flat-square&labelColor=000000" alt="discretisedfield">
+  <img src="https://img.shields.io/badge/-magnum.np-333333?style=flat-square&labelColor=000000" alt="magnum.np">
+  <img src="https://img.shields.io/badge/-Paramiko-333333?style=flat-square&labelColor=000000" alt="Paramiko">
+</p>
+
+<p align="center">
+  <sub><strong>Figures and Authoring</strong></sub><br>
+  <img src="https://img.shields.io/badge/-Matplotlib-333333?style=flat-square&logo=matplotlib&logoColor=white&labelColor=000000" alt="Matplotlib">
+  <img src="https://img.shields.io/badge/-SciencePlots-333333?style=flat-square&labelColor=000000" alt="SciencePlots">
+  <img src="https://img.shields.io/badge/-PyVista-333333?style=flat-square&logo=pyvista&logoColor=white&labelColor=000000" alt="PyVista">
+  <img src="https://img.shields.io/badge/-CairoSVG-333333?style=flat-square&labelColor=000000" alt="CairoSVG">
+  <img src="https://img.shields.io/badge/-LaTeX-333333?style=flat-square&logo=latex&logoColor=white&labelColor=000000" alt="LaTeX">
+  <img src="https://img.shields.io/badge/-PowerPoint-333333?style=flat-square&logo=microsoftpowerpoint&logoColor=white&labelColor=000000" alt="PowerPoint">
+  <img src="https://img.shields.io/badge/-Word-333333?style=flat-square&logo=microsoftword&logoColor=white&labelColor=000000" alt="Word">
+</p>
+
+<p align="center">
+  <sub><strong>Models, Agents, Gateways</strong></sub><br>
+  <img src="https://img.shields.io/badge/-LiteLLM-333333?style=flat-square&labelColor=000000" alt="LiteLLM">
+  <img src="https://img.shields.io/badge/-Ollama-333333?style=flat-square&logo=ollama&logoColor=white&labelColor=000000" alt="Ollama">
+  <img src="https://img.shields.io/badge/-Anthropic-333333?style=flat-square&logo=anthropic&logoColor=white&labelColor=000000" alt="Anthropic">
+  <img src="https://img.shields.io/badge/-OpenAI-333333?style=flat-square&logo=openai&logoColor=white&labelColor=000000" alt="OpenAI">
+  <img src="https://img.shields.io/badge/-Gemini-333333?style=flat-square&logo=googlegemini&logoColor=white&labelColor=000000" alt="Gemini">
+  <img src="https://img.shields.io/badge/-smolagents-333333?style=flat-square&labelColor=000000" alt="smolagents">
+  <img src="https://img.shields.io/badge/-MCP-333333?style=flat-square&labelColor=000000" alt="MCP">
+  <img src="https://img.shields.io/badge/-Slack-333333?style=flat-square&logo=slack&logoColor=white&labelColor=000000" alt="Slack">
+  <img src="https://img.shields.io/badge/-Telegram-333333?style=flat-square&logo=telegram&logoColor=white&labelColor=000000" alt="Telegram">
+  <img src="https://img.shields.io/badge/-Discord-333333?style=flat-square&logo=discord&logoColor=white&labelColor=000000" alt="Discord">
+</p>
+
+<p align="center">
+  <sub><strong>Instruments and Manuals</strong></sub><br>
+  <img src="https://img.shields.io/badge/-PyVISA-333333?style=flat-square&labelColor=000000" alt="PyVISA">
+  <img src="https://img.shields.io/badge/-SCPI-333333?style=flat-square&labelColor=000000" alt="SCPI">
+  <img src="https://img.shields.io/badge/-pyvisa--sim-333333?style=flat-square&labelColor=000000" alt="pyvisa-sim">
+  <img src="https://img.shields.io/badge/-pdfplumber-333333?style=flat-square&labelColor=000000" alt="pdfplumber">
+</p>
+
 ## Implementation Status
 
 This README describes the current source tree, not only a future plan. The CLI
