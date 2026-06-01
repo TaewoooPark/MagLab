@@ -126,7 +126,11 @@ thin layers, voltage/field annotations, and explicit scene frames through
 `panel.extra["primitives"]` when deterministic placement is preferred over
 keyword search. For a stronger first draft, use `sot-device-scene`, a composite
 layout-first primitive that connects stack cross-section, process arrow,
-patterned Hall bar, and measurement annotations in one editable SVG scene.
+patterned Hall bar, and measurement annotations in one editable SVG scene. It
+defaults to a Nature-style 183 mm canvas with a three-panel stack → patterned
+device → qualitative-readout story, lowercase panel labels, compact
+5-7 pt-equivalent SVG text, black annotation text/keylines, no raster images,
+and an optional `backend="html"` preview wrapper for browser-first figure review.
 
 ## Handoff
 

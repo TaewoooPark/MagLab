@@ -632,6 +632,35 @@ class TestPublicationSchematicPrimitives:
         assert "maglab-sot-hall-channel" in svg
         assert "maglab-sot-process-arrow" in svg
         assert "maglab-sot-voltage-arrow" in svg
+        assert "maglab-sot-readout-curve" in svg
+
+    def test_sot_device_scene_uses_nature_vector_canvas(self) -> None:
+        """SOT scene defaults to an editable Nature double-column SVG canvas."""
+        from maglab.figure.primitives.registry import make_default_registry
+
+        reg = make_default_registry()
+        prim = reg.load("sot-device-scene")  # type: ignore[assignment]
+        svg = prim.render({}, backend="svg")
+        self._root(svg)
+        assert 'width="183mm"' in svg
+        assert 'height="62mm"' in svg
+        assert "maglab-panel-label" in svg
+        assert ">c</text>" in svg
+        assert "drop-shadow" not in svg.lower()
+        assert "filter=" not in svg.lower()
+        assert "<image" not in svg
+
+    def test_sot_device_scene_html_backend_inlines_editable_svg(self) -> None:
+        """HTML backend returns a browser-previewable document with inline SVG."""
+        from maglab.figure.primitives.registry import make_default_registry
+
+        reg = make_default_registry()
+        prim = reg.load("sot-device-scene")  # type: ignore[assignment]
+        html = prim.render({}, backend="html")
+        assert "<!doctype html>" in html.lower()
+        assert "<svg" in html
+        assert 'class="maglab-nature-figure"' in html
+        assert "<image" not in html
 
 
 # ---------------------------------------------------------------------------

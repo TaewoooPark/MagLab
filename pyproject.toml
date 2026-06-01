@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "maglab"
-version = "0.0.2"
+version = "0.0.3"
 description = "AI for Science harness for magnetism and spintronics research"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"

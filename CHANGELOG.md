@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.0.3
+
+### Changed
+
+- Reworked `sot-device-scene` as a Nature-style browser/SVG figure instead of a
+  rough schematic demo: 183 mm editable vector canvas, three-panel stack to
+  patterned-device to qualitative-readout story, lowercase panel labels, compact
+  5-7 pt-equivalent text, black annotation labels/keylines, no raster images,
+  no decorative effects, and tighter publication-oriented whitespace.
+- Added `backend="html"` support for `sot-device-scene`, returning a
+  self-contained HTML preview document with the editable SVG inline.
+- Updated figure documentation to describe the browser-first SVG workflow.
+- Bumped the package version to `0.0.3`.
+
+### Tests
+
+- Added regression checks for the Nature-style SVG canvas and inline HTML
+  backend.
+
 ## v0.0.2
 
 ### Added

@@ -278,10 +278,13 @@ maglab analyze model stfmr
 maglab figure primitives list
 ```
 
-Schematic primitives are not freehand raster images. They are parameterized SVG
-objects with journal-aware style tokens, bounded thin-film stack scaling,
-role-aware material colors, and explicit scene frames for composing device,
-stack, and measurement geometry panels:
+Schematic primitives are not freehand raster images. They are parameterized,
+editable SVG objects with journal-aware style tokens, bounded thin-film stack
+scaling, role-aware material colors, and explicit scene frames for composing
+device, stack, and measurement geometry panels. The `sot-device-scene` primitive
+targets a Nature-style double-column canvas with a stack → patterned-device →
+qualitative-readout story, and can also return a self-contained HTML document
+with inline SVG for browser-first review/export workflows:
 
 ```json
 {
