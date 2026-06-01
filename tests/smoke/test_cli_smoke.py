@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 from maglab import __version__
 from maglab.cli import app
 from maglab.config import Config
+from tests.harness.cli_runner import isolated_filesystem
 
 runner = CliRunner()
 
@@ -84,7 +85,7 @@ def test_workspace_status_json_is_machine_readable() -> None:
 
 @pytest.mark.smoke
 def test_workspace_tree_json_reports_visible_entries() -> None:
-    with runner.isolated_filesystem():
+    with isolated_filesystem(runner):
         Path("MAGLAB.md").write_text("# Project\n", encoding="utf-8")
         Path("data").mkdir()
         Path("data/sample.csv").write_text("x,y\n0,0\n", encoding="utf-8")
@@ -99,7 +100,7 @@ def test_workspace_tree_json_reports_visible_entries() -> None:
 
 @pytest.mark.smoke
 def test_workspace_tree_filters_docs_code_data() -> None:
-    with runner.isolated_filesystem():
+    with isolated_filesystem(runner):
         Path("README.md").write_text("# Demo\n", encoding="utf-8")
         Path("maglab").mkdir()
         Path("maglab/cli.py").write_text("print('x')\n", encoding="utf-8")
@@ -120,7 +121,7 @@ def test_workspace_tree_filters_docs_code_data() -> None:
 
 @pytest.mark.smoke
 def test_workspace_tree_depth_and_all_flags() -> None:
-    with runner.isolated_filesystem():
+    with isolated_filesystem(runner):
         Path(".github").mkdir()
         Path(".github/workflow.yml").write_text("ci\n", encoding="utf-8")
         Path("demo.egg-info").mkdir()
@@ -148,7 +149,7 @@ def test_workspace_tree_depth_and_all_flags() -> None:
 
 @pytest.mark.smoke
 def test_workspace_brief_prioritizes_key_paths() -> None:
-    with runner.isolated_filesystem():
+    with isolated_filesystem(runner):
         Path("README.md").write_text("# Demo\n", encoding="utf-8")
         Path("plan").mkdir()
 
@@ -162,7 +163,7 @@ def test_workspace_brief_prioritizes_key_paths() -> None:
 
 @pytest.mark.smoke
 def test_instr_skillgen_creates_workspace_skill() -> None:
-    with runner.isolated_filesystem():
+    with isolated_filesystem(runner):
         result = runner.invoke(
             app,
             ["instr", "skillgen", "SR830", "--manufacturer", "SRS"],

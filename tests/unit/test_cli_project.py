@@ -9,12 +9,13 @@ from typer.testing import CliRunner
 
 from maglab.cli import app
 from maglab.core.checkpoint import CheckpointStore, StepStatus
+from tests.harness.cli_runner import isolated_filesystem
 
 runner = CliRunner()
 
 
 def test_report_inventory_command_lists_existing_artifact() -> None:
-    with runner.isolated_filesystem():
+    with isolated_filesystem(runner):
         out = Path("maglab_write/prl")
         out.mkdir(parents=True)
         (out / "main.tex").write_text("article", encoding="utf-8")
@@ -28,7 +29,7 @@ def test_report_inventory_command_lists_existing_artifact() -> None:
 
 
 def test_prov_summary_command_lists_sidecar() -> None:
-    with runner.isolated_filesystem():
+    with isolated_filesystem(runner):
         Path("fit_provenance.json").write_text('[{"id": "dp-1"}]', encoding="utf-8")
 
         result = runner.invoke(app, ["prov", "summary", "--json"])
@@ -61,7 +62,7 @@ def test_task_status_command_reads_checkpoint_db(tmp_path: Path) -> None:
 
 
 def test_task_scaffold_command_writes_markdown() -> None:
-    with runner.isolated_filesystem():
+    with isolated_filesystem(runner):
         result = runner.invoke(
             app,
             ["task", "scaffold", "Analyze spin Hall angle", "--id", "spin-hall", "--json"],
@@ -74,7 +75,7 @@ def test_task_scaffold_command_writes_markdown() -> None:
 
 
 def test_skill_create_command_writes_workspace_skill() -> None:
-    with runner.isolated_filesystem():
+    with isolated_filesystem(runner):
         result = runner.invoke(
             app,
             ["skill", "create", "Spin Hall Skill", "--description", "Spin Hall workflow."],
@@ -87,7 +88,7 @@ def test_skill_create_command_writes_workspace_skill() -> None:
 
 
 def test_workspace_tree_summary_deduplicates_high_signal_paths() -> None:
-    with runner.isolated_filesystem():
+    with isolated_filesystem(runner):
         Path("MAGLAB.md").write_text("# Project\n", encoding="utf-8")
         Path("README.md").write_text("# Demo\n", encoding="utf-8")
         Path("pyproject.toml").write_text("[project]\nname = 'demo'\n", encoding="utf-8")
@@ -111,7 +112,7 @@ def test_workspace_tree_summary_deduplicates_high_signal_paths() -> None:
 
 
 def test_figure_primitive_ingest_command_writes_catalog_package() -> None:
-    with runner.isolated_filesystem():
+    with isolated_filesystem(runner):
         source = Path("hall.svg")
         source.write_text(
             '<svg width="20" height="10" xmlns="http://www.w3.org/2000/svg"></svg>',

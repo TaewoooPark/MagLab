@@ -17,6 +17,7 @@ import pytest
 from typer.testing import CliRunner
 
 from maglab.cli import app
+from tests.harness.cli_runner import isolated_filesystem
 
 runner = CliRunner()
 
@@ -111,7 +112,7 @@ def test_sim_doctor_explain_shows_execution_paths() -> None:
 @pytest.mark.smoke
 def test_sim_pipeline_mock_writes_manifest_json() -> None:
     """No-GPU pipeline path produces a real manifest artifact."""
-    with runner.isolated_filesystem():
+    with isolated_filesystem(runner):
         result = runner.invoke(
             app,
             [
