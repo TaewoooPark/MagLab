@@ -278,6 +278,21 @@ maglab analyze model stfmr
 maglab figure primitives list
 ```
 
+Schematic primitives are not freehand raster images. They are parameterized SVG
+objects with journal-aware style tokens, bounded thin-film stack scaling,
+role-aware material colors, and explicit scene frames for composing device,
+stack, and measurement geometry panels:
+
+```json
+{
+  "primitives": [
+    {"name": "sot-device-scene", "frame": [0.02, 0.06, 0.96, 0.88]},
+    {"name": "multilayer-stack", "frame": [0.05, 0.10, 0.40, 0.78]},
+    {"name": "hall-bar", "frame": [0.56, 0.18, 0.38, 0.58]}
+  ]
+}
+```
+
 Connect an LLM backend when you want natural-language orchestration, drafting,
 review, or agent workflows. Codex is supported through the official authenticated
 Codex CLI; MagLab does not store Codex OAuth tokens. Direct API providers are

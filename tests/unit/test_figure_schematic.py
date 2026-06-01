@@ -17,6 +17,7 @@ from unittest.mock import patch
 import pytest
 
 from maglab.figure.primitives.spec import PrimitiveRegistry
+from maglab.figure.primitives.svg import SchematicFrame, normalize_frame
 from maglab.figure.renderers.schematic import (
     SchematicRenderer,
     _build_placement_plan,
@@ -135,6 +136,20 @@ class TestSvgHelpers:
         """Empty input returns an empty plan."""
         plan = _build_placement_plan([], canvas_width=200.0, canvas_height=150.0)
         assert plan == []
+
+    def test_schematic_frame_anchors(self) -> None:
+        """SchematicFrame exposes stable compass anchors for layout-first drawings."""
+        frame = SchematicFrame(10.0, 20.0, 100.0, 50.0)
+        assert frame.anchor("center") == (60.0, 45.0)
+        assert frame.anchor("e") == (110.0, 45.0)
+        assert frame.inset(5.0, 2.0, 10.0, 3.0) == SchematicFrame(15.0, 22.0, 85.0, 45.0)
+
+    def test_normalize_frame_fractional_and_absolute(self) -> None:
+        """Frame specs can be normalized fractions or absolute SVG units."""
+        fractional = normalize_frame([0.1, 0.2, 0.3, 0.4], canvas_width=200.0, canvas_height=100.0)
+        absolute = normalize_frame([10, 20, 30, 40], canvas_width=200.0, canvas_height=100.0)
+        assert fractional == SchematicFrame(20.0, 20.0, 60.0, 40.0)
+        assert absolute == SchematicFrame(10.0, 20.0, 30.0, 40.0)
 
 
 class TestAssembleSvg:
@@ -258,6 +273,37 @@ class TestSchematicRenderer:
         svg = renderer.render_panel(panel)
         assert called[0] is True
         assert "<svg" in svg
+
+    def test_render_panel_explicit_scene_frames(self) -> None:
+        """panel.extra['primitives'] supports explicit frame placement."""
+        d1 = _DummyPrimitive()
+        d2 = _DummyPrimitive2()
+        reg = _make_registry(d1, d2)
+        renderer = SchematicRenderer(registry=reg)
+        panel = PanelSpec(
+            panel_id="scene",
+            panel_type=PanelType.SCHEMATIC,
+            extra={
+                "primitives": [
+                    {
+                        "name": "dummy-prim",
+                        "params": {"width": 30.0},
+                        "frame": [0.05, 0.12, 0.38, 0.70],
+                    },
+                    {
+                        "name": "dummy-prim-2",
+                        "params": {},
+                        "frame": [0.56, 0.18, 0.35, 0.50],
+                    },
+                ]
+            },
+        )
+
+        svg = renderer.render_panel(panel)
+
+        assert "<svg" in svg
+        assert "scale(" in svg
+        assert svg.count("<g transform=") >= 2
 
     def test_render_panel_llm_layout_fallback_on_error(self) -> None:
         """Fallback is used when the LLM layout function raises an error."""

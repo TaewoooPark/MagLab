@@ -5,8 +5,17 @@ Parametric cross-section of magnetic heterostructures such as Ta/CoFeB/MgO.
 
 from __future__ import annotations
 
-import html
+import math
 from typing import Any
+
+from maglab.figure.primitives.svg import (
+    color_value,
+    fmt,
+    positive_float,
+    schematic_style,
+    tag,
+    text,
+)
 
 _DEFAULT_LAYERS: list[dict[str, Any]] = [
     {"name": "MgO", "thickness_nm": 2.0, "color": "#E8E8E8"},
@@ -56,6 +65,18 @@ class MultilayerStackPrimitive:
             "description": "SVG height scale per nm",
         },
         {
+            "name": "scale_mode",
+            "type": "str",
+            "default": "bounded",
+            "description": "Thickness scaling: bounded, sqrt, or linear",
+        },
+        {
+            "name": "label_mode",
+            "type": "str",
+            "default": "auto",
+            "description": "Label placement: auto, callout, or inside",
+        },
+        {
             "name": "show_labels",
             "type": "bool",
             "default": True,
@@ -90,65 +111,158 @@ class MultilayerStackPrimitive:
         """Generate the stack cross-section SVG from parameters."""
         if backend == "tikz":
             return self._render_tikz(params)
-        return self._render_svg(params)
+        return self._render_svg(params, style_key=style)
 
-    def _render_svg(self, params: dict[str, Any]) -> str:
+    def _render_svg(self, params: dict[str, Any], *, style_key: str = "nature") -> str:
         """SVG backend."""
-        layers: list[dict[str, Any]] = params.get("layers", _DEFAULT_LAYERS)
-        width = float(params.get("width", 120.0))
-        ts = float(params.get("thickness_scale", 20.0))
+        style = schematic_style(style_key)
+        layers = _coerce_layers(params.get("layers", _DEFAULT_LAYERS), style=style)
+        width = positive_float(params, "width", 120.0, minimum=40.0, maximum=500.0)
+        ts = positive_float(params, "thickness_scale", 20.0, minimum=0.5, maximum=100.0)
+        min_layer_height = positive_float(
+            params, "min_layer_height", 7.0, minimum=2.0, maximum=40.0
+        )
+        scale_mode = str(params.get("scale_mode", "bounded")).lower()
+        label_mode = str(params.get("label_mode", "auto")).lower()
         show_labels = bool(params.get("show_labels", True))
         show_thickness = bool(params.get("show_thickness", True))
 
-        parts: list[str] = []
-        # Stack from bottom upward (layers[0] = bottom)
-        # Calculate total height first
-        total_h = sum(float(lay.get("thickness_nm", 1.0)) * ts for lay in layers)
-        total_h = max(total_h, 10.0)
+        heights = _layer_heights(
+            [float(lay["thickness_nm"]) for lay in layers],
+            thickness_scale=ts,
+            mode=scale_mode,
+            min_layer_height=min_layer_height,
+        )
+        total_h = sum(heights)
+        label_x = width + 24.0
+        right_margin = 142.0 if (show_labels or show_thickness) else 10.0
+        svg_w = width + right_margin
+        svg_h = total_h + 24.0
 
-        y = total_h  # current y position (starting from bottom)
-        label_x = width + 5
+        parts: list[str] = [
+            tag(
+                "rect",
+                {
+                    "x": 0,
+                    "y": 0,
+                    "width": fmt(width),
+                    "height": fmt(total_h),
+                    "fill": "#ffffff",
+                    "stroke": "none",
+                },
+            )
+        ]
 
-        for lay in layers:
-            name = str(lay.get("name", "?"))
-            thick_nm = float(lay.get("thickness_nm", 1.0))
-            color = str(lay.get("color", "#AAA"))
-            h = thick_nm * ts
+        y = total_h
+        layer_boxes: list[tuple[dict[str, Any], float, float]] = []
+
+        for lay, h in zip(layers, heights, strict=True):
             y -= h
-
-            # Layer rectangle — escape color for safe insertion into an attribute value.
-            color_attr = html.escape(color, quote=True)
+            layer_boxes.append((lay, y, h))
             parts.append(
-                f'<rect x="0" y="{y:.1f}" width="{width:.1f}" height="{h:.1f}" '
-                f'fill="{color_attr}" stroke="#333" stroke-width="0.5"/>'
+                tag(
+                    "rect",
+                    {
+                        "class": "maglab-layer",
+                        "x": fmt(0),
+                        "y": fmt(y),
+                        "width": fmt(width),
+                        "height": fmt(h),
+                        "fill": lay["color"],
+                        "stroke": "#333333",
+                        "stroke_width": fmt(style.stroke_width),
+                    },
+                )
             )
 
-            # Labels
-            if show_labels or show_thickness:
-                label_parts: list[str] = []
-                if show_labels:
-                    label_parts.append(name)
-                if show_thickness:
-                    label_parts.append(f"({thick_nm:.0f} nm)")
-                label_text = " ".join(label_parts)
-                font_size = min(10.0, max(6.0, h * 0.6))
-                parts.append(
-                    f'<text x="{label_x:.1f}" y="{y + h / 2:.1f}" '
-                    f'font-size="{font_size:.1f}" dominant-baseline="middle" '
-                    f'fill="#222">{html.escape(label_text)}</text>'
-                )
-
-        # Substrate label
-        parts.append(
-            f'<text x="{width / 2:.1f}" y="{total_h + 12:.1f}" '
-            f'font-size="9" text-anchor="middle" fill="#666">substrate</text>'
+        label_positions = _resolve_label_positions(
+            [(y + h / 2.0) for _, y, h in layer_boxes],
+            min_gap=style.label_gap,
+            lower=style.label_size,
+            upper=max(style.label_size, total_h - style.label_size),
         )
 
-        svg_w = label_x + 80
+        for (lay, y, h), label_y in zip(layer_boxes, label_positions, strict=True):
+            layer_label = _layer_label(lay, show_labels=show_labels, show_thickness=show_thickness)
+            if not layer_label:
+                continue
+
+            can_place_inside = label_mode == "inside" or (
+                label_mode == "auto" and h >= style.label_size * 1.8 and len(layer_label) <= 12
+            )
+            if can_place_inside:
+                parts.append(
+                    tag(
+                        "text",
+                        {
+                            "class": "maglab-layer-label",
+                            "x": fmt(width / 2.0),
+                            "y": fmt(y + h / 2.0),
+                            "font_family": style.font_family,
+                            "font_size": fmt(style.small_label_size),
+                            "text_anchor": "middle",
+                            "dominant_baseline": "middle",
+                            "fill": _label_fill(lay["color"]),
+                        },
+                        text(layer_label),
+                    )
+                )
+            else:
+                mid_y = y + h / 2.0
+                parts.append(
+                    tag(
+                        "path",
+                        {
+                            "class": "maglab-layer-callout",
+                            "d": (
+                                f"M {fmt(width)} {fmt(mid_y)} L {fmt(label_x - 7)} {fmt(label_y)}"
+                            ),
+                            "fill": "none",
+                            "stroke": "#555555",
+                            "stroke_width": fmt(style.callout_width),
+                        },
+                    )
+                )
+                parts.append(
+                    tag(
+                        "text",
+                        {
+                            "class": "maglab-layer-label",
+                            "x": fmt(label_x),
+                            "y": fmt(label_y),
+                            "font_family": style.font_family,
+                            "font_size": fmt(style.label_size),
+                            "dominant_baseline": "middle",
+                            "fill": "#222222",
+                        },
+                        text(layer_label),
+                    )
+                )
+
+        # A small growth-direction cue makes the stack convention explicit.
+        parts.append(
+            tag(
+                "path",
+                {
+                    "class": "maglab-growth-arrow",
+                    "d": f"M {fmt(width + 7)} {fmt(total_h)} L {fmt(width + 7)} {fmt(4)}",
+                    "fill": "none",
+                    "stroke": "#777777",
+                    "stroke_width": fmt(style.axis_width),
+                    "marker_end": "url(#growthArrow)",
+                },
+            )
+        )
+        defs = (
+            '<defs><marker id="growthArrow" markerWidth="6" markerHeight="6" '
+            'refX="5" refY="3" orient="auto">'
+            '<path d="M0,0 L6,3 L0,6 Z" fill="#777777"/></marker></defs>'
+        )
         return (
             f'<svg xmlns="http://www.w3.org/2000/svg" '
-            f'width="{svg_w:.0f}" height="{total_h + 20:.0f}" '
-            f'viewBox="0 0 {svg_w:.0f} {total_h + 20:.0f}">\n' + "\n".join(parts) + "\n</svg>"
+            f'width="{fmt(svg_w)}" height="{fmt(svg_h)}" '
+            f'viewBox="0 0 {fmt(svg_w)} {fmt(svg_h)}">\n'
+            f"{defs}\n" + "\n".join(parts) + "\n</svg>"
         )
 
     def _render_tikz(self, params: dict[str, Any]) -> str:
@@ -174,3 +288,132 @@ class MultilayerStackPrimitive:
 def get_primitive() -> MultilayerStackPrimitive:
     """Registry loader factory function."""
     return MultilayerStackPrimitive()
+
+
+def _coerce_layers(raw_layers: object, *, style: Any) -> list[dict[str, Any]]:
+    """Normalize layer dictionaries and infer role colors."""
+    if not isinstance(raw_layers, list) or not raw_layers:
+        raw_layers = _DEFAULT_LAYERS
+    result: list[dict[str, Any]] = []
+    for raw in raw_layers:
+        if not isinstance(raw, dict):
+            continue
+        name = str(raw.get("name", "?"))
+        role = str(raw.get("role", _infer_role(name))).lower()
+        try:
+            thickness = float(raw.get("thickness_nm", 1.0))
+        except (TypeError, ValueError):
+            thickness = 1.0
+        thickness = max(0.05, thickness)
+        fallback = style.color(role, _role_fallback(role))
+        result.append(
+            {
+                "name": name,
+                "role": role,
+                "thickness_nm": thickness,
+                "color": color_value(raw.get("color", fallback), fallback),
+            }
+        )
+    return result or _coerce_layers(_DEFAULT_LAYERS, style=style)
+
+
+def _infer_role(name: str) -> str:
+    """Infer a visual role from common spintronic stack material names."""
+    lower = name.lower()
+    if any(token in lower for token in ("cofe", "co", "fe", "ni", "fm")):
+        return "ferromagnet"
+    if any(token in lower for token in ("mgo", "alox", "oxide", "sio", "sio2", "sio₂")):
+        return "oxide" if "substrate" not in lower else "substrate"
+    if any(token in lower for token in ("pt", "ta", "w", "hm", "heavy")):
+        return "heavy_metal"
+    if "cap" in lower:
+        return "cap"
+    if "substrate" in lower or lower.startswith("si"):
+        return "substrate"
+    return "neutral"
+
+
+def _role_fallback(role: str) -> str:
+    """Fallback color for a material role."""
+    return {
+        "heavy_metal": "#8f969e",
+        "ferromagnet": "#c43c39",
+        "oxide": "#eeeeee",
+        "substrate": "#d9e8f6",
+        "cap": "#7f858b",
+    }.get(role, "#aaaaaa")
+
+
+def _layer_heights(
+    thicknesses: list[float],
+    *,
+    thickness_scale: float,
+    mode: str,
+    min_layer_height: float,
+) -> list[float]:
+    """Map physical thicknesses to legible SVG layer heights."""
+    if mode == "linear":
+        return [max(min_layer_height, t * thickness_scale) for t in thicknesses]
+
+    raw = [math.sqrt(t) if mode in {"bounded", "sqrt"} else t for t in thicknesses]
+    target_total = min(190.0, max(72.0, sum(thicknesses) * thickness_scale))
+    total_raw = sum(raw) or 1.0
+    heights = [max(min_layer_height, target_total * value / total_raw) for value in raw]
+    overflow = sum(heights) - target_total
+    if overflow <= 0:
+        return heights
+    flexible = [i for i, h in enumerate(heights) if h > min_layer_height]
+    if not flexible:
+        return heights
+    per = overflow / len(flexible)
+    for i in flexible:
+        heights[i] = max(min_layer_height, heights[i] - per)
+    return heights
+
+
+def _layer_label(layer: dict[str, Any], *, show_labels: bool, show_thickness: bool) -> str:
+    """Build a compact label string."""
+    parts: list[str] = []
+    if show_labels:
+        parts.append(str(layer["name"]))
+    if show_thickness:
+        parts.append(f"({layer['thickness_nm']:.3g} nm)")
+    return " ".join(parts)
+
+
+def _resolve_label_positions(
+    preferred: list[float],
+    *,
+    min_gap: float,
+    lower: float,
+    upper: float,
+) -> list[float]:
+    """Resolve vertically stacked callout labels without overlap."""
+    if not preferred:
+        return []
+    order = sorted(range(len(preferred)), key=preferred.__getitem__)
+    placed = preferred[:]
+    last = lower - min_gap
+    for idx in order:
+        placed[idx] = max(preferred[idx], last + min_gap)
+        last = placed[idx]
+    excess = max(0.0, last - upper)
+    if excess:
+        for idx in order:
+            placed[idx] -= excess
+    return placed
+
+
+def _label_fill(color: str) -> str:
+    """Choose text color for internal labels."""
+    value = color.lstrip("#")
+    if len(value) not in {3, 6, 8}:
+        return "#222222"
+    if len(value) == 3:
+        value = "".join(ch * 2 for ch in value)
+    try:
+        r, g, b = int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16)
+    except ValueError:
+        return "#222222"
+    luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    return "#ffffff" if luminance < 120 else "#222222"

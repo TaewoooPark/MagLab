@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from maglab.figure.primitives.spec import Primitive, PrimitiveRegistry
+from maglab.figure.primitives.svg import SchematicFrame, normalize_frame
 from maglab.figure.spec import PanelSpec
 
 log = logging.getLogger(__name__)
@@ -73,6 +74,11 @@ _SVG_HEADER_TEMPLATE = """\
 """
 
 _SVG_FOOTER = "</svg>\n"
+_FRAME_PARAM = "__maglab_frame"
+_GEOM_RE = re.compile(r"<svg\b([^>]*)>", re.IGNORECASE | re.DOTALL)
+_VIEWBOX_RE = re.compile(r"""viewBox\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
+_WIDTH_RE = re.compile(r"""width\s*=\s*["']([0-9.+\-eE]+)""", re.IGNORECASE)
+_HEIGHT_RE = re.compile(r"""height\s*=\s*["']([0-9.+\-eE]+)""", re.IGNORECASE)
 
 
 def _wrap_in_group(svg_content: str, x: float = 0, y: float = 0) -> str:
@@ -88,6 +94,60 @@ def _extract_svg_body(svg_string: str) -> str:
         return match.group(1).strip()
     # Return as-is when no tag found
     return svg_string.strip()
+
+
+def _extract_svg_geometry(svg_string: str) -> tuple[float, float, float, float]:
+    """Return ``(min_x, min_y, width, height)`` for an SVG document.
+
+    Primitive renderers are encouraged to return a viewBox.  Width/height are
+    used as a fallback so legacy primitives still compose.
+    """
+    header_match = _GEOM_RE.search(svg_string)
+    header = header_match.group(1) if header_match else ""
+
+    viewbox_match = _VIEWBOX_RE.search(header)
+    if viewbox_match:
+        parts = viewbox_match.group(1).replace(",", " ").split()
+        if len(parts) == 4:
+            try:
+                min_x, min_y, width, height = [float(p) for p in parts]
+                if width > 0 and height > 0:
+                    return min_x, min_y, width, height
+            except ValueError:
+                pass
+
+    width = _parse_svg_length(header, _WIDTH_RE, default=100.0)
+    height = _parse_svg_length(header, _HEIGHT_RE, default=100.0)
+    return 0.0, 0.0, max(width, 1.0), max(height, 1.0)
+
+
+def _parse_svg_length(header: str, pattern: re.Pattern[str], *, default: float) -> float:
+    """Parse a unit-bearing SVG length and return its numeric value."""
+    match = pattern.search(header)
+    if not match:
+        return default
+    try:
+        return float(match.group(1))
+    except ValueError:
+        return default
+
+
+def _wrap_in_frame(
+    svg_content: str,
+    *,
+    rendered_svg: str,
+    frame: SchematicFrame,
+) -> str:
+    """Wrap primitive SVG body into an explicit frame while preserving aspect ratio."""
+    min_x, min_y, prim_w, prim_h = _extract_svg_geometry(rendered_svg)
+    scale = min(frame.width / prim_w, frame.height / prim_h)
+    offset_x = frame.x + (frame.width - prim_w * scale) / 2
+    offset_y = frame.y + (frame.height - prim_h * scale) / 2
+    return (
+        f'<g transform="translate({offset_x:.3f}, {offset_y:.3f}) '
+        f'scale({scale:.6f}) translate({-min_x:.3f}, {-min_y:.3f})">\n'
+        f"{svg_content}\n</g>\n"
+    )
 
 
 def _build_placement_plan(
@@ -169,12 +229,21 @@ def assemble_svg(
     body_parts: list[str] = []
     for prim, params, x, y in placement:
         try:
-            rendered = prim.render(params, backend=backend, style=style)
+            render_params = {k: v for k, v in params.items() if k != _FRAME_PARAM}
+            rendered = prim.render(render_params, backend=backend, style=style)
         except Exception as exc:  # noqa: BLE001
             log.warning("Primitive '%s' render error: %s", prim.name, exc)
             rendered = f"<!-- render error: {prim.name} -->"
         inner = _extract_svg_body(rendered)
-        body_parts.append(_wrap_in_group(inner, x=x, y=y))
+        frame = normalize_frame(
+            params.get(_FRAME_PARAM),
+            canvas_width=vb_w,
+            canvas_height=vb_h,
+        )
+        if frame is None:
+            body_parts.append(_wrap_in_group(inner, x=x, y=y))
+        else:
+            body_parts.append(_wrap_in_frame(inner, rendered_svg=rendered, frame=frame))
 
     body = "\n".join(body_parts)
     # XML/SVG comments must not contain "--".  Replace any occurrence with "__"
@@ -340,17 +409,15 @@ class SchematicRenderer:
         # Search primitives using the panel description
         query = panel.extra.get("query", panel.title or "magnetic schematic")
         candidates = self._registry.search(query)
+        primitives_with_params = self._resolve_layout(candidates, panel)
 
-        if not candidates:
+        if not primitives_with_params:
             log.warning(
                 "[schematic] Panel '%s': no results for '%s' — returning empty SVG",
                 panel.panel_id,
                 query,
             )
             return self._empty_svg(panel.panel_id, width_mm, height_mm)
-
-        # Determine layout
-        primitives_with_params = self._resolve_layout(candidates, panel)
 
         # Assemble SVG
         svg = assemble_svg(
@@ -433,6 +500,12 @@ class SchematicRenderer:
         panel: PanelSpec,
     ) -> list[tuple[Primitive, dict[str, Any]]]:
         """Determine the (Primitive, params) list to place from candidate primitives."""
+        explicit = panel.extra.get("primitives")
+        if isinstance(explicit, list):
+            resolved = self._resolve_explicit_layout(explicit)
+            if resolved:
+                return resolved
+
         # Use LLM layout function if available
         if self._llm_layout_fn is not None:
             try:
@@ -461,6 +534,34 @@ class SchematicRenderer:
             except KeyError:
                 continue
         return result_fallback
+
+    def _resolve_explicit_layout(
+        self,
+        items: list[object],
+    ) -> list[tuple[Primitive, dict[str, Any]]]:
+        """Resolve panel.extra['primitives'] scene specs.
+
+        Each item may be ``{"name": ..., "params": {...}, "frame": [x, y, w, h]}``.
+        Frames are normalized fractions of the schematic canvas when all values
+        are between 0 and 1.
+        """
+        result: list[tuple[Primitive, dict[str, Any]]] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            if not isinstance(name, str):
+                continue
+            try:
+                prim = self._registry.load(name)
+            except KeyError:
+                log.warning("[schematic] Primitive '%s' not found", name)
+                continue
+            params = dict(item.get("params") or {})
+            if "frame" in item:
+                params[_FRAME_PARAM] = item["frame"]
+            result.append((prim, params))
+        return result
 
     def _empty_svg(
         self,

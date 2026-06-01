@@ -553,6 +553,87 @@ class TestR7Finding1SvgColorAttrEscaping:
         self._assert_valid_xml(svg, "coordinate-axes (color_z)")
 
 
+class TestPublicationSchematicPrimitives:
+    """Publication-oriented primitive layout behavior."""
+
+    @staticmethod
+    def _root(svg: str) -> ET.Element:
+        try:
+            return ET.fromstring(svg)
+        except ET.ParseError as exc:
+            raise AssertionError(f"SVG is not valid XML: {exc}") from exc
+
+    def test_multilayer_stack_bounded_layout_for_large_substrate(self) -> None:
+        """Large substrate thicknesses should not create unusably tall SVGs."""
+        from maglab.figure.primitives.registry import make_default_registry
+
+        reg = make_default_registry()
+        prim = reg.load("multilayer-stack")  # type: ignore[assignment]
+        svg = prim.render(
+            {
+                "layers": [
+                    {"name": "Si/SiO2", "role": "substrate", "thickness_nm": 500.0},
+                    {"name": "Pt", "role": "heavy_metal", "thickness_nm": 5.0},
+                    {"name": "CoFeB", "role": "ferromagnet", "thickness_nm": 1.1},
+                    {"name": "MgO", "role": "oxide", "thickness_nm": 2.0},
+                ],
+                "thickness_scale": 20.0,
+            },
+            backend="svg",
+        )
+        root = self._root(svg)
+        height = float(root.attrib["height"])
+        assert height < 260.0
+        assert "maglab-layer-callout" in svg
+
+    def test_multilayer_stack_role_palette_and_labels(self) -> None:
+        """Role-aware layer specs render labels and palette classes."""
+        from maglab.figure.primitives.registry import make_default_registry
+
+        reg = make_default_registry()
+        prim = reg.load("multilayer-stack")  # type: ignore[assignment]
+        svg = prim.render(
+            {
+                "layers": [
+                    {"name": "Pt", "role": "heavy_metal", "thickness_nm": 5.0},
+                    {"name": "CoFeB", "role": "ferromagnet", "thickness_nm": 1.0},
+                    {"name": "MgO", "role": "oxide", "thickness_nm": 2.0},
+                ]
+            },
+            backend="svg",
+        )
+        self._root(svg)
+        assert "Pt" in svg
+        assert "CoFeB" in svg
+        assert "MgO" in svg
+        assert "maglab-layer-label" in svg
+
+    def test_hall_bar_renders_voltage_and_field_annotations(self) -> None:
+        """Hall bar schematic exposes measurement semantics, not only geometry."""
+        from maglab.figure.primitives.registry import make_default_registry
+
+        reg = make_default_registry()
+        prim = reg.load("hall-bar")  # type: ignore[assignment]
+        svg = prim.render({"show_voltage": True, "show_field": True}, backend="svg")
+        self._root(svg)
+        assert "maglab-voltage-arrow" in svg
+        assert "maglab-field-out-of-plane" in svg
+
+    def test_sot_device_scene_composes_stack_and_transport_geometry(self) -> None:
+        """Composite SOT scene provides a publication-style schematic primitive."""
+        from maglab.figure.primitives.registry import make_default_registry
+
+        reg = make_default_registry()
+        prim = reg.load("sot-device-scene")  # type: ignore[assignment]
+        svg = prim.render({}, backend="svg")
+        self._root(svg)
+        assert "<image" not in svg
+        assert "maglab-sot-stack-layer" in svg
+        assert "maglab-sot-hall-channel" in svg
+        assert "maglab-sot-process-arrow" in svg
+        assert "maglab-sot-voltage-arrow" in svg
+
+
 # ---------------------------------------------------------------------------
 # Regression tests — code-review findings (round 11, domain 03)
 # ---------------------------------------------------------------------------

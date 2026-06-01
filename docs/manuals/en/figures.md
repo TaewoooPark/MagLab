@@ -119,6 +119,15 @@ Figure rendering supports journal profiles such as APS, Nature, IEEE, and
 Elsevier. These profiles should be treated as starting points: verify final
 font sizes, labels, and export requirements against the target journal.
 
+Schematic primitives use the same journal-style direction. The built-in
+multilayer stack and Hall bar primitives now expose publication-oriented SVG
+tokens: bounded layer scaling, role-aware material colors, callout labels for
+thin layers, voltage/field annotations, and explicit scene frames through
+`panel.extra["primitives"]` when deterministic placement is preferred over
+keyword search. For a stronger first draft, use `sot-device-scene`, a composite
+layout-first primitive that connects stack cross-section, process arrow,
+patterned Hall bar, and measurement annotations in one editable SVG scene.
+
 ## Handoff
 
 Figures are usually consumed by:
