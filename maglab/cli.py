@@ -33,13 +33,6 @@ app = typer.Typer(
     add_completion=False,
     invoke_without_command=True,
 )
-# typer >= 0.26 emits its resolve-time *and* render-time "Did you mean ...?"
-# suggestion, so a mistyped command printed it twice
-# ("Did you mean 'set'? Did you mean 'set'?"). Disabling the resolve-time one
-# leaves a single suggestion for both root- and subcommand typos. Set as an
-# attribute (rather than a constructor kwarg) so it is a harmless no-op on
-# older typer versions that predate `suggest_commands`.
-app.suggest_commands = False
 console = Console()
 
 

@@ -25,14 +25,6 @@ def test_version() -> None:
 
 
 @pytest.mark.smoke
-def test_unknown_command_suggestion_not_duplicated() -> None:
-    """A mistyped command suggests a fix exactly once (typer >= 0.26 doubled it)."""
-    result = runner.invoke(app, ["physicss"])
-    assert result.exit_code != 0
-    assert result.output.count("Did you mean") == 1, result.output
-
-
-@pytest.mark.smoke
 def test_help() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
