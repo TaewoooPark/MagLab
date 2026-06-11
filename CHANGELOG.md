@@ -40,6 +40,9 @@ A UX hardening pass driven by exercising the CLI/REPL as a real user end to end.
   mid-inference, spewed raw Metal command-buffer errors to stderr, and silently
   contributed nothing (KeyBERT column all zeros). It now runs cleanly and adds
   real semantic scores.
+- Stop duplicating the "Did you mean ...?" hint on a mistyped command. Under
+  typer ≥ 0.26 a typo printed it twice (`Did you mean 'set'? Did you mean
+  'set'?`); a single suggestion now shows for both root- and subcommand typos.
 
 ### Changed
 
