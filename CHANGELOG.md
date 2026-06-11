@@ -43,6 +43,11 @@ A UX hardening pass driven by exercising the CLI/REPL as a real user end to end.
 - Stop duplicating the "Did you mean ...?" hint on a mistyped command. Under
   typer ≥ 0.26 a typo printed it twice (`Did you mean 'set'? Did you mean
   'set'?`); a single suggestion now shows for both root- and subcommand typos.
+- Implement the `prov lineage <id> --db <store>` command. The README listed it
+  under the provenance surface and as "Implemented", but only `summary`/`status`
+  existed, so `maglab prov lineage` errored with "No such command". It now
+  surfaces the existing `ProvenanceStore.get_entity_lineage` records (entity,
+  generation, derivation, attribution) as a table or `--json`.
 
 ### Changed
 

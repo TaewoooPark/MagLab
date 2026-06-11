@@ -40,6 +40,35 @@ def test_prov_summary_command_lists_sidecar() -> None:
     assert payload["sidecars"][0]["kind"] == "provenance-json"
 
 
+def test_prov_lineage_reads_store(tmp_path: Path) -> None:
+    from maglab.provenance.datapoint import DataPoint, ProvenanceType
+    from maglab.provenance.ledger import ProvenanceLedger
+    from maglab.provenance.store import ProvenanceStore
+
+    db = tmp_path / "prov.db"
+    ledger = ProvenanceLedger(ProvenanceStore(db))
+    parent = DataPoint(value=[1.0, 2.0], units="A/m", provenance_type=ProvenanceType.MEASURED)
+    ledger.record_datapoint(parent, activity_description="load")
+    child = DataPoint(value=0.12, units="1", provenance_type=ProvenanceType.FITTED)
+    child_id = ledger.record_datapoint(
+        child, derived_from_ids=[parent.id], activity_description="fit"
+    )
+
+    result = runner.invoke(app, ["prov", "lineage", child_id, "--db", str(db), "--json"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["datapoint_id"] == child_id
+    kinds = {rec["kind"] for rec in payload["lineage"]}
+    assert "entity" in kinds and "relation" in kinds
+
+
+def test_prov_lineage_without_db_errors() -> None:
+    result = runner.invoke(app, ["prov", "lineage", "some-id"])
+    assert result.exit_code == 2
+    assert "PROV store is required" in result.output
+
+
 def test_task_status_command_reads_checkpoint_db(tmp_path: Path) -> None:
     db = tmp_path / "checkpoint.db"
     store = CheckpointStore(db_path=db)

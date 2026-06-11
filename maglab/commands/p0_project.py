@@ -147,6 +147,61 @@ def prov_status(
     prov_summary(root=root, db_path=db_path, json_output=json_output)
 
 
+@prov_app.command("lineage")
+def prov_lineage(
+    datapoint_id: Annotated[
+        str,
+        typer.Argument(help="DataPoint ID (local name) to trace lineage for."),
+    ],
+    db_path: Annotated[
+        Path | None,
+        typer.Option("--db", help="W3C PROV SQLite store path holding the lineage."),
+    ] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Print JSON.")] = False,
+) -> None:
+    """Show the W3C PROV lineage of a DataPoint (generation, derivation, attribution)."""
+    if db_path is None:
+        console.print(
+            "[red]A PROV store is required.[/] Pass [bold]--db <path>[/] to the SQLite "
+            "store (inspect one with `maglab prov summary --db <path>`)."
+        )
+        raise typer.Exit(2)
+    if not db_path.exists():
+        console.print(f"[red]PROV store not found:[/] {escape(str(db_path))}")
+        raise typer.Exit(1)
+
+    from maglab.provenance.store import ProvenanceStore
+
+    try:
+        records = ProvenanceStore(db_path).get_entity_lineage(datapoint_id)
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]Could not read lineage:[/] {escape(str(exc))}")
+        raise typer.Exit(1) from exc
+
+    if json_output:
+        _print_json({"datapoint_id": datapoint_id, "db": str(db_path), "lineage": records})
+        return
+
+    if not records:
+        console.print(
+            f"[dim]No lineage records found for DataPoint {datapoint_id!r} in "
+            f"{escape(str(db_path))}.[/]"
+        )
+        return
+
+    table = Table(title=f"PROV lineage — {escape(datapoint_id)}")
+    table.add_column("Record ID", style="cyan")
+    table.add_column("Kind")
+    table.add_column("Created")
+    for rec in records:
+        table.add_row(
+            escape(str(rec.get("id", ""))),
+            escape(str(rec.get("kind", ""))),
+            escape(str(rec.get("created_at", ""))),
+        )
+    console.print(table)
+
+
 @task_app.callback(invoke_without_command=True)
 def task_callback(ctx: typer.Context) -> None:
     """List task scaffolds and checkpointed tasks by default."""
