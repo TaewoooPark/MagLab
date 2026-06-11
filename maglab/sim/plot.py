@@ -316,11 +316,40 @@ def _pick(candidates: list[str], preferred: list[str]) -> str | None:
     return None
 
 
+# Canonical publication symbols for the well-known magnetism/spintronics
+# measurement columns. Keys are the normalized (lowercased) column names; values
+# are the journal-style axis symbols. Anything not listed falls back to simple
+# capitalization, so arbitrary columns still render tidily.
+_AXIS_SYMBOLS: dict[str, str] = {
+    "h": "H", "b": "B", "field": "H", "mu0h": "μ₀H", "h_t": "H", "h_res": "H_res",
+    "m": "M", "mx": "M_x", "my": "M_y", "mz": "M_z",
+    "magnetization": "M", "normalized_m": "M/M_s", "hysteresis": "M",
+    "v_mix": "V_mix", "v": "V", "voltage": "V", "vmix": "V_mix",
+    "rho_xy": "ρ_xy", "ρ_xy": "ρ_xy", "rxy": "R_xy", "hall": "R_xy",
+    "anomalous_hall": "R_xy", "rho_xx": "ρ_xx",
+    "fmr": "FMR signal", "fmr_signal": "FMR signal",
+    "absorption": "Absorption", "derivative_absorption": "dχ″/dH",
+    "frequency": "f", "freq": "f", "omega": "ω",
+    "k": "k", "wavevector": "k", "k_vector": "k", "k_nm": "k",
+    "time": "t", "temperature": "T", "t": "T", "current": "I", "i_rf": "I_rf",
+}
+
+
+def _prettify_label(col_name: str) -> str:
+    """Map a normalized column name to a publication-style axis symbol."""
+    key = col_name.strip().lower()
+    if key in _AXIS_SYMBOLS:
+        return _AXIS_SYMBOLS[key]
+    # Unknown column: capitalize the leading character, preserve the remainder.
+    return col_name[:1].upper() + col_name[1:] if col_name else col_name
+
+
 def _axis_label(col_name: str, units: str) -> str:
     """Generate an axis label from column name and units."""
+    name = _prettify_label(col_name)
     if units and units != "1":
-        return f"{col_name} ({units})"
-    return col_name
+        return f"{name} ({units})"
+    return name
 
 
 # ---------------------------------------------------------------------------

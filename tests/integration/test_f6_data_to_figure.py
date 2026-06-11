@@ -312,6 +312,17 @@ class TestBuildFigureSpec:
         spec = build_figure_spec(col_dps, plot_kind=PlotKind.XY)
         assert spec.panels[0].plot_kind == PlotKind.XY
 
+    def test_axis_labels_use_publication_symbols(self, hall_csv: Path) -> None:
+        """Axis labels render canonical symbols (H, ρ_xy), not lowercased headers."""
+        col_dps = load_csv_datapoints(hall_csv)
+        spec = build_figure_spec(col_dps)
+        x_label = spec.panels[0].x_axis.label
+        y_label = spec.panels[0].y_axis.label
+        assert x_label.startswith("H"), x_label
+        assert "ρ_xy" in y_label, y_label
+        # the raw normalized key must never leak into the rendered label
+        assert "rho_xy" not in y_label.lower(), y_label
+
     def test_sim_dp_ids_in_overlay(self, hysteresis_csv: Path) -> None:
         """sim_dp_ids are inserted into the panel overlay."""
         col_dps = load_csv_datapoints(hysteresis_csv)
