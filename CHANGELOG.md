@@ -1,5 +1,51 @@
 # Changelog
 
+## v0.0.4
+
+A UX hardening pass driven by exercising the CLI/REPL as a real user end to end.
+
+### Fixed
+
+- Report the installed package version and accept the conventional
+  `--version`/`-V` flag (previously only a `version` subcommand existed and it
+  printed a stale hardcoded `0.0.1`); `__version__` now derives from package
+  metadata so it can never drift again.
+- Let the Codex delegated backend run outside a Git repository by passing
+  `--skip-git-repo-check`; `maglab auth test` and every Codex-backed call failed
+  in a plain (non-Git) research folder before this.
+- Give `physics units`/`physics compute` actionable errors instead of leaking
+  internals — no more `tesla_to_meter` function names or raw Python
+  `TypeError`s; missing/misspelled parameters and unsupported conversions are
+  named with usage hints.
+- Trim floating-point noise from `physics` output (`0.10000000005443757 tesla`
+  → `0.1 tesla`) via a shared `g`-format helper.
+- Render reduced χ² with significant figures in fit/analyze/consistency output
+  instead of collapsing small values to `0.0000`.
+- Make `figure render|compose|export` degrade gracefully with an install hint
+  when the optional `[figure]` extra is absent, instead of dumping a raw
+  `ModuleNotFoundError` traceback.
+- Produce publication-style axis labels in `sim plot` (`H`, `V_mix`, `ρ_xy`)
+  instead of lowercased raw CSV headers (`h`, `v_mix`).
+- Resolve the authoring package lazily so `present templates` — a deterministic
+  listing — works without the heavy `[authoring]` extra; previously even listing
+  templates crashed importing bibtexparser/pylatex/python-pptx.
+- Restore every REPL CLI slash command (`/physics`, `/mat`, `/doctor`, `/fit`,
+  …) under typer ≥ 0.26, which vendors click as `typer._click` and no longer
+  ships a standalone `click` that `_run_cli_slash` imported.
+- Differentiate `sim validate` failures: a non-JSON file (e.g. a CSV) now points
+  to `sim plot`, a malformed JSON string and a wrong-schema document each get
+  their own message, instead of one opaque `JSON parse failed`.
+
+### Changed
+
+- Bumped the package version to `0.0.4`.
+
+### Tests
+
+- Added regression coverage for the Codex `--skip-git-repo-check` flag,
+  publication-style `sim plot` axis labels, and real (un-mocked) REPL CLI
+  slash-command dispatch.
+
 ## v0.0.3
 
 ### Changed
