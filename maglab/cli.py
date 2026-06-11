@@ -2509,6 +2509,35 @@ def figure_spec_cmd(
     )
 
 
+def _ensure_figure_runtime() -> None:
+    """Verify the matplotlib-backed figure stack is importable, or exit cleanly.
+
+    The renderer depends on the optional ``[figure]`` extra (matplotlib + co.).
+    Without it, ``from maglab.figure.compose import ...`` raises a raw
+    ModuleNotFoundError traceback; this probe surfaces the same kind of clean,
+    actionable message the rest of MagLab uses for missing extras. Callers run
+    it before their real figure imports, which then succeed.
+    """
+    try:
+        import maglab.figure.compose  # noqa: F401
+    except ImportError as exc:
+        missing = getattr(exc, "name", None) or "matplotlib"
+        console.print(
+            f"[red]Figure rendering requires the figure extras[/] "
+            f"(missing: [bold]{missing}[/])."
+        )
+        # Escape the literal '[figure]' so Rich does not parse it as a style tag.
+        console.print(
+            r'  Install with: [bold]pipx inject maglab "maglab\[figure]"[/] '
+            r'or [bold]uv pip install -e ".\[figure]"[/]'
+        )
+        console.print(
+            "  [dim]FigureSpec authoring and the primitive catalog work without it — "
+            "see `maglab figure spec` and `maglab figure primitives list`.[/]"
+        )
+        raise typer.Exit(1) from exc
+
+
 @figure_app.command("render")
 def figure_render_cmd(
     spec_path: str = typer.Argument(..., help="FigureSpec JSON file path."),
@@ -2525,6 +2554,7 @@ def figure_render_cmd(
     import json
     from pathlib import Path
 
+    _ensure_figure_runtime()
     from maglab.figure.compose import FigureComposer
     from maglab.figure.export import FigureExporter
     from maglab.figure.spec import FigureSpec
@@ -2580,6 +2610,7 @@ def figure_compose_cmd(
     """Compose a FigureSpec into a multi-panel figure (same as render, compose stage explicit)."""
     from pathlib import Path
 
+    _ensure_figure_runtime()
     from maglab.figure.compose import FigureComposer
     from maglab.figure.export import FigureExporter
     from maglab.figure.spec import FigureSpec
@@ -2624,6 +2655,7 @@ def figure_export_cmd(
     """Export a vector figure to multiple formats."""
     from pathlib import Path
 
+    _ensure_figure_runtime()
     from maglab.figure.compose import FigureComposer
     from maglab.figure.export import FigureExporter
     from maglab.figure.spec import FigureSpec
