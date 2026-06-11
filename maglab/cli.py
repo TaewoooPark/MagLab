@@ -1958,16 +1958,31 @@ def sim_validate(
     from maglab.sim.spec import MultiScaleSpec
     from maglab.sim.validate import validate
 
-    # Parse JSON
+    # Parse JSON — distinguish "not JSON at all" (e.g. a CSV) from "valid JSON,
+    # wrong schema" so the message tells the user what `sim validate` expects.
     raw = spec_json.strip()
-    if Path(raw).is_file():
-        raw = Path(raw).read_text(encoding="utf-8")
+    source_path = Path(raw) if Path(raw).is_file() else None
+    if source_path is not None:
+        raw = source_path.read_text(encoding="utf-8")
 
     try:
         data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        if source_path is not None:
+            console.print(f"[red]Not a valid JSON file:[/] {source_path}")
+            console.print(
+                "  [dim]sim validate expects a MultiScaleSpec JSON (e.g. a "
+                "pipeline spec), not raw measurement data — for a CSV use "
+                "`maglab sim plot`.[/]"
+            )
+        else:
+            console.print(f"[red]Invalid MultiScaleSpec JSON:[/] {exc}")
+        raise typer.Exit(1) from exc
+
+    try:
         spec = MultiScaleSpec.model_validate(data)
     except Exception as exc:
-        console.print(f"[red]JSON parse failed:[/] {exc}")
+        console.print(f"[red]Not a valid MultiScaleSpec:[/] {exc}")
         raise typer.Exit(1) from exc
 
     try:
