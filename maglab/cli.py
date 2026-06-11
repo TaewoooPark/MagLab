@@ -600,6 +600,35 @@ def physics_compute(
         console.print(f"Available: {', '.join(available[:20])}")
         raise typer.Exit(1)
 
+    # Validate parameters against the formula signature up front, so a missing or
+    # misspelled argument yields an actionable message instead of a raw Python
+    # TypeError ("... missing 2 required positional arguments: 'A' and 'Ms'").
+    import inspect
+
+    sig = inspect.signature(fn)
+    required = [
+        p.name
+        for p in sig.parameters.values()
+        if p.default is inspect.Parameter.empty
+        and p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+    ]
+    missing = [name for name in required if name not in kw]
+    if missing:
+        console.print(f"[red]Missing parameters for[/] [cyan]{formula}[/]: {', '.join(missing)}")
+        usage_params = " ".join(f"{name}=<value>" for name in required)
+        console.print(f"[dim]Usage: maglab physics compute {formula} {usage_params}[/]")
+        raise typer.Exit(1)
+    has_var_kw = any(
+        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+    )
+    unexpected = [] if has_var_kw else [name for name in kw if name not in sig.parameters]
+    if unexpected:
+        console.print(
+            f"[red]Unknown parameter(s) for[/] [cyan]{formula}[/]: {', '.join(unexpected)}"
+        )
+        console.print(f"[dim]Accepted: {', '.join(sig.parameters)}[/]")
+        raise typer.Exit(1)
+
     try:
         result = fn(**kw)
         console.print(
@@ -622,11 +651,23 @@ def physics_units(
     fn_name = f"{from_unit}_to_{to_unit}"
     fn = getattr(_u, fn_name, None)
     if fn is None:
-        # Try reverse direction
+        console.print(
+            f"[red]No unit conversion available from[/] {from_unit!r} [red]to[/] {to_unit!r}."
+        )
+        # Speak in the user's unit names — never leak the internal function name.
         fn_name_rev = f"{to_unit}_to_{from_unit}"
-        if getattr(_u, fn_name_rev, None):
-            console.print(f"[yellow]Hint:[/] Reverse function {fn_name_rev!r} exists.")
-        console.print(f"[red]Unit conversion function not found:[/] {fn_name!r}")
+        if callable(getattr(_u, fn_name_rev, None)):
+            console.print(
+                "[yellow]Hint:[/] the reverse direction is supported — try "
+                f"[bold]maglab physics units {value:g} {to_unit} {from_unit}[/]."
+            )
+        available = sorted(
+            n.replace("_to_", " → ")
+            for n in dir(_u)
+            if "_to_" in n and not n.startswith("_") and callable(getattr(_u, n))
+        )
+        if available:
+            console.print(f"[dim]Supported conversions: {', '.join(available)}[/]")
         raise typer.Exit(1)
 
     try:
