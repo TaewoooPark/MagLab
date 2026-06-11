@@ -120,6 +120,20 @@ def test_workspace_slash_dispatches_to_cli_command() -> None:
     assert args[0] == ["/workspace", "status"]
 
 
+def test_run_cli_slash_executes_without_standalone_click(capsys) -> None:
+    """Regression: REPL CLI-slash dispatch must not need a standalone ``click``.
+
+    typer >= 0.26 vendors click as ``typer._click`` and drops the standalone
+    distribution, so a bare ``import click`` in ``_run_cli_slash`` crashed every
+    CLI slash command (/physics, /mat, /doctor, …) in the REPL.
+    """
+    from rich.console import Console
+
+    # Real dispatch (not mocked) of a deterministic command — must not raise.
+    _run_cli_slash(["/physics", "units", "1000", "oe", "tesla"], Console())
+    assert "tesla" in capsys.readouterr().out.lower()
+
+
 def test_skill_create_slash_dispatches_to_cli_command() -> None:
     cfg = Config()
 
