@@ -106,6 +106,13 @@ def _print_prompt_response(prompt: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _version_callback(value: bool) -> None:
+    """Eager ``--version`` handler: print the version and exit."""
+    if value:
+        console.print(f"maglab {__version__}")
+        raise typer.Exit()
+
+
 @app.callback(invoke_without_command=True)
 def _root_callback(
     ctx: typer.Context,
@@ -114,6 +121,14 @@ def _root_callback(
         "-p",
         "--prompt",
         help="Non-interactive single query (for pipe / CI use).",
+    ),
+    _version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        help="Show the MagLab version and exit.",
+        is_eager=True,
+        callback=_version_callback,
     ),
 ) -> None:
     """Start the interactive REPL when no subcommand is given."""

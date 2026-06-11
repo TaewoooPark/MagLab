@@ -5,4 +5,10 @@ numbers, citations, and figure data come from deterministic tools, and every out
 carries a provenance record.
 """
 
-__version__ = "0.0.1"
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
+try:
+    # Single source of truth: the installed package metadata (pyproject.toml).
+    __version__ = _pkg_version("maglab")
+except PackageNotFoundError:  # pragma: no cover - running from a source tree without install
+    __version__ = "0.0.3"
