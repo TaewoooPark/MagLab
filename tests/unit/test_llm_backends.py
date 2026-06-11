@@ -665,6 +665,23 @@ class TestDelegatedCLIBackend:
         assert "codex" in cmd[0]
         assert "exec" in cmd
 
+    def test_codex_cli_skips_git_repo_check(self) -> None:
+        """Codex must run outside a Git repo — MagLab launches from any folder."""
+        from maglab.llm.backends.delegated_cli import DelegatedCLIBackend
+
+        backend = DelegatedCLIBackend(cli="codex", model="gpt-4o")
+        messages = [Message(role=Role.USER, content="ping")]
+        mock_proc = self._make_mock_proc('{"content": "done"}')
+
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/codex"),
+            patch("subprocess.run", return_value=mock_proc) as mock_run,
+        ):
+            backend.complete(messages)
+
+        cmd = mock_run.call_args[0][0]
+        assert "--skip-git-repo-check" in cmd
+
     def test_codex_jsonl_agent_message_parsed(self) -> None:
         """Codex JSONL transport events are reduced to the agent message only."""
         from maglab.llm.backends.delegated_cli import DelegatedCLIBackend

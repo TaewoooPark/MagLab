@@ -37,9 +37,14 @@ _CLI_EXECUTABLES: dict[str, str] = {
 }
 
 # CLI name → non-interactive execution flags
+#
+# ``codex`` carries ``--skip-git-repo-check`` because MagLab runs from arbitrary
+# research folders (often not a Git repository). Without it, ``codex exec``
+# aborts with "Not inside a trusted directory" and the delegated backend is
+# unusable in the most common case — a plain project folder.
 _CLI_NON_INTERACTIVE_FLAGS: dict[str, list[str]] = {
     "claude": ["--output-format", "json", "--print"],
-    "codex": ["exec", "--json"],
+    "codex": ["exec", "--json", "--skip-git-repo-check"],
     "gemini": ["--format", "json", "--non-interactive"],
 }
 
