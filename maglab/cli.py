@@ -563,6 +563,29 @@ def auth_ollama(
 # physics
 # ---------------------------------------------------------------------------
 
+def _fmt_number(value: object, sig: int = 8) -> str:
+    """Format a scalar for human-readable console output.
+
+    Trims floating-point noise (``0.10000000005443757`` → ``0.1``) while keeping
+    scientific precision and switching to exponential notation for very large or
+    small magnitudes. Mirrors the ``.6g`` convention already used in the physics
+    oracle. Non-real values (tuples, arrays, complex) fall back to ``str``.
+    """
+    import math
+    import numbers
+
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, numbers.Integral):
+        return str(int(value))
+    if isinstance(value, numbers.Real):
+        f = float(value)
+        if not math.isfinite(f):
+            return str(f)
+        return f"{f:.{sig}g}"
+    return str(value)
+
+
 physics_app = typer.Typer(
     name="physics", help="Deterministic physics calculations (formulas · units · oracle)."
 )
@@ -631,9 +654,8 @@ def physics_compute(
 
     try:
         result = fn(**kw)
-        console.print(
-            f"[cyan]{formula}[/]({', '.join(f'{k}={v}' for k, v in kw.items())}) = [bold]{result}[/]"
-        )
+        args_echo = ", ".join(f"{k}={_fmt_number(v)}" for k, v in kw.items())
+        console.print(f"[cyan]{formula}[/]({args_echo}) = [bold]{_fmt_number(result)}[/]")
     except Exception as exc:
         console.print(f"[red]Calculation error:[/] {exc}")
         raise typer.Exit(1) from exc
@@ -672,7 +694,9 @@ def physics_units(
 
     try:
         result = fn(value)
-        console.print(f"{value} {from_unit} = [bold]{result}[/] {to_unit}")
+        console.print(
+            f"{_fmt_number(value)} {from_unit} = [bold]{_fmt_number(result)}[/] {to_unit}"
+        )
     except Exception as exc:
         console.print(f"[red]Conversion error:[/] {exc}")
         raise typer.Exit(1) from exc
