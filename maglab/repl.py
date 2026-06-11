@@ -204,7 +204,7 @@ def _run_cli_slash(parts: list[str], con: Console) -> None:
         # typer >= 0.26 vendors click as ``typer._click`` and no longer pulls a
         # standalone ``click`` distribution. Without this fallback every CLI
         # slash command (/physics, /mat, /doctor, /fit, …) crashed in the REPL.
-        from typer import _click as click
+        from typer import _click as click  # type: ignore[no-redef, attr-defined]
     from typer.main import get_command
 
     from maglab.cli import app

@@ -5,7 +5,8 @@ numbers, citations, and figure data come from deterministic tools, and every out
 carries a provenance record.
 """
 
-from importlib.metadata import PackageNotFoundError, version as _pkg_version
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 
 try:
     # Single source of truth: the installed package metadata (pyproject.toml).

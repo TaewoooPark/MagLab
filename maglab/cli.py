@@ -570,6 +570,7 @@ def auth_ollama(
 # physics
 # ---------------------------------------------------------------------------
 
+
 def _fmt_number(value: object, sig: int = 8) -> str:
     """Format a scalar for human-readable console output.
 
@@ -648,9 +649,7 @@ def physics_compute(
         usage_params = " ".join(f"{name}=<value>" for name in required)
         console.print(f"[dim]Usage: maglab physics compute {formula} {usage_params}[/]")
         raise typer.Exit(1)
-    has_var_kw = any(
-        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
-    )
+    has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
     unexpected = [] if has_var_kw else [name for name in kw if name not in sig.parameters]
     if unexpected:
         console.print(
@@ -2545,8 +2544,7 @@ def _ensure_figure_runtime() -> None:
     except ImportError as exc:
         missing = getattr(exc, "name", None) or "matplotlib"
         console.print(
-            f"[red]Figure rendering requires the figure extras[/] "
-            f"(missing: [bold]{missing}[/])."
+            f"[red]Figure rendering requires the figure extras[/] (missing: [bold]{missing}[/])."
         )
         # Escape the literal '[figure]' so Rich does not parse it as a style tag.
         console.print(
