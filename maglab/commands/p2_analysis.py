@@ -379,7 +379,7 @@ def fit_command(
     console.print(f"  Convergence: {'[green]OK[/]' if result.success else '[red]FAILED[/]'}")
     if result.message:
         console.print(f"  Message: [dim]{result.message}[/]")
-    console.print(f"  χ² = {result.chi2:.6g}   reduced χ² = {result.reduced_chi2:.4f}")
+    console.print(f"  χ² = {result.chi2:.6g}   reduced χ² = {result.reduced_chi2:.4g}")
 
     # Parameter table
     if result.params:
@@ -496,7 +496,7 @@ def _run_discover_fit(
     console.print(f"  Attempts: {result.n_iter}/{max_attempts}")
     console.print(f"  Convergence: {'[green]OK[/]' if result.converged else '[red]FAILED[/]'}")
     console.print(
-        f"  χ² = {fit_result.chi2:.6g}   reduced χ² = {fit_result.reduced_chi2:.4f}   "
+        f"  χ² = {fit_result.chi2:.6g}   reduced χ² = {fit_result.reduced_chi2:.4g}   "
         f"AIC = {result.aic:.6g}   BIC = {result.bic:.6g}"
     )
     if fit_result.params:
@@ -760,7 +760,7 @@ def analyze_consistency(
         for eff_name, res in ((effect_a, result_a), (effect_b, result_b)):
             cr = check_reduced_chi2(res)
             status = "[green]OK[/]" if cr.ok else "[yellow]WARNING[/]"
-            console.print(f"  reduced χ² ({eff_name}): {res.reduced_chi2:.4f}  [{status}]")
+            console.print(f"  reduced χ² ({eff_name}): {res.reduced_chi2:.4g}  [{status}]")
             for w in cr.warnings:
                 console.print(f"    [dim]{w}[/]")
 
