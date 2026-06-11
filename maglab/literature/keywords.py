@@ -228,17 +228,31 @@ def extract_keybert_keywords(
     # Use SPECTER2 (academic document embedding model) when available; fall back
     # to the KeyBERT default (all-MiniLM-L6-v2) in offline / test environments.
     # P6-TODO: inject domain LLM reranker as a post-processing step here.
+    #
+    # Pin the embedding model to CPU. KeyBERT's default device auto-selection
+    # puts the transformer on MPS on Apple Silicon, where SPECTER2 OOMs mid-
+    # inference and dumps raw Metal command-buffer errors to stderr while
+    # silently contributing nothing to the scores. CPU is reliable cross-platform
+    # and fast enough for keyword-scale text.
+    def _cpu_keybert(model_name: str) -> Any:
+        try:
+            from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+
+            return KeyBERT(SentenceTransformer(model_name, device="cpu"))
+        except Exception:  # noqa: BLE001 - fall back to KeyBERT's own loader
+            return KeyBERT(model_name)
+
     _specter2_model = "allenai/specter2_base"
     try:
-        kw_model = KeyBERT(_specter2_model)
-        log.debug("KeyBERT initialised with SPECTER2 model (%s)", _specter2_model)
+        kw_model = _cpu_keybert(_specter2_model)
+        log.debug("KeyBERT initialised with SPECTER2 model (%s) on CPU", _specter2_model)
     except Exception as specter_exc:  # noqa: BLE001
         log.warning(
             "SPECTER2 model unavailable (%s) — falling back to KeyBERT default embedding",
             specter_exc,
         )
         try:
-            kw_model = KeyBERT()
+            kw_model = _cpu_keybert("all-MiniLM-L6-v2")
         except Exception as exc:  # noqa: BLE001
             log.warning("KeyBERT initialisation failed: %s", exc)
             return []

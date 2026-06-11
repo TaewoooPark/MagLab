@@ -35,6 +35,11 @@ A UX hardening pass driven by exercising the CLI/REPL as a real user end to end.
 - Differentiate `sim validate` failures: a non-JSON file (e.g. a CSV) now points
   to `sim plot`, a malformed JSON string and a wrong-schema document each get
   their own message, instead of one opaque `JSON parse failed`.
+- Pin KeyBERT's embedding model to CPU for `lit keywords`/`lit search`. On Apple
+  Silicon the default device auto-selection put SPECTER2 on MPS, where it OOM'd
+  mid-inference, spewed raw Metal command-buffer errors to stderr, and silently
+  contributed nothing (KeyBERT column all zeros). It now runs cleanly and adds
+  real semantic scores.
 
 ### Changed
 
