@@ -21,7 +21,7 @@ Core integrity rules (§12.6):
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from maglab.figure.runtime import ensure_matplotlib_runtime_env
 
@@ -377,7 +377,7 @@ class DataPlotRenderer:
         tuple[Figure, Axes]
             Fully rendered figure and axes pair.
         """
-        with plt.rc_context(self._rcparams):
+        with plt.rc_context(cast(Any, self._rcparams)):
             fig, ax = plt.subplots(figsize=figsize)
             try:
                 self.render_panel(panel, ax, ledger)

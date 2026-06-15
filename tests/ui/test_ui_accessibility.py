@@ -212,7 +212,7 @@ def test_make_console_non_tty_sets_no_color() -> None:
 def test_make_console_force_terminal_allows_color() -> None:
     """A force_terminal=True Console can output ANSI colour codes."""
     buf = io.StringIO()
-    con = Console(file=buf, force_terminal=True, no_color=False)
+    con = Console(file=buf, force_terminal=True, no_color=False, color_system="standard")
     con.print("[bold red]colored[/]")
     output = buf.getvalue()
     # force_terminal with no_color=False means colour codes are present

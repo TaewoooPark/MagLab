@@ -16,7 +16,7 @@ Key features:
 from __future__ import annotations
 
 import string
-from typing import Any
+from typing import Any, cast
 
 from maglab.figure.runtime import ensure_matplotlib_runtime_env
 
@@ -88,7 +88,7 @@ class FigureComposer:
         nrows = spec.layout.nrows
         ncols = spec.layout.ncols
 
-        with plt.rc_context(rcparams):
+        with plt.rc_context(cast(Any, rcparams)):
             fig = plt.figure(figsize=figsize)
             try:
                 gs = gridspec.GridSpec(
