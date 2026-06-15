@@ -7,7 +7,8 @@
 <p align="center">
   <a href="README.md">English README</a> ·
   <a href="docs/manuals/en/index.md">Manuals</a> ·
-  <a href="docs/manuals/ko/index.md">한국어 매뉴얼</a>
+  <a href="docs/manuals/ko/index.md">한국어 매뉴얼</a> ·
+  <a href="https://www.taewoopark.com/projects/maglab">MagLab 페이지</a>
 </p>
 
 <p align="center">
