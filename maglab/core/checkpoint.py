@@ -144,46 +144,39 @@ class CheckpointStore:
         its status and payload are updated.
         """
         now = time.time()
-        # Check for an existing record
-        cur = self._conn.execute(
-            "SELECT checkpoint_id FROM checkpoints WHERE task_id=? AND idempotency_key=?",
-            (task_id, idempotency_key),
+        # Single atomic upsert. A SELECT-then-INSERT/UPDATE pair would race: two
+        # workers resuming the same task both see "no row", both INSERT, and the
+        # loser hits the UNIQUE(task_id, idempotency_key) constraint — crashing
+        # the loop that idempotency keys exist to make safe. ON CONFLICT keeps
+        # the original checkpoint_id and ts_created, matching the former UPDATE.
+        self._conn.execute(
+            """
+            INSERT INTO checkpoints
+            (checkpoint_id, task_id, idempotency_key, status, payload,
+             provenance_id, ts_created, ts_updated)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(task_id, idempotency_key) DO UPDATE SET
+                status=excluded.status,
+                payload=excluded.payload,
+                provenance_id=excluded.provenance_id,
+                ts_updated=excluded.ts_updated
+            """,
+            (
+                str(uuid.uuid4()),
+                task_id,
+                idempotency_key,
+                status.value,
+                json.dumps(payload),
+                provenance_id,
+                now,
+                now,
+            ),
         )
-        row = cur.fetchone()
-        if row:
-            cp_id = row["checkpoint_id"]
-            self._conn.execute(
-                """
-                UPDATE checkpoints
-                SET status=?, payload=?, provenance_id=?, ts_updated=?
-                WHERE checkpoint_id=?
-                """,
-                (status.value, json.dumps(payload), provenance_id, now, cp_id),
-            )
-            self._conn.commit()
-            return self._fetch_by_id(cp_id)
-        else:
-            cp_id = str(uuid.uuid4())
-            self._conn.execute(
-                """
-                INSERT INTO checkpoints
-                (checkpoint_id, task_id, idempotency_key, status, payload,
-                 provenance_id, ts_created, ts_updated)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    cp_id,
-                    task_id,
-                    idempotency_key,
-                    status.value,
-                    json.dumps(payload),
-                    provenance_id,
-                    now,
-                    now,
-                ),
-            )
-            self._conn.commit()
-            return self._fetch_by_id(cp_id)
+        self._conn.commit()
+        record = self.get(task_id, idempotency_key)
+        if record is None:  # pragma: no cover - the upsert above guarantees a row
+            raise KeyError(f"checkpoint vanished after save: {task_id}/{idempotency_key}")
+        return record
 
     def update_status(self, checkpoint_id: str, status: StepStatus) -> None:
         """Update the status of a checkpoint."""

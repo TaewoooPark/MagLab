@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 
 import pytest
 
+import maglab.provenance.store as store_mod
 from maglab.provenance.datapoint import DataPoint, ProvenanceType
 from maglab.provenance.ledger import ProvenanceLedger
 from maglab.provenance.store import ProvenanceStore
@@ -509,3 +511,99 @@ class TestLineageAttributesInProvJson:
         assert prov_data.get("source_ref") == "DOI:10.9999/test", (
             f"source_ref missing in prov_json: {prov_data}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Recording cost — the export snapshot must not be rebuilt per record
+# ---------------------------------------------------------------------------
+
+
+class TestRecordingDoesNotRescanTheWholeDocument:
+    """Guards the O(N²) regression: recording re-serialised the full document.
+
+    ``_flush_to_db`` used to dump the entire (growing) ProvDocument on *every*
+    entity, activity and relation, so a session of N records cost O(N²) — about
+    0.5 ms/record at 25 records but 2.8 ms/record at 200. The snapshot is
+    export-only, so it is now refreshed on export and on close instead.
+    """
+
+    def test_recording_never_serialises_the_document(self, monkeypatch) -> None:
+        calls: list[int] = []
+        real = store_mod._serialize_doc
+
+        def counting(doc):
+            calls.append(1)
+            return real(doc)
+
+        monkeypatch.setattr(store_mod, "_serialize_doc", counting)
+
+        store = ProvenanceStore()
+        for i in range(25):
+            store.add_entity(f"dp-{i}", attributes={"units": "T"})
+            store.was_attributed_to(f"dp-{i}")
+
+        assert calls == [], "recording must not serialise the full PROV document"
+        store.close()
+
+    def test_export_serialises_exactly_once(self, monkeypatch) -> None:
+        calls: list[int] = []
+        real = store_mod._serialize_doc
+
+        def counting(doc):
+            calls.append(1)
+            return real(doc)
+
+        store = ProvenanceStore()
+        store.add_entity("dp-1", attributes={"units": "T"})
+        monkeypatch.setattr(store_mod, "_serialize_doc", counting)
+
+        store.export_json_str()
+
+        assert len(calls) == 1, "export must not dump the document twice"
+        store.close()
+
+    def test_snapshot_is_persisted_on_export(self) -> None:
+        store = ProvenanceStore()
+        store.add_entity("dp-1", attributes={"units": "T"})
+        exported = store.export_json_str()
+
+        row = store._conn.execute("SELECT graph_json FROM prov_graph WHERE id='current'").fetchone()
+        assert row is not None, "prov_graph snapshot missing after export"
+        assert row["graph_json"] == exported
+        store.close()
+
+    def test_snapshot_is_persisted_on_close(self, tmp_path) -> None:
+        db = tmp_path / "prov.db"
+        store = ProvenanceStore(db)
+        store.add_entity("dp-x", attributes={"units": "T"})
+        store.close()
+
+        conn = sqlite3.connect(db)
+        conn.row_factory = sqlite3.Row
+        try:
+            row = conn.execute("SELECT graph_json FROM prov_graph WHERE id='current'").fetchone()
+            assert row is not None, "prov_graph snapshot missing after close"
+            assert "dp-x" in row["graph_json"]
+        finally:
+            conn.close()
+
+    def test_close_survives_an_unwritable_database(self, tmp_path) -> None:
+        """Teardown must not raise just because the snapshot cannot be written."""
+        store = ProvenanceStore(tmp_path / "prov.db")
+        store.add_entity("dp-1")
+        store._conn.close()  # simulate a DB that has gone away
+
+        store.close()  # must not raise
+
+    def test_lineage_still_resolves_after_the_change(self) -> None:
+        store = ProvenanceStore()
+        store.add_entity("dp-child", attributes={"units": "T"})
+        store.add_entity("dp-parent", attributes={"units": "T"})
+        store.was_derived_from("dp-child", "dp-parent")
+        store.was_attributed_to("dp-child")
+
+        ids = {row["id"] for row in store.get_entity_lineage("dp-child")}
+        assert "ml:dp-child" in ids
+        assert "ml:wdf-dp-child-dp-parent" in ids
+        assert "ml:wat-dp-child-maglab-system" in ids
+        store.close()

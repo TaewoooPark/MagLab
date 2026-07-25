@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -187,3 +189,80 @@ def test_step_status_values() -> None:
     assert StepStatus.DONE.value == "done"
     assert StepStatus.FAILED.value == "failed"
     assert StepStatus.SKIPPED.value == "skipped"
+
+
+# ---------------------------------------------------------------------------
+# Concurrent resume — the upsert must not race
+# ---------------------------------------------------------------------------
+
+
+def test_concurrent_save_of_same_key_does_not_raise(tmp_path: Path) -> None:
+    """Two workers resuming the same step must not trip the UNIQUE constraint.
+
+    Each worker owns its own connection, as two ``maglab`` invocations resuming
+    the same task would. A SELECT-then-INSERT pair lets both observe "no row"
+    and both INSERT; the loser raises sqlite3.IntegrityError, crashing the very
+    loop that idempotency keys exist to make safe.
+    """
+    db = tmp_path / "ckpt.db"
+    n_workers = 4
+    errors: list[BaseException] = []
+    barrier = threading.Barrier(n_workers)
+
+    def _save(idx: int) -> None:
+        try:
+            worker_store = CheckpointStore(db_path=db)
+            try:
+                barrier.wait(timeout=10)
+                worker_store.save(
+                    task_id="task-race",
+                    idempotency_key="step-1",
+                    status=StepStatus.DONE,
+                    payload={"worker": idx},
+                )
+            finally:
+                worker_store.close()
+        except BaseException as exc:  # noqa: BLE001 - recorded and re-asserted below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=_save, args=(i,)) for i in range(n_workers)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    assert errors == [], f"concurrent save raised: {errors!r}"
+
+    reader = CheckpointStore(db_path=db)
+    try:
+        rows = reader.list_task("task-race")
+        assert len(rows) == 1, "duplicate checkpoints created for one idempotency key"
+        assert rows[0].status is StepStatus.DONE
+    finally:
+        reader.close()
+
+
+def test_repeated_save_preserves_identity_and_creation_time(store: CheckpointStore) -> None:
+    """An upsert must behave like the previous UPDATE: same id, original ts_created."""
+    first = store.save(
+        task_id="task-2",
+        idempotency_key="step-1",
+        status=StepStatus.RUNNING,
+        payload={"n": 1},
+    )
+    time.sleep(0.01)
+    second = store.save(
+        task_id="task-2",
+        idempotency_key="step-1",
+        status=StepStatus.DONE,
+        payload={"n": 2},
+        provenance_id="prov-9",
+    )
+
+    assert second.checkpoint_id == first.checkpoint_id, "upsert must not mint a new id"
+    assert second.ts_created == first.ts_created, "ts_created must survive the update"
+    assert second.ts_updated >= first.ts_updated
+    assert second.status is StepStatus.DONE
+    assert second.payload == {"n": 2}
+    assert second.provenance_id == "prov-9"
+    assert len(store.list_task("task-2")) == 1

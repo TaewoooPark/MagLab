@@ -13,6 +13,7 @@ Design principles:
 
 from __future__ import annotations
 
+import contextlib
 import io
 import json
 import sqlite3
@@ -89,6 +90,9 @@ class ProvenanceStore:
         # Per-session ProvDocument — snapshot saved to DB on flush
         self._doc: pm.ProvDocument = _fresh_document()
         self._ns = pm.Namespace(_NS_PREFIX, _NS_URI)
+        # Set when the in-memory document has moved ahead of the persisted
+        # ``prov_graph`` snapshot; cleared by persist_graph().
+        self._graph_dirty = False
         # Register MagLab system agent
         self._doc.agent(self._ns[_MAGLAB_AGENT])
 
@@ -297,12 +301,13 @@ class ProvenanceStore:
 
     def export_json(self) -> dict[str, Any]:
         """Export the full current document as a PROV-JSON (W3C PROV-compatible) dictionary."""
-        raw = _serialize_doc(self._doc)
-        return json.loads(raw)
+        return json.loads(self.export_json_str())
 
     def export_json_str(self) -> str:
         """Export the full current document as a PROV-JSON string."""
-        return _serialize_doc(self._doc)
+        raw = _serialize_doc(self._doc)
+        self._store_graph(raw)
+        return raw
 
     def snapshot(self) -> pm.ProvDocument:
         """Return a snapshot of the current ProvDocument (read-only reference)."""
@@ -340,26 +345,49 @@ class ProvenanceStore:
         # on prov_json, so including attributes here does NOT reintroduce the
         # old false-positive problem that was fixed in R3.
         record_json = json.dumps({"id": record_id, "kind": kind, **(attributes or {})})
-        graph_json = _serialize_doc(self._doc)
-        now = _now_iso()
         with self._conn:
             self._conn.execute(
                 """
                 INSERT OR REPLACE INTO prov_records (id, kind, prov_json, created_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (record_id, kind, record_json, now),
+                (record_id, kind, record_json, _now_iso()),
             )
+        # The full-document snapshot is deliberately NOT written here. Doing so
+        # re-serialised the whole (growing) ProvDocument on every single record,
+        # making a session of N records cost O(N²) — ~0.5 ms/record at 25
+        # records but ~2.8 ms/record at 200, and minutes for a real run. The
+        # snapshot is export-only, so it is refreshed on export and on close.
+        self._graph_dirty = True
+
+    def persist_graph(self) -> None:
+        """Write the current full-document snapshot to ``prov_graph``.
+
+        Called on export and on close.  Recording paths skip it so that the
+        per-record cost stays constant instead of growing with document size.
+        """
+        if not self._graph_dirty:
+            return
+        self._store_graph(_serialize_doc(self._doc))
+
+    def _store_graph(self, graph_json: str) -> None:
+        """Persist an already-serialised snapshot, avoiding a second dump."""
+        with self._conn:
             self._conn.execute(
                 """
                 INSERT OR REPLACE INTO prov_graph (id, graph_json, created_at)
                 VALUES ('current', ?, ?)
                 """,
-                (graph_json, now),
+                (graph_json, _now_iso()),
             )
+        self._graph_dirty = False
 
     def close(self) -> None:
-        """Close the DB connection."""
+        """Close the DB connection, flushing the export snapshot first."""
+        # A closed/read-only DB must not turn teardown into a crash; the
+        # per-record rows in prov_records are already durable.
+        with contextlib.suppress(sqlite3.Error, sqlite3.ProgrammingError):
+            self.persist_graph()
         self._conn.close()
 
     def __enter__(self) -> ProvenanceStore:
