@@ -12,9 +12,21 @@ from pathlib import Path
 from typing import Any, Literal
 
 import platformdirs
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+
+from maglab.core.atomic import atomic_write_text
 
 APP_NAME = "maglab"
+
+
+class ConfigError(RuntimeError):
+    """A configuration file exists but cannot be used.
+
+    Raised instead of leaking a raw ``TOMLDecodeError``/``ValidationError``:
+    ``load_config()`` runs on every CLI invocation, so an unhandled parse error
+    locks the user out of *every* command — including the ones that would repair
+    it.  The message names the offending file and the command that fixes it.
+    """
 
 
 class APIBackendConfig(BaseModel):
@@ -107,18 +119,45 @@ def _apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+def _recovery_hint(path: Path) -> str:
+    """Suggest the command that repairs a broken config file."""
+    if config_backup_path(path).is_file():
+        return "Run `maglab config restore` to roll back to the previous config, or `maglab config reset` for defaults."
+    return "Run `maglab config reset` to rewrite a clean default config."
+
+
 def load_config(path: Path | None = None) -> Config:
     """Load configuration.
 
     If the file does not exist, uses defaults; env vars override file values.
+
+    Raises:
+        ConfigError: The file exists but is unreadable, is not valid TOML, or
+            does not satisfy the schema.
     """
     path = path or config_path()
     data: dict[str, Any] = {}
     if path.is_file():
-        with path.open("rb") as fh:
-            data = tomllib.load(fh)
+        try:
+            with path.open("rb") as fh:
+                data = tomllib.load(fh)
+        except tomllib.TOMLDecodeError as exc:
+            raise ConfigError(
+                f"MagLab config is not valid TOML: {path}\n  {exc}\n{_recovery_hint(path)}"
+            ) from exc
+        except OSError as exc:
+            raise ConfigError(f"Cannot read MagLab config: {path}\n  {exc}") from exc
     data = _apply_env_overrides(data)
-    return Config.model_validate(data)
+    try:
+        return Config.model_validate(data)
+    except ValidationError as exc:
+        details = "\n".join(
+            f"  {'.'.join(str(p) for p in err['loc']) or '<root>'}: {err['msg']}"
+            for err in exc.errors()
+        )
+        raise ConfigError(
+            f"MagLab config has invalid values: {path}\n{details}\n{_recovery_hint(path)}"
+        ) from exc
 
 
 def _format_toml_scalar(value: Any) -> str:
@@ -172,17 +211,23 @@ def save_config(config: Config, path: Path | None = None) -> Path:
     """
     path = path or config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
+    data = config.model_dump(mode="json", exclude_none=True)
+    # Serialize before touching the filesystem: a serializer failure must fall
+    # back to the minimal writer, but an I/O failure must surface, not silently
+    # retry a write against a path that just proved unwritable.
+    try:
+        import tomlkit
+
+        text = tomlkit.dumps(data)
+    except Exception:
+        text = _write_toml_fallback(data)
     if path.is_file():
         backup = config_backup_path(path)
         backup.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, backup)
-    data = config.model_dump(mode="json", exclude_none=True)
-    try:
-        import tomlkit
-
-        path.write_text(tomlkit.dumps(data), encoding="utf-8")
-    except Exception:
-        path.write_text(_write_toml_fallback(data), encoding="utf-8")
+    # Atomic: an interrupted save leaves the previous config intact rather than
+    # a truncated file that locks every later command out.
+    atomic_write_text(path, text)
     return path
 
 

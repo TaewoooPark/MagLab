@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.0.5
+
+A stability, integrity and atomicity hardening pass over the whole codebase.
+
+### Added
+
+- `maglab.core.atomic` — `atomic_write_text`/`atomic_write_bytes` helpers that
+  write via a temporary sibling file and `os.replace`, so an interrupted write
+  (Ctrl-C, crash, full disk) can never leave a half-written state file behind.
+
+### Fixed
+
+- Stop a broken `config.toml` from locking the user out of every command.
+  `load_config` runs on each CLI invocation, so a truncated file or a
+  hand-edited typo (`mode = "bogus"`) dumped a raw `tomllib`/pydantic traceback
+  from *every* subcommand — including `config restore`/`config reset`, the two
+  that repair it. Invalid configs now raise `ConfigError`, which the entry point
+  renders as a one-line message naming the file, the offending field, and the
+  command that fixes it.
+- Write `config.toml` atomically. `save_config` truncated the live config before
+  writing, so an interruption mid-save destroyed it; it now replaces the file in
+  one step and only serializes through the fallback writer on a *serializer*
+  failure, instead of retrying a write against a path that just proved
+  unwritable.
+
 ## v0.0.4
 
 A UX hardening pass driven by exercising the CLI/REPL as a real user end to end.
