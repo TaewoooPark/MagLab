@@ -80,6 +80,55 @@ class TestJsonCommandsUnderForcedColour:
         assert "\x1b[" not in self._run("config", "show")
 
 
+class TestProgressStaysOffStdout:
+    """A live spinner emits cursor control sequences — they must not hit stdout.
+
+    ``Console.status`` hides the cursor, paints a frame, then moves back and
+    erases the line. On stdout those land in the pipe ahead of the payload, so
+    ``maglab explain --json | jq`` failed at column 1 whenever Rich rendered
+    live output — a terminal, or ``FORCE_COLOR``, which many CI runners set.
+    """
+
+    def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, "-m", "maglab", *args],
+            capture_output=True,
+            text=True,
+            env={"FORCE_COLOR": "3", "TERM": "xterm-256color", "PATH": "/usr/bin:/bin"},
+            timeout=300,
+            check=False,
+        )
+
+    def test_explain_json_stdout_is_pure_json(self) -> None:
+        proc = self._run("explain", "AHE sign reversal above 200 K", "--json")
+        assert proc.returncode == 0, proc.stderr[:400]
+        payload = json.loads(proc.stdout)
+        assert "candidates" in payload
+
+    def test_explain_json_stdout_has_no_control_sequences(self) -> None:
+        proc = self._run("explain", "AHE sign reversal above 200 K", "--json")
+        assert "\x1b[" not in proc.stdout, "progress output leaked into the data stream"
+
+    def test_status_console_targets_stderr(self) -> None:
+        from maglab.ui.status import status_console
+
+        assert status_console.stderr is True
+
+    def test_command_modules_do_not_spin_on_stdout(self) -> None:
+        from pathlib import Path
+
+        import maglab
+
+        root = Path(maglab.__file__).parent
+        offenders = [
+            str(path.relative_to(root.parent))
+            for path in root.rglob("*.py")
+            if "console.status("
+            in path.read_text(encoding="utf-8").replace("status_console.status(", "")
+        ]
+        assert offenders == [], f"progress written to stdout in: {offenders}"
+
+
 class TestNoColourisedJsonPrintersRemain:
     def test_source_tree_has_no_console_print_json(self) -> None:
         """`Console.print_json` always highlights — it must not gate a --json flag."""

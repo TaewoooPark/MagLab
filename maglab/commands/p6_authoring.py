@@ -29,6 +29,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from maglab.ui.status import status_console
+
 console = Console()
 
 # ---------------------------------------------------------------------------
@@ -257,7 +259,7 @@ def comms_revision(
 
     agent = RevisionLetterAgent(llm_fn=_stub_llm)
 
-    with console.status("[dim]Drafting revision letter...[/]"):
+    with status_console.status("[dim]Drafting revision letter...[/]"):
         try:
             result = agent.draft(
                 {
@@ -310,7 +312,7 @@ def comms_cover_letter(
 
     agent = CoverLetterAgent(llm_fn=_stub_llm)
 
-    with console.status("[dim]Drafting cover letter...[/]"):
+    with status_console.status("[dim]Drafting cover letter...[/]"):
         try:
             result = agent.draft(
                 {
@@ -371,7 +373,7 @@ def comms_email(
 
     agent = AcademicEmailAgent(llm_fn=_stub_llm)
 
-    with console.status(f"[dim]Drafting {email_type} email...[/]"):
+    with status_console.status(f"[dim]Drafting {email_type} email...[/]"):
         try:
             result = agent.draft(
                 {
@@ -422,7 +424,7 @@ def comms_abstract(
 
     agent = ConferenceAbstractAgent(llm_fn=_stub_llm)
 
-    with console.status(f"[dim]Drafting abstract for {conference}...[/]"):
+    with status_console.status(f"[dim]Drafting abstract for {conference}...[/]"):
         try:
             result = agent.draft(
                 {
@@ -491,7 +493,7 @@ def comms_grant(
 
     agent = GrantTextAgent(llm_fn=_stub_llm)
 
-    with console.status(f"[dim]Drafting grant text for {agency}...[/]"):
+    with status_console.status(f"[dim]Drafting grant text for {agency}...[/]"):
         try:
             result = agent.draft(
                 {
@@ -559,7 +561,7 @@ def comms_rebuttal(
 
     agent = RebuttalAgent(llm_fn=_stub_llm)
 
-    with console.status("[dim]Drafting conference rebuttal...[/]"):
+    with status_console.status("[dim]Drafting conference rebuttal...[/]"):
         try:
             result = agent.draft(
                 {
@@ -973,7 +975,7 @@ def present_slides(
 
     drafter = SlidesDrafter(vault=vault, llm_fn=_stub_llm)
 
-    with console.status("[dim]Drafting slides...[/]"):
+    with status_console.status("[dim]Drafting slides...[/]"):
         try:
             deck = drafter.draft_slides(
                 results=results,
@@ -1102,7 +1104,7 @@ def present_poster(
 
     drafter = PosterDrafter(vault=vault, llm_fn=_stub_llm)
 
-    with console.status(f"[dim]Drafting {size} poster...[/]"):
+    with status_console.status(f"[dim]Drafting {size} poster...[/]"):
         try:
             poster = drafter.draft_poster(
                 results=results,
@@ -1183,7 +1185,9 @@ def hypotheses_command(
 
     n = max(1, min(n, 20))
 
-    with console.status(f"[dim]Generating {n} hypothesis candidates for topic: {topic!r}...[/]"):
+    with status_console.status(
+        f"[dim]Generating {n} hypothesis candidates for topic: {topic!r}...[/]"
+    ):
         try:
             engine = D1HypothesisEngine(n=n, rng_seed=rng_seed)
             result: HypothesisResult = engine.run(

@@ -9,6 +9,17 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
 - `maglab.core.atomic` — `atomic_write_text`/`atomic_write_bytes` helpers that
   write via a temporary sibling file and `os.replace`, so an interrupted write
   (Ctrl-C, crash, full disk) can never leave a half-written state file behind.
+- `maglab.ui.json_output` and `maglab.ui.status` — a single place that keeps
+  machine-readable payloads on stdout and progress rendering on stderr.
+
+### Tests
+
+- The suite no longer depends on the developer's terminal: `FORCE_COLOR` and
+  `CLICOLOR_FORCE` are scrubbed before the CLI modules build their consoles.
+  Rich latches those in `Console.__init__`, so a shell exporting them turned
+  `assert "0.0.4" in result.output` into a failure against
+  `maglab \x1b[1;36m0.0\x1b[0m.\x1b[1;36m4` while CI stayed green — false
+  failures that also hide real ones.
 
 ### Fixed
 
@@ -39,6 +50,12 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   through the sample — but it matched the `:SOUR:CURR` setter prefix. The
   exclusion existed only for the bare `CURR:COMP` form, not the fully-qualified
   one that real instrument scripts emit.
+- Render progress spinners on stderr instead of stdout. `Console.status` hides
+  the cursor, paints a frame, then moves back and erases the line; on stdout
+  those control sequences land in the pipe ahead of the payload, so
+  `maglab explain --json | jq` and `maglab sim pipeline --json` failed at column
+  one whenever Rich rendered live output. stdout now carries only results, as
+  curl, pip and docker do.
 - Emit `--json` output without Rich formatting. `Console.print_json` always
   highlights, so with `FORCE_COLOR` set — the default on many CI runners —
   `maglab config show > config.json` produced ANSI escape sequences that

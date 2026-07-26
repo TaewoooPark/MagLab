@@ -30,6 +30,7 @@ from rich.console import Console
 from rich.table import Table
 
 from maglab.ui.json_output import emit_json
+from maglab.ui.status import status_console
 
 console = Console()
 
@@ -89,7 +90,7 @@ def lit_search(
         console.print(f"[red]Folder not found:[/] {folder!r}")
         raise typer.Exit(1)
 
-    with console.status(f"[dim]Extracting keywords from {folder_path} …[/]"):
+    with status_console.status(f"[dim]Extracting keywords from {folder_path} …[/]"):
         try:
             keywords = extract_keywords_from_folder(folder_path, top_n=top_n)
         except Exception as exc:  # noqa: BLE001
@@ -184,7 +185,7 @@ def _build_evidence_matrix(
         from maglab.literature.connectors import OpenAlexConnector
 
         oa = OpenAlexConnector()
-        with console.status("[dim]Searching OpenAlex (search-scout) …[/]"):
+        with status_console.status("[dim]Searching OpenAlex (search-scout) …[/]"):
             records = oa.search(query, max_results=20)
     except ImportError:
         console.print(
@@ -271,7 +272,7 @@ def lit_authors(
 
     Searches OpenAlex by citation count and cross-enriches with Semantic Scholar.
     """
-    with console.status(f"[dim]Searching authoritative authors for '{topic}' …[/]"):
+    with status_console.status(f"[dim]Searching authoritative authors for '{topic}' …[/]"):
         try:
             from maglab.literature.authors import find_authoritative_authors
 
@@ -320,7 +321,7 @@ def lit_keywords(
     top_n: int = typer.Option(20, "--top-n", "-n", help="Number of keywords to return."),
 ) -> None:
     """Extract weighted keywords from free text (TF-IDF + KeyBERT + YAKE, F3)."""
-    with console.status("[dim]Extracting keywords …[/]"):
+    with status_console.status("[dim]Extracting keywords …[/]"):
         try:
             from maglab.literature.keywords import extract_keywords_from_texts
 
@@ -365,7 +366,7 @@ def lit_journal(
     Note: 'JCR Impact Factor' is a proprietary metric and is intentionally
     omitted.  Three open metrics with explicit source labels are provided instead.
     """
-    with console.status(f"[dim]Querying metrics for '{journal_name}' …[/]"):
+    with status_console.status(f"[dim]Querying metrics for '{journal_name}' …[/]"):
         try:
             from maglab.literature.journals import get_journal_metrics
 
@@ -407,7 +408,7 @@ def lit_graph(
     Without --cite-map: shows nodes connected to QUERY by any edge type.
     With --cite-map DOI: shows typed citation lineage (extends/contradicts/…).
     """
-    with console.status("[dim]Querying knowledge graph …[/]"):
+    with status_console.status("[dim]Querying knowledge graph …[/]"):
         try:
             from maglab.literature.graph import get_graph
 
@@ -558,7 +559,7 @@ def review_command(
         rag = CorpusRAG()
         panel = ReviewPanel(personas=personas, corpus_rag=rag, journal=journal)
 
-        with console.status("[dim]Running persona review panel …[/]"):
+        with status_console.status("[dim]Running persona review panel …[/]"):
             result = panel.review(ms_text, raise_on_disclosure_violation=False)
     except Exception as exc:  # noqa: BLE001
         console.print(f"[red]Review panel failed:[/] {exc}")
@@ -831,7 +832,7 @@ def lab_plan(
     """
     from maglab.lab.planning.planner import MeasurementPlanner
 
-    with console.status(f"[dim]Generating measurement plan for '{goal}' …[/]"):
+    with status_console.status(f"[dim]Generating measurement plan for '{goal}' …[/]"):
         try:
             planner = MeasurementPlanner()
             plan = planner.plan(goal, doe_type=doe_type, n_doe_points=n_doe)
@@ -924,7 +925,7 @@ def explain_command(
             for r in results
         ]
 
-    with console.status("[dim]Running anomaly explanation engine (D2) …[/]"):
+    with status_console.status("[dim]Running anomaly explanation engine (D2) …[/]"):
         try:
             result = explain_anomaly(
                 data, min_candidates=min_candidates, rag_search_fn=_rag_search_fn

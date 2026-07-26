@@ -22,6 +22,7 @@ from maglab import __version__
 from maglab.commands import p0_project, p2_analysis, p4_ralph, p5_literature, p6_authoring
 from maglab.config import Config, load_config
 from maglab.ui.json_output import emit_json_text
+from maglab.ui.status import status_console
 
 # ---------------------------------------------------------------------------
 # App & console
@@ -293,7 +294,7 @@ def auth_test(
     from maglab.llm.providers import normalize_provider
 
     provider = normalize_provider(provider)
-    with console.status(f"[dim]Testing connection ({provider})…[/]"):
+    with status_console.status(f"[dim]Testing connection ({provider})…[/]"):
         result = verify_connection(provider, model)
     if result["ok"]:
         console.print(
@@ -2023,7 +2024,7 @@ def sim_plot(
         )
         raise typer.Exit(1) from None
 
-    with console.status("[dim]Loading data and rendering figure…[/]"):
+    with status_console.status("[dim]Loading data and rendering figure…[/]"):
         try:
             saved_path, spec, ledger = plot_data_to_figure(
                 data_path=data_file,
@@ -2109,7 +2110,7 @@ def sim_dft(
         f"[cyan]DFT input generation:[/] engine={engine} | calc_type={calc_type} | structure={structure}"
     )
 
-    with console.status("[dim]Generating DFT input files…[/]"):
+    with status_console.status("[dim]Generating DFT input files…[/]"):
         gen = DFTInputGenerator(engine=dft_engine)
         try:
             files = gen.generate(
@@ -2174,7 +2175,7 @@ def sim_atomistic(
         f"[cyan]Atomistic simulation:[/] engine={engine} | J_ij={j_ij_k:.1f} K | T_max={t_max_k:.0f} K"
     )
 
-    with console.status("[dim]Generating atomistic input files…[/]"):
+    with status_console.status("[dim]Generating atomistic input files…[/]"):
         gen = AtomisticInputGenerator(engine=atm_engine)
         try:
             files = gen.generate(params=params, output_dir=out_path)
@@ -2193,7 +2194,7 @@ def sim_atomistic(
         )
     else:
         # Real mode: attempt to parse output
-        with console.status("[dim]Parsing atomistic results…[/]"):
+        with status_console.status("[dim]Parsing atomistic results…[/]"):
             try:
                 result = parse_vampire_output(out_path)
                 console.print("[green]✓[/] Atomistic results parsed")
@@ -2260,7 +2261,7 @@ def sim_pipeline(
             "and record any missing solver outputs in the manifest."
         )
 
-    with console.status("[dim]Running pipeline…[/]"):
+    with status_console.status("[dim]Running pipeline…[/]"):
         try:
             result = run_pipeline(
                 structure=structure,  # type: ignore[arg-type]
@@ -2595,7 +2596,7 @@ def figure_render_cmd(
     # Output path
     out_path = Path(output) if output else Path(spec_path).with_suffix(f".{fmt}")
 
-    with console.status("[dim]Rendering figure…[/]"):
+    with status_console.status("[dim]Rendering figure…[/]"):
         import contextlib
 
         import matplotlib.pyplot as plt
@@ -2637,7 +2638,7 @@ def figure_compose_cmd(
 
     out_path = Path(output) if output else Path(spec_path).with_suffix(f".{fmt}")
 
-    with console.status("[dim]Composing multi-panel figure…[/]"):
+    with status_console.status("[dim]Composing multi-panel figure…[/]"):
         import contextlib
 
         import matplotlib.pyplot as plt
@@ -2683,7 +2684,7 @@ def figure_export_cmd(
     stem = Path(output) if output else Path(spec_path).with_suffix("")
     fmt_list = list(formats) if formats else ["pdf", "svg"]
 
-    with console.status("[dim]Exporting figure…[/]"):
+    with status_console.status("[dim]Exporting figure…[/]"):
         import contextlib
 
         import matplotlib.pyplot as plt
@@ -2750,7 +2751,7 @@ def instr_scaffold(
 
     out_path = Path(output) if output else Path(f"{model.replace(' ', '_')}_driver.py")
 
-    with console.status(f"[dim]Generating skeleton ({model})…[/]"):
+    with status_console.status(f"[dim]Generating skeleton ({model})…[/]"):
         code = generate_scaffold(
             model=model,
             iface=iface,
@@ -2806,7 +2807,7 @@ def instr_script(
 
     out_path = Path(output) if output else Path(f"{model.replace(' ', '_')}_measurement.py")
 
-    with console.status(f"[dim]Generating measurement script ({model})…[/]"):
+    with status_console.status(f"[dim]Generating measurement script ({model})…[/]"):
         code, safety_result = generate_measurement_script(
             model=model,
             description=description,
@@ -2888,7 +2889,7 @@ def instr_ingest(
 
     mfr = manufacturer or None
 
-    with console.status(f"[dim]Collecting manual ({model})…[/]"):
+    with status_console.status(f"[dim]Collecting manual ({model})…[/]"):
         if manual_path:
             search_result = search_manual(model, manufacturer=mfr, local_pdf=Path(manual_path))
         else:
@@ -2909,7 +2910,7 @@ def instr_ingest(
     pipeline = ManualRAGPipeline()
     model_key = f"{(search_result.manufacturer or model).lower().replace(' ', '-')}-{model.lower().replace(' ', '-')}"
 
-    with console.status("[dim]Building RAG index…[/]"):
+    with status_console.status("[dim]Building RAG index…[/]"):
         index = pipeline.ingest(model_key, search_result.pdf_path)
 
     console.print(f"[green]✓[/] RAG index built: {index.chunk_count} chunks → {index._db_path}")
@@ -2945,7 +2946,7 @@ def instr_skillgen(
     output_root = Path(output_dir) if output_dir else None
     workspace_skill_root = Path.cwd() / ".maglab" / "skills"
     gen = SkillGenerator(output_root=output_root)
-    with console.status(f"[dim]Generating instrument skill for {manufacturer} {model}…[/]"):
+    with status_console.status(f"[dim]Generating instrument skill for {manufacturer} {model}…[/]"):
         try:
             pkg = gen.generate(
                 model=model,
@@ -3013,7 +3014,7 @@ def instr_implement(
         )
         out_path = out_dir / f"{model.replace(' ', '_')}_script.py"
 
-        with console.status(f"[dim]Implementing {model} script…[/]"):
+        with status_console.status(f"[dim]Implementing {model} script…[/]"):
             code, safety_result = generator.generate(config, skip_safety_check=False)
 
         if safety_result.ok:

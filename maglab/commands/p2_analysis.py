@@ -22,6 +22,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from maglab.ui.status import status_console
+
 # ---------------------------------------------------------------------------
 # Typer apps
 # ---------------------------------------------------------------------------
@@ -364,7 +366,7 @@ def fit_command(
     # ---- run fit ----
     from maglab.analysis.fit import FitConvergenceError
 
-    with console.status(f"[dim]Fitting {effect} …[/]"):
+    with status_console.status(f"[dim]Fitting {effect} …[/]"):
         try:
             result = model.fit(data_dict, geometry=geo)
         except FitConvergenceError as exc:
@@ -462,7 +464,7 @@ def _run_discover_fit(
         local_geometry = {**base_geometry, selected_x: x_data}
         return model.forward(params, geometry=local_geometry)  # type: ignore[attr-defined]
 
-    with console.status(f"[dim]Discovering deterministic inner fit for {effect} …[/]"):
+    with status_console.status(f"[dim]Discovering deterministic inner fit for {effect} …[/]"):
         try:
             result = discover_fit(
                 model_fn=model_fn,
@@ -582,7 +584,7 @@ def analyze_load(
         console.print(f"[red]Import error:[/] {exc}")
         raise typer.Exit(1) from exc
 
-    with console.status("[dim]Loading data …[/]"):
+    with status_console.status("[dim]Loading data …[/]"):
         try:
             if fmt.lower() == "hdf5":
                 df, datapoints = load_hdf5(data)
@@ -726,9 +728,9 @@ def analyze_consistency(
     from maglab.analysis.fit import FitConvergenceError
 
     try:
-        with console.status(f"[dim]Fitting {effect_a} …[/]"):
+        with status_console.status(f"[dim]Fitting {effect_a} …[/]"):
             result_a = _fit_effect(effect_a, data_a)
-        with console.status(f"[dim]Fitting {effect_b} …[/]"):
+        with status_console.status(f"[dim]Fitting {effect_b} …[/]"):
             result_b = _fit_effect(effect_b, data_b)
     except FitConvergenceError as exc:
         console.print(f"[red]Fit convergence failed:[/] {exc}")
