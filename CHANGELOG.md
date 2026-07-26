@@ -43,6 +43,17 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
 - Write research-pool records and long-term memories atomically.
   `query()`/`semantic_query()` skip records they cannot parse, so a half-written
   record silently vanished from every later search instead of surfacing.
+- Stop `maglab gateway stop` from being able to SIGTERM an unrelated process.
+  A daemon killed without cleanup (SIGKILL, crash, power loss) leaves its PID
+  file behind and the OS eventually reuses that PID; `stop_daemon` signalled it
+  blind. The target's command line is now checked first and a confirmed mismatch
+  is refused and the stale file cleared. `read_pid` also rejects `0` and negative
+  values, which `os.kill` would have broadcast to a whole process group, and the
+  PID file is written atomically so a truncated `"12345"` can never be read back
+  as a valid-but-wrong PID `12`.
+- Bound `git status` in the workspace listing with a timeout, so a huge
+  repository or a stalled network mount degrades to "no entries" instead of
+  hanging the CLI at startup with no way out.
 - Make `CheckpointStore.save` a single atomic upsert. The previous
   SELECT-then-INSERT/UPDATE pair raced: two `maglab` runs resuming the same task
   both saw "no row", both inserted, and the loser died on

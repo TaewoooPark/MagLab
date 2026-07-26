@@ -242,8 +242,12 @@ def _changed_workspace_entries(
             capture_output=True,
             text=True,
             check=False,
+            # This feeds workspace listings shown during startup; a huge repo or
+            # a stalled network mount must degrade to "no entries", not hang the
+            # CLI with no way out.
+            timeout=10,
         )
-    except OSError:
+    except (OSError, subprocess.SubprocessError):
         return [], False
     if proc.returncode != 0:
         return [], False

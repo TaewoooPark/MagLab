@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
@@ -12,9 +15,13 @@ from maglab.gateway.adapters.base import BaseAdapter, UnifiedMessage, hash_user_
 from maglab.gateway.runner import (
     GatewayRunner,
     NotificationEvent,
+    _is_maglab_process,
     generate_launchd_plist,
     generate_systemd_unit,
     install_service,
+    read_pid,
+    stop_daemon,
+    write_pid,
 )
 from maglab.gateway.session_db import SessionDB
 
@@ -344,3 +351,104 @@ class TestGatewayStartPid:
             f"Expected subprocess PID 99999, got {written_pid}.  "
             f"Parent PID is {os.getpid()} — must not be written."
         )
+
+
+# ---------------------------------------------------------------------------
+# PID file safety — never SIGTERM a process that is not ours
+# ---------------------------------------------------------------------------
+
+
+class TestStopDaemonPidSafety:
+    """A stale PID file must not become a kill order for an unrelated process.
+
+    A daemon that dies without cleaning up (SIGKILL, crash, power loss) leaves
+    its PID behind, and the OS eventually reuses that number. ``stop_daemon``
+    used to signal it blind.
+    """
+
+    def test_refuses_to_signal_a_reused_pid(self, tmp_path: Path) -> None:
+        pid_file = tmp_path / "gateway.pid"
+        pid_file.write_text("4242")
+
+        killed: list[int] = []
+
+        with (
+            patch("maglab.gateway.runner._pid_path", return_value=pid_file),
+            patch("maglab.gateway.runner._is_maglab_process", return_value=False),
+            patch("os.kill", side_effect=lambda p, s: killed.append(p)),
+        ):
+            result = stop_daemon()
+
+        assert result is False
+        assert killed == [], "SIGTERM was sent to a process that is not the gateway"
+        assert not pid_file.exists(), "the stale PID file should be cleared"
+
+    def test_signals_a_confirmed_gateway(self, tmp_path: Path) -> None:
+        pid_file = tmp_path / "gateway.pid"
+        pid_file.write_text("4242")
+        killed: list[int] = []
+
+        with (
+            patch("maglab.gateway.runner._pid_path", return_value=pid_file),
+            patch("maglab.gateway.runner._is_maglab_process", return_value=True),
+            patch("os.kill", side_effect=lambda p, s: killed.append(p)),
+        ):
+            assert stop_daemon() is True
+
+        assert killed == [4242]
+
+    def test_signals_when_identity_cannot_be_determined(self, tmp_path: Path) -> None:
+        """No usable `ps` must not break stopping the daemon."""
+        pid_file = tmp_path / "gateway.pid"
+        pid_file.write_text("4242")
+        killed: list[int] = []
+
+        with (
+            patch("maglab.gateway.runner._pid_path", return_value=pid_file),
+            patch("maglab.gateway.runner._is_maglab_process", return_value=None),
+            patch("os.kill", side_effect=lambda p, s: killed.append(p)),
+        ):
+            assert stop_daemon() is True
+
+        assert killed == [4242]
+
+    @pytest.mark.parametrize("raw", ["0", "-1", "-12345", "1"])
+    def test_read_pid_rejects_signal_broadcasting_values(self, tmp_path: Path, raw: str) -> None:
+        """os.kill(0, sig) hits the whole process group; negatives hit another group."""
+        pid_file = tmp_path / "gateway.pid"
+        pid_file.write_text(raw)
+
+        with patch("maglab.gateway.runner._pid_path", return_value=pid_file):
+            assert read_pid() is None
+
+    def test_read_pid_rejects_garbage(self, tmp_path: Path) -> None:
+        pid_file = tmp_path / "gateway.pid"
+        pid_file.write_text("")
+
+        with patch("maglab.gateway.runner._pid_path", return_value=pid_file):
+            assert read_pid() is None
+
+    def test_write_pid_is_atomic_and_leaves_no_scratch(self, tmp_path: Path) -> None:
+        pid_file = tmp_path / "gateway.pid"
+
+        with patch("maglab.gateway.runner._pid_path", return_value=pid_file):
+            write_pid()
+            assert read_pid() == os.getpid()
+
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["gateway.pid"]
+
+    def test_is_maglab_process_reads_the_command_line(self) -> None:
+        completed = SimpleNamespace(returncode=0, stdout="/usr/bin/python -m maglab gateway start")
+        with patch("subprocess.run", return_value=completed):
+            assert _is_maglab_process(4242) is True
+
+        completed = SimpleNamespace(returncode=0, stdout="/usr/sbin/cupsd -l")
+        with patch("subprocess.run", return_value=completed):
+            assert _is_maglab_process(4242) is False
+
+    def test_is_maglab_process_returns_unknown_without_ps(self) -> None:
+        with patch("subprocess.run", side_effect=OSError("no ps")):
+            assert _is_maglab_process(4242) is None
+
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("ps", 5)):
+            assert _is_maglab_process(4242) is None

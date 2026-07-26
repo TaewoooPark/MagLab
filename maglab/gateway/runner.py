@@ -29,6 +29,7 @@ import contextlib
 import logging
 import os
 import signal
+import subprocess
 import sys
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -36,6 +37,7 @@ from typing import Any
 
 import platformdirs
 
+from maglab.core.atomic import atomic_write_text
 from maglab.gateway.adapters.base import BaseAdapter, UnifiedMessage
 from maglab.gateway.session_db import SessionDB
 
@@ -340,8 +342,12 @@ def _pid_path() -> Path:
 
 
 def write_pid() -> None:
-    """Write the current process PID to the PID file."""
-    _pid_path().write_text(str(os.getpid()))
+    """Write the current process PID to the PID file.
+
+    Atomic: a truncated PID file still parses as a *different, valid* PID
+    (``"12345"`` cut to ``"12"``), which ``stop_daemon`` would then SIGTERM.
+    """
+    atomic_write_text(_pid_path(), str(os.getpid()))
 
 
 def read_pid() -> int | None:
@@ -350,9 +356,42 @@ def read_pid() -> int | None:
     if not pid_file.exists():
         return None
     try:
-        return int(pid_file.read_text().strip())
+        pid = int(pid_file.read_text().strip())
     except (ValueError, OSError):
         return None
+    # PID 0 means "my process group" and negative values mean "a whole process
+    # group" to os.kill — a corrupt file must never widen the blast radius.
+    return pid if pid > 1 else None
+
+
+def _is_maglab_process(pid: int) -> bool | None:
+    """Return whether *pid* looks like a MagLab gateway.
+
+    ``None`` means "cannot tell" (no usable ``ps``), which callers treat as the
+    pre-existing, unverified behaviour rather than refusing to act.
+
+    Every launch path puts ``maglab`` on the command line — ``maglab gateway
+    start --foreground`` for systemd/launchd and ``python -m maglab gateway
+    start --foreground`` for the backgrounded child.
+    """
+    try:
+        proc = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "args="],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        # ps reports "no such process" with a non-zero status; the caller's
+        # os.kill already distinguishes a dead PID, so stay out of its way.
+        return None
+    command = proc.stdout.strip()
+    if not command:
+        return None
+    return "maglab" in command.lower()
 
 
 def remove_pid() -> None:
@@ -377,9 +416,23 @@ def stop_daemon() -> bool:
     """Send SIGTERM to the daemon process.
 
     Returns ``True`` if the signal was sent, ``False`` if no daemon was found.
+
+    A PID file outlives a daemon that died without cleaning up (SIGKILL, crash,
+    power loss), and the OS eventually reuses that PID for something unrelated.
+    Signalling blind would then terminate an innocent process, so the target is
+    checked first and a confirmed mismatch is refused rather than killed.
     """
     pid = read_pid()
     if pid is None:
+        return False
+    if _is_maglab_process(pid) is False:
+        log.warning(
+            "Refusing to stop PID %s: it is no longer a MagLab gateway "
+            "(stale PID file, the PID has been reused). Removing %s.",
+            pid,
+            _pid_path(),
+        )
+        remove_pid()
         return False
     try:
         os.kill(pid, signal.SIGTERM)
