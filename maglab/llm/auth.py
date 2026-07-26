@@ -8,12 +8,14 @@ OAuth tokens are never stored by this module (§7.2 honesty comment).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
 import stat
 from pathlib import Path
 
+from maglab.core.atomic import atomic_write_text
 from maglab.llm.providers import (
     api_provider_keys,
     build_litellm_model,
@@ -108,7 +110,10 @@ def _ensure_auth_json_secure() -> Path:
     """
     _AUTH_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not _AUTH_JSON_PATH.exists():
-        _AUTH_JSON_PATH.write_text("{}\n", encoding="utf-8")
+        # Created through the atomic helper, which uses mkstemp — the file is
+        # 0600 from the moment it exists. Creating it with write_text left a
+        # window at the umask default (typically 0644) before the chmod landed.
+        _write_auth_json({})
     mode = _AUTH_JSON_PATH.stat().st_mode & 0o777
     if mode != 0o600:
         log.warning(
@@ -120,12 +125,49 @@ def _ensure_auth_json_secure() -> Path:
     return _AUTH_JSON_PATH
 
 
+def _write_auth_json(data: dict[str, str]) -> None:
+    """Persist the credential map atomically at 0600.
+
+    Atomic because a truncate-then-write loses *every* provider's key if it is
+    interrupted: the file becomes unparseable and ``_auth_json_get`` then
+    answers None for all of them.
+    """
+    atomic_write_text(_AUTH_JSON_PATH, json.dumps(data, indent=2) + "\n")
+    _AUTH_JSON_PATH.chmod(stat.S_IRUSR | stat.S_IWUSR)
+
+
+def _load_auth_json(path: Path) -> dict[str, str]:
+    """Read the credential map, quarantining an unreadable file.
+
+    A corrupt auth.json used to wedge the CLI permanently: every ``_auth_json_set``
+    re-read it, raised, and returned False, so no key could ever be stored again
+    and the only trace was a log line. The bad file is preserved next to the
+    original for inspection rather than discarded.
+    """
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        quarantine = path.with_name(path.name + ".corrupt")
+        with contextlib.suppress(OSError):
+            path.replace(quarantine)
+        log.warning(
+            "auth.json was unreadable (%s); moved to %s and starting a fresh store. "
+            "Re-run `maglab auth <provider>` to store keys again.",
+            exc,
+            quarantine,
+        )
+        return {}
+    if not isinstance(loaded, dict):
+        log.warning("auth.json did not contain a JSON object — ignoring its contents.")
+        return {}
+    return {str(k): str(v) for k, v in loaded.items()}
+
+
 def _auth_json_get(provider: str) -> str | None:
     """Retrieve an API key from auth.json."""
     try:
         path = _ensure_auth_json_secure()
-        data: dict[str, str] = json.loads(path.read_text(encoding="utf-8"))
-        return data.get(provider)
+        return _load_auth_json(path).get(provider)
     except Exception as exc:
         log.debug("auth.json lookup failed (provider=%s): %s", provider, exc)
         return None
@@ -134,11 +176,9 @@ def _auth_json_get(provider: str) -> str | None:
 def _auth_json_set(provider: str, api_key: str) -> bool:
     """Store an API key in auth.json."""
     try:
-        path = _ensure_auth_json_secure()
-        data: dict[str, str] = json.loads(path.read_text(encoding="utf-8"))
+        data = _load_auth_json(_ensure_auth_json_secure())
         data[provider] = api_key
-        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-        path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+        _write_auth_json(data)
         return True
     except Exception as exc:
         log.warning("auth.json store failed (provider=%s): %s", provider, exc)
@@ -148,11 +188,9 @@ def _auth_json_set(provider: str, api_key: str) -> bool:
 def _auth_json_delete(provider: str) -> bool:
     """Delete an API key from auth.json."""
     try:
-        path = _ensure_auth_json_secure()
-        data: dict[str, str] = json.loads(path.read_text(encoding="utf-8"))
+        data = _load_auth_json(_ensure_auth_json_secure())
         data.pop(provider, None)
-        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-        path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+        _write_auth_json(data)
         return True
     except Exception as exc:
         log.warning("auth.json delete failed (provider=%s): %s", provider, exc)

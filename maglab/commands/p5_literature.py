@@ -23,6 +23,7 @@ optional extras installed.
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 import typer
@@ -173,84 +174,88 @@ def _build_evidence_matrix(
 
     matrix = EvidenceMatrix(db_path=tmp_db, session_id=session_id)
 
-    # Collect top query strings (use top 3 keywords for the search-scout query)
-    query_terms = top_keyword_strings(keywords, n=3)
-    query = " ".join(query_terms) if query_terms else "magnetism spintronics"
-
-    console.print(f"[dim]Search-scout query: {query!r}[/]")
-
-    # Search OpenAlex (search-scout agent role)
-    records = []
+    # try/finally spans the matrix's whole lifetime: the old guard only wrapped
+    # the write stage, so an error while searching or accumulating rows left the
+    # scratch database open and its file behind in the temp directory.
     try:
-        from maglab.literature.connectors import OpenAlexConnector
+        # Collect top query strings (use top 3 keywords for the search-scout query)
+        query_terms = top_keyword_strings(keywords, n=3)
+        query = " ".join(query_terms) if query_terms else "magnetism spintronics"
 
-        oa = OpenAlexConnector()
-        with status_console.status("[dim]Searching OpenAlex (search-scout) …[/]"):
-            records = oa.search(query, max_results=20)
-    except ImportError:
-        console.print(
-            "[yellow]pyalex not installed — skipping live search. Evidence matrix will be empty.[/]"
-        )
-    except Exception as exc:  # noqa: BLE001
-        console.print(f"[yellow]OpenAlex search failed: {exc} — evidence matrix will be empty.[/]")
+        console.print(f"[dim]Search-scout query: {query!r}[/]")
 
-    # Populate the evidence matrix
-    added = 0
-    skipped_retracted = 0
-    for i, rec in enumerate(records):
-        # Assign tier: T1 for top 5 by citation, T2 for next 10, T3 for rest
-        if i < 5:
-            tier: str = "T1"
-        elif i < 15:
-            tier = "T2"
-        else:
-            tier = "T3"
+        # Search OpenAlex (search-scout agent role)
+        records = []
+        try:
+            from maglab.literature.connectors import OpenAlexConnector
 
-        ref_key = rec.doi or f"nokey_{i}"
-        # Normalize ref_key to a valid slug
-        ref_key = ref_key.replace("/", "_").replace(":", "_")
+            oa = OpenAlexConnector()
+            with status_console.status("[dim]Searching OpenAlex (search-scout) …[/]"):
+                records = oa.search(query, max_results=20)
+        except ImportError:
+            console.print(
+                "[yellow]pyalex not installed — skipping live search. Evidence matrix will be empty.[/]"
+            )
+        except Exception as exc:  # noqa: BLE001
+            console.print(
+                f"[yellow]OpenAlex search failed: {exc} — evidence matrix will be empty.[/]"
+            )
 
-        # Retraction check — flag retracted entries
-        verification_status: str
-        if rec.retraction_status == "retracted":
-            verification_status = "failed"
-            skipped_retracted += 1
-        else:
-            verification_status = "pending"
+        # Populate the evidence matrix
+        added = 0
+        skipped_retracted = 0
+        for i, rec in enumerate(records):
+            # Assign tier: T1 for top 5 by citation, T2 for next 10, T3 for rest
+            if i < 5:
+                tier: str = "T1"
+            elif i < 15:
+                tier = "T2"
+            else:
+                tier = "T3"
 
-        entry = EvidenceEntry(
-            ref_key=ref_key,
-            tier=tier,  # type: ignore[arg-type]
-            title=rec.title,
-            authors=rec.authors,
-            year=rec.year,
-            venue=rec.venue,
-            doi=rec.doi,
-            url=rec.pdf_url,
-            openalex_id=rec.openalex_id,
-            s2_id=rec.s2_id,
-            oa_status=rec.oa_status,
-            retraction_status=rec.retraction_status,
-            verification_status=verification_status,  # type: ignore[arg-type]
-            notes=f"source={rec.source}; citations={rec.citation_count}",
-        )
-        if matrix.add(entry):
-            added += 1
+            ref_key = rec.doi or f"nokey_{i}"
+            # Normalize ref_key to a valid slug
+            ref_key = ref_key.replace("/", "_").replace(":", "_")
 
-    # Serialize and write
-    try:
-        json_str = matrix.to_json()
-        out_path.write_text(json_str, encoding="utf-8")
-        console.print(
-            f"[green]Evidence matrix:[/] {added} entries ({skipped_retracted} retracted flagged) "
-            f"→ {out_path}"
-        )
-    except Exception as exc:  # noqa: BLE001
-        console.print(f"[yellow]Could not write evidence matrix: {exc}[/]")
+            # Retraction check — flag retracted entries
+            verification_status: str
+            if rec.retraction_status == "retracted":
+                verification_status = "failed"
+                skipped_retracted += 1
+            else:
+                verification_status = "pending"
+
+            entry = EvidenceEntry(
+                ref_key=ref_key,
+                tier=tier,  # type: ignore[arg-type]
+                title=rec.title,
+                authors=rec.authors,
+                year=rec.year,
+                venue=rec.venue,
+                doi=rec.doi,
+                url=rec.pdf_url,
+                openalex_id=rec.openalex_id,
+                s2_id=rec.s2_id,
+                oa_status=rec.oa_status,
+                retraction_status=rec.retraction_status,
+                verification_status=verification_status,  # type: ignore[arg-type]
+                notes=f"source={rec.source}; citations={rec.citation_count}",
+            )
+            if matrix.add(entry):
+                added += 1
+
+        # Serialize and write
+        try:
+            json_str = matrix.to_json()
+            out_path.write_text(json_str, encoding="utf-8")
+            console.print(
+                f"[green]Evidence matrix:[/] {added} entries ({skipped_retracted} retracted flagged) "
+                f"→ {out_path}"
+            )
+        except Exception as exc:  # noqa: BLE001
+            console.print(f"[yellow]Could not write evidence matrix: {exc}[/]")
     finally:
         matrix.close()
-        import contextlib
-
         with contextlib.suppress(Exception):
             tmp_db.unlink(missing_ok=True)
 

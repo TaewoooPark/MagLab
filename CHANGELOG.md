@@ -110,6 +110,17 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   values, which `os.kill` would have broadcast to a whole process group, and the
   PID file is written atomically so a truncated `"12345"` can never be read back
   as a valid-but-wrong PID `12`.
+- Store API keys durably. `_auth_json_set` truncated `auth.json` before writing,
+  so an interrupted save left it unparseable — and `_auth_json_get` then answered
+  None for *every* provider, not just the one being written: saving a second key
+  could lose the first. A corrupt file also wedged the store permanently, since
+  each later save re-read it, raised, and returned False with only a log line to
+  show for it. Writes are atomic now, an unreadable file is moved aside to
+  `auth.json.corrupt` so the store recovers, and the file is created at 0600 by
+  construction instead of being chmod-ed after a window at the umask default.
+- Clean up the evidence-matrix scratch database on every path. The `finally` that
+  removed it only wrapped the write stage, so an error while searching or
+  accumulating rows left the SQLite file behind in the temp directory.
 - Close the PROV store after `prov lineage`. The command built a
   `ProvenanceStore` inline and never closed it, holding the SQLite connection —
   and the database file — open past the query.

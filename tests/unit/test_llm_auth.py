@@ -401,3 +401,95 @@ class TestCheckAuthJsonPermissions:
 
         assert result["exists"] is True
         assert result["mode_ok"] is False
+
+
+class TestAuthJsonDurability:
+    """Credentials must survive an interrupted write and a corrupt file.
+
+    ``_auth_json_set`` truncated auth.json before writing, so an interruption
+    left it unparseable — and ``_auth_json_get`` then answered None for *every*
+    provider, not just the one being stored. The corrupt file also wedged the
+    store permanently: each later save re-read it, raised, and returned False.
+    """
+
+    @pytest.fixture()
+    def auth_path(self, tmp_path: Path):
+        path = tmp_path / "auth.json"
+        with patch("maglab.llm.auth._AUTH_JSON_PATH", path):
+            yield path
+
+    def test_keys_round_trip(self, auth_path: Path) -> None:
+        from maglab.llm.auth import _auth_json_get, _auth_json_set
+
+        assert _auth_json_set("anthropic", "sk-ant-1")
+        assert _auth_json_set("openai", "sk-oai-1")
+
+        assert _auth_json_get("anthropic") == "sk-ant-1"
+        assert _auth_json_get("openai") == "sk-oai-1"
+
+    def test_file_is_created_at_0600(self, auth_path: Path) -> None:
+        from maglab.llm.auth import _auth_json_set
+
+        _auth_json_set("anthropic", "sk-ant-1")
+        assert auth_path.stat().st_mode & 0o777 == 0o600
+
+    def test_failed_write_keeps_every_existing_key(self, auth_path: Path) -> None:
+        from maglab.llm.auth import _auth_json_get, _auth_json_set
+
+        _auth_json_set("anthropic", "sk-ant-1")
+        _auth_json_set("openai", "sk-oai-1")
+        before = auth_path.read_text(encoding="utf-8")
+
+        with patch("maglab.llm.auth.atomic_write_text", side_effect=OSError("disk full")):
+            assert _auth_json_set("gemini", "sk-gem-1") is False
+
+        assert auth_path.read_text(encoding="utf-8") == before
+        assert _auth_json_get("anthropic") == "sk-ant-1"
+        assert _auth_json_get("openai") == "sk-oai-1"
+
+    def test_no_scratch_files_left_behind(self, auth_path: Path) -> None:
+        from maglab.llm.auth import _auth_json_set
+
+        for i in range(3):
+            _auth_json_set("anthropic", f"sk-{i}")
+
+        assert sorted(p.name for p in auth_path.parent.iterdir()) == ["auth.json"]
+
+    def test_corrupt_file_does_not_wedge_the_store(self, auth_path: Path) -> None:
+        from maglab.llm.auth import _auth_json_get, _auth_json_set
+
+        _auth_json_set("anthropic", "sk-old")
+        auth_path.write_text("{corrupt", encoding="utf-8")
+
+        assert _auth_json_set("anthropic", "sk-new") is True
+        assert _auth_json_get("anthropic") == "sk-new"
+
+    def test_corrupt_file_is_preserved_for_inspection(self, auth_path: Path) -> None:
+        from maglab.llm.auth import _auth_json_set
+
+        auth_path.write_text("{corrupt", encoding="utf-8")
+        _auth_json_set("anthropic", "sk-new")
+
+        quarantined = auth_path.with_name("auth.json.corrupt")
+        assert quarantined.is_file(), "the unreadable file was discarded instead of kept"
+        assert quarantined.read_text(encoding="utf-8") == "{corrupt"
+
+    def test_non_object_json_is_ignored_not_crashed_on(self, auth_path: Path) -> None:
+        from maglab.llm.auth import _auth_json_get, _auth_json_set
+
+        auth_path.write_text('["not", "a", "map"]', encoding="utf-8")
+
+        assert _auth_json_get("anthropic") is None
+        assert _auth_json_set("anthropic", "sk-new") is True
+        assert _auth_json_get("anthropic") == "sk-new"
+
+    def test_delete_removes_only_the_named_provider(self, auth_path: Path) -> None:
+        from maglab.llm.auth import _auth_json_delete, _auth_json_get, _auth_json_set
+
+        _auth_json_set("anthropic", "sk-ant-1")
+        _auth_json_set("openai", "sk-oai-1")
+
+        assert _auth_json_delete("anthropic") is True
+
+        assert _auth_json_get("anthropic") is None
+        assert _auth_json_get("openai") == "sk-oai-1"
