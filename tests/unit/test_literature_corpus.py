@@ -6,7 +6,9 @@ Covers DOI-prefix normalization in get_by_doi() and update_retraction_status()
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 
@@ -138,3 +140,53 @@ class TestUpdateRetractionStatusPrefixNormalization:
         db.update_retraction_status("10.9999/nonexistent", "retracted")
         # Verify no row was created
         assert db.count() == 0
+
+
+class TestConcurrentIngest:
+    """Duplicate ingest is the case this method exists to absorb — not to crash on.
+
+    ``add`` used to SELECT the dedup key and then INSERT. Two concurrent ingests
+    of the same paper both saw "no row" and both inserted, so the loser raised
+    ``UNIQUE constraint failed: records.dedup_key`` and aborted the ingest.
+    """
+
+    def _record(self) -> LiteratureRecord:
+        return LiteratureRecord(
+            doi="10.1103/PhysRevB.100.000000",
+            title="Spin-orbit torque switching",
+            authors=["A. Author"],
+            year=2024,
+        )
+
+    def test_duplicate_add_reports_false(self, tmp_path: Path) -> None:
+        corpus = CorpusDB(db_path=tmp_path / "corpus.db")
+        record = self._record()
+
+        assert corpus.add(record) is True
+        assert corpus.add(record) is False
+
+    def test_concurrent_add_of_the_same_record_does_not_raise(self, tmp_path: Path) -> None:
+        db = tmp_path / "corpus.db"
+        CorpusDB(db_path=db)
+        record = self._record()
+
+        results: list[bool] = []
+        errors: list[BaseException] = []
+        barrier = threading.Barrier(4)
+
+        def _ingest() -> None:
+            try:
+                corpus = CorpusDB(db_path=db)
+                barrier.wait(timeout=10)
+                results.append(corpus.add(record))
+            except BaseException as exc:  # noqa: BLE001 - re-asserted below
+                errors.append(exc)
+
+        threads = [threading.Thread(target=_ingest) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=30)
+
+        assert errors == [], f"concurrent ingest raised: {errors!r}"
+        assert sum(results) == 1, "exactly one ingest should report a new insertion"

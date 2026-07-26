@@ -95,15 +95,13 @@ class CorpusDB:
         import json  # noqa: PLC0415
 
         key = record.dedup_key()
-        existing = self._conn.execute(
-            "SELECT dedup_key FROM records WHERE dedup_key = ?", (key,)
-        ).fetchone()
-        if existing:
-            return False
-
-        self._conn.execute(
+        # Single atomic insert. A SELECT-then-INSERT pair let two concurrent
+        # ingests of the same paper both see "no row" and both insert, and the
+        # loser raised UNIQUE constraint failed on the dedup_key primary key —
+        # aborting an ingest over the duplicate this method exists to absorb.
+        cursor = self._conn.execute(
             """
-            INSERT INTO records
+            INSERT OR IGNORE INTO records
               (dedup_key, doi, title, authors, year, venue, abstract,
                pdf_url, pdf_path, openalex_id, s2_id, oa_status,
                retraction_status, source, citation_count,
@@ -131,6 +129,8 @@ class CorpusDB:
             ),
         )
         self._conn.commit()
+        if cursor.rowcount == 0:
+            return False
         log.debug("Corpus added: %s (%s)", record.title[:60], key)
         return True
 

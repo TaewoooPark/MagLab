@@ -112,6 +112,11 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   values, which `os.kill` would have broadcast to a whole process group, and the
   PID file is written atomically so a truncated `"12345"` can never be read back
   as a valid-but-wrong PID `12`.
+- Make literature corpus ingest race-free. `CorpusDB.add` checked for the dedup
+  key and then inserted, so two concurrent ingests of the same paper both saw
+  "no row" and the loser raised `UNIQUE constraint failed: records.dedup_key` —
+  aborting the ingest over exactly the duplicate the method exists to absorb. It
+  is a single `INSERT OR IGNORE` now, still reporting `False` for a duplicate.
 - Stop a user's gateway conversation from splitting across two sessions.
   `get_or_create_session` did SELECT then INSERT, and nothing in the schema
   stopped two concurrent messages from the same user — which the async adapters
