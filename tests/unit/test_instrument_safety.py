@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from maglab.instrument.safety import (
     SafetyChecker,
     SafetyProfile,
@@ -558,3 +560,133 @@ class TestR4Finding4CompoundScpiLineNumbers:
         assert volt_errs, "Expected VOLTAGE_OVER violation."
         for v in volt_errs:
             assert v.line_number == 2, f"VOLTAGE_OVER reported line {v.line_number}, expected 2."
+
+
+class TestChannelQualifiedCommands:
+    """Multi-channel SCPI must be held to the same limits as single-channel.
+
+    SCPI permits a numeric suffix on any mnemonic to pick a channel, so a
+    dual-channel supply is driven with ``:SOUR2:VOLT`` and ``OUTP2 ON``. Prefix
+    matching was literal, so none of those commands were recognised as setters
+    or as output activation — every limit check, the initialise-before-output
+    rule, and the "no parameter change while output is live" rule were skipped
+    for the entire instrument.
+    """
+
+    def _checker(self) -> SafetyChecker:
+        return SafetyChecker(get_profile("keithley-2400"))  # 210 V / 1.05 A
+
+    @pytest.mark.parametrize(
+        "command",
+        [":SOUR2:VOLT 250", ":SOUR1:VOLT 500", "SOUR2:VOLT 250", ":SOUR12:VOLT 400"],
+    )
+    def test_channel_voltage_over_limit_is_rejected(self, command: str) -> None:
+        result = self._checker().check_scpi_sequence(["*RST", command, ":OUTP ON"])
+        assert any(v.violation_type == ViolationType.VOLTAGE_OVER for v in result.errors), (
+            f"{command!r} bypassed the voltage limit"
+        )
+
+    def test_channel_voltage_under_limit_is_rejected(self) -> None:
+        result = self._checker().check_scpi_sequence(["*RST", ":SOUR2:VOLT -900"])
+        assert any(v.violation_type == ViolationType.VOLTAGE_UNDER for v in result.errors)
+
+    @pytest.mark.parametrize("command", ["SOUR2:CURR 5.0", ":SOUR1:CURR 3.0"])
+    def test_channel_current_over_limit_is_rejected(self, command: str) -> None:
+        result = self._checker().check_scpi_sequence(["*RST", command])
+        assert any(v.violation_type == ViolationType.CURRENT_OVER for v in result.errors), (
+            f"{command!r} bypassed the current limit"
+        )
+
+    def test_channel_digit_is_not_read_as_the_value(self) -> None:
+        """``:SOUR2:VOLT 250`` must report 250 V, not the channel number 2."""
+        result = self._checker().check_scpi_sequence(["*RST", ":SOUR2:VOLT 250"])
+        messages = " ".join(v.message for v in result.errors)
+        assert "250" in messages, f"value misparsed: {messages}"
+
+    @pytest.mark.parametrize(
+        "command", ["OUTP2 ON", ":OUTP1 ON", "OUTPUT2 ON", ":OUTP:STAT ON", ":OUTP2:STAT 1"]
+    )
+    def test_channel_output_activation_requires_init(self, command: str) -> None:
+        result = SafetyChecker(get_profile("keithley-2400")).check_scpi_sequence([command])
+        assert any(v.violation_type == ViolationType.ORDER_VIOLATION for v in result.errors), (
+            f"{command!r} was not recognised as output activation"
+        )
+
+    def test_channel_param_change_while_output_live_is_rejected(self) -> None:
+        result = self._checker().check_scpi_sequence(["*RST", "OUTP2 ON", ":SOUR2:VOLT 5"])
+        assert any(
+            v.violation_type == ViolationType.OUTPUT_ACTIVE_PARAM_CHANGE for v in result.errors
+        )
+
+    @pytest.mark.parametrize("command", ["OUTP2 OFF", ":OUTP1 OFF", "OUTPUT2 OFF", ":OUTP2:STAT 0"])
+    def test_channel_output_deactivation_is_recognised(self, command: str) -> None:
+        """After a channel-qualified OFF, reconfiguring must be allowed again."""
+        result = self._checker().check_scpi_sequence(["*RST", "OUTP2 ON", command, ":SOUR2:VOLT 5"])
+        assert not any(
+            v.violation_type == ViolationType.OUTPUT_ACTIVE_PARAM_CHANGE for v in result.errors
+        ), f"{command!r} was not recognised as output deactivation"
+
+    def test_safe_channel_sequence_stays_clean(self) -> None:
+        result = self._checker().check_scpi_sequence(
+            ["*RST", ":SOUR2:VOLT 10", "OUTP2 ON", "OUTP2 OFF", ":SOUR2:VOLT 20"]
+        )
+        assert result.errors == [], f"false positive: {[v.message for v in result.errors]}"
+
+    def test_channel_range_selector_is_still_not_a_setpoint(self) -> None:
+        """The VOLT:RANG / CURR:COMP exclusions must survive normalisation."""
+        result = self._checker().check_scpi_sequence(["*RST", ":SOUR2:CURR:COMP 5.0"])
+        assert not any(v.violation_type == ViolationType.CURRENT_OVER for v in result.errors)
+
+    def test_channel_violation_found_in_a_script(self) -> None:
+        script = (
+            "import pyvisa\n"
+            "inst = rm.open_resource('GPIB::24')\n"
+            "inst.write('*RST')\n"
+            "inst.write(':SOUR2:VOLT 250')\n"
+            "inst.write('OUTP2 ON')\n"
+        )
+        result = self._checker().check_script_text(script)
+        assert any(v.violation_type == ViolationType.VOLTAGE_OVER for v in result.errors)
+
+
+class TestNonSetpointSubNodes:
+    """Range/compliance/protection nodes configure limits, they do not drive output.
+
+    ``:SOUR:CURR:COMP 5.0`` raises the compliance ceiling; it does not push 5 A
+    through the sample. The exclusion was documented for the bare ``CURR:COMP``
+    form but the fully-qualified ``:SOUR:CURR:COMP`` — which is what real
+    Keithley scripts emit — still matched the ``:SOUR:CURR`` setter prefix and
+    was reported as an over-current violation.
+    """
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            ":SOUR:CURR:COMP 5.0",
+            ":SOUR2:CURR:COMP 5.0",
+            ":SOUR:CURR:RANG 10",
+            ":SOUR:VOLT:RANG 1000",
+            ":SOUR2:VOLT:RANG 1000",
+            ":SOUR:VOLT:PROT 900",
+        ],
+    )
+    def test_non_setpoint_node_is_not_a_limit_violation(self, command: str) -> None:
+        result = SafetyChecker(get_profile("keithley-2400")).check_scpi_sequence(["*RST", command])
+        assert result.errors == [], f"{command!r} was wrongly reported: {result.summary()}"
+
+    @pytest.mark.parametrize(
+        "command",
+        [":SOUR:VOLT 250", ":SOUR2:VOLT 250", ":SOUR:CURR 2.0", ":VOLT:LEV 400"],
+    )
+    def test_genuine_setpoints_are_still_checked(self, command: str) -> None:
+        result = SafetyChecker(get_profile("keithley-2400")).check_scpi_sequence(["*RST", command])
+        assert result.errors, f"{command!r} is a real setpoint and must still be checked"
+
+    def test_compliance_node_does_not_trip_the_output_active_rule(self) -> None:
+        """Raising compliance after OUTP ON is a protection change, not a setpoint change."""
+        result = SafetyChecker(get_profile("keithley-2400")).check_scpi_sequence(
+            ["*RST", ":OUTP ON", ":SOUR:CURR:COMP 0.5"]
+        )
+        assert not any(
+            v.violation_type == ViolationType.OUTPUT_ACTIVE_PARAM_CHANGE for v in result.errors
+        )

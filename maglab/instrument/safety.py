@@ -169,10 +169,69 @@ _NUMBER_RE = re.compile(
     r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?",
 )
 
+# SCPI allows a numeric suffix on any mnemonic to select a channel — ``SOUR2``,
+# ``OUTP1``, ``CHAN3``. Stripping it lets one prefix table cover every channel
+# of a multi-channel instrument.
+_SCPI_CHANNEL_SUFFIX_RE = re.compile(r"(?<=[A-Za-z])\d+(?=:|$)")
+
+
+def _scpi_header(command: str) -> str:
+    """Return the command header (everything before the parameter list)."""
+    return command.strip().split(None, 1)[0] if command.strip() else ""
+
+
+def _normalized_header(command: str) -> str:
+    """Upper-case header with SCPI channel suffixes removed.
+
+    ``:SOUR2:VOLT 250`` → ``:SOUR:VOLT``, so a dual-channel supply is matched by
+    the same prefix table as a single-channel one. Without this, every
+    channel-qualified setter slipped past *all* limit and ordering checks —
+    silently passing a 250 V command on a 210 V instrument.
+    """
+    return _SCPI_CHANNEL_SUFFIX_RE.sub("", _scpi_header(command).upper())
+
+
+# Sub-nodes that configure *how* an output behaves rather than setting its
+# value: ranges, compliance/protection ceilings, and mode switches. Their
+# argument is not an output setpoint, so it must not be compared against the
+# output limits — ``:SOUR:CURR:COMP 5.0`` raises the compliance ceiling, it does
+# not push 5 A through the sample.
+_NON_SETPOINT_NODES = frozenset(
+    {
+        "RANG",
+        "RANGE",
+        "COMP",
+        "COMPLIANCE",
+        "PROT",
+        "PROTECTION",
+        "AUTO",
+        "MODE",
+        "STAT",
+        "STATE",
+        "NPLC",
+    }
+)
+
+
+def _matches_prefix(command: str, prefixes: tuple[str, ...]) -> bool:
+    """Return True when *command* sets a value in one of the given SCPI families."""
+    header = _normalized_header(command)
+    if not any(header.startswith(p.upper()) for p in prefixes):
+        return False
+    return not any(node in _NON_SETPOINT_NODES for node in header.split(":"))
+
 
 def _extract_number(text: str) -> float | None:
-    """Extract the first numeric value from a string."""
-    m = _NUMBER_RE.search(text)
+    """Extract the parameter value from an SCPI command.
+
+    Only the parameter list is searched. Searching the whole string would read
+    the channel digit of ``:SOUR2:VOLT 250`` as the value ``2`` and clear a
+    250 V command against a 210 V limit.
+    """
+    stripped = text.strip()
+    parts = stripped.split(None, 1)
+    payload = parts[1] if len(parts) > 1 else stripped
+    m = _NUMBER_RE.search(payload)
     return float(m.group()) if m else None
 
 
@@ -232,14 +291,19 @@ class SafetyChecker:
         ":SOUR:TEMP",
         "SOUR:TEMP",
     )
-    # Output activation pattern
+    # Output activation pattern.
+    # The optional ``\d*`` covers channel-qualified forms (``OUTP2 ON``) and the
+    # optional ``:STAT`` node covers ``:OUTP:STAT ON``. Missing either meant the
+    # activation went unnoticed, which silently disabled *both* the
+    # initialise-before-output rule and the "no parameter change while output is
+    # live" rule for every multi-channel instrument.
     _OUTPUT_ON_RE = re.compile(
-        r"(?:OUTP(?:UT)?\s+ON|\:OUTP(?:UT)?\s+ON|OUTP\s+1|\:OUTP\s+1)",
+        r":?OUTP(?:UT)?\d*(?::STAT(?:E)?)?\s+(?:ON|1)\b",
         re.IGNORECASE,
     )
     # Output deactivation pattern
     _OUTPUT_OFF_RE = re.compile(
-        r"(?:OUTP(?:UT)?\s+OFF|\:OUTP(?:UT)?\s+OFF|OUTP\s+0|\:OUTP\s+0)",
+        r":?OUTP(?:UT)?\d*(?::STAT(?:E)?)?\s+(?:OFF|0)\b",
         re.IGNORECASE,
     )
     # Initialization command pattern
@@ -322,12 +386,8 @@ class SafetyChecker:
                 # Rule #3: reject CONFIG-phase parameter changes while output is active.
                 # A voltage or current setter issued after OUTP ON risks current surges on
                 # sensitive samples (Appendix D rule #3).
-                _is_volt_cmd = any(
-                    sub_cmd.upper().startswith(p.upper()) for p in self._VOLT_PREFIXES
-                )
-                _is_curr_cmd = any(
-                    sub_cmd.upper().startswith(p.upper()) for p in self._CURR_PREFIXES
-                )
+                _is_volt_cmd = _matches_prefix(sub_cmd, self._VOLT_PREFIXES)
+                _is_curr_cmd = _matches_prefix(sub_cmd, self._CURR_PREFIXES)
                 if output_active and (_is_volt_cmd or _is_curr_cmd):
                     violations.append(
                         SafetyViolation(
@@ -344,7 +404,7 @@ class SafetyChecker:
                     )
 
                 # Voltage limit check
-                if any(sub_cmd.upper().startswith(p.upper()) for p in self._VOLT_PREFIXES):
+                if _matches_prefix(sub_cmd, self._VOLT_PREFIXES):
                     val = _extract_number(sub_cmd)
                     if val is not None:
                         if (
@@ -379,7 +439,7 @@ class SafetyChecker:
                             )
 
                 # Current limit check
-                if any(sub_cmd.upper().startswith(p.upper()) for p in self._CURR_PREFIXES):
+                if _matches_prefix(sub_cmd, self._CURR_PREFIXES):
                     val = _extract_number(sub_cmd)
                     if val is not None:
                         if (
@@ -414,7 +474,7 @@ class SafetyChecker:
                             )
 
                 # Magnetic field limit check
-                if any(sub_cmd.upper().startswith(p.upper()) for p in self._FIELD_PREFIXES):
+                if _matches_prefix(sub_cmd, self._FIELD_PREFIXES):
                     val = _extract_number(sub_cmd)
                     if (
                         val is not None
@@ -434,7 +494,7 @@ class SafetyChecker:
                         )
 
                 # Temperature limit check
-                if any(sub_cmd.upper().startswith(p.upper()) for p in self._TEMP_PREFIXES):
+                if _matches_prefix(sub_cmd, self._TEMP_PREFIXES):
                     val = _extract_number(sub_cmd)
                     if (
                         val is not None
