@@ -295,3 +295,35 @@ def test_config_cmd() -> None:
     result = runner.invoke(app, ["config"])
     assert result.exit_code == 0
     assert "backend" in result.stdout
+
+
+class TestPhysicsComputeRejectsNonFinite:
+    """`float()` accepts "nan" and "inf" — the formula must not.
+
+    Letting either through printed a result like any other answer
+    (``exchange_length(A=nan, Ms=800000) = nan``), which is the silent
+    corruption the sanity oracle exists to prevent — and which it already blocks
+    when the same computation arrives as a tool call.
+    """
+
+    @pytest.mark.parametrize("bad", ["nan", "inf", "-inf", "NaN", "Infinity"])
+    def test_non_finite_parameter_is_rejected(self, bad: str) -> None:
+        result = runner.invoke(app, ["physics", "compute", "exchange_length", f"A={bad}", "Ms=8e5"])
+
+        assert result.exit_code == 1, result.output
+        assert "not a finite number" in result.output
+
+    def test_finite_parameters_still_compute(self) -> None:
+        result = runner.invoke(
+            app, ["physics", "compute", "exchange_length", "A=1.3e-11", "Ms=8e5"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "exchange_length" in result.output
+
+    def test_oracle_still_reports_rather_than_refusing(self) -> None:
+        """`physics oracle` exists to judge values — it must still accept NaN as input."""
+        result = runner.invoke(app, ["physics", "oracle", "alpha=nan"])
+
+        assert result.exit_code == 0, result.output
+        assert "Unphysical" in result.output

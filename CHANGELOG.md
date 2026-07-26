@@ -112,6 +112,12 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   values, which `os.kill` would have broadcast to a whole process group, and the
   PID file is written atomically so a truncated `"12345"` can never be read back
   as a valid-but-wrong PID `12`.
+- Reject NaN and infinity from `physics compute` arguments. `float()` accepts
+  `"nan"` and `"inf"`, so `physics compute exchange_length A=nan Ms=8e5` printed
+  `exchange_length(A=nan, Ms=800000) = nan` as if it were an answer — the silent
+  corruption the sanity oracle exists to prevent, and which it already blocked
+  when the same computation arrived as a tool call. `physics oracle` still
+  accepts them, since reporting on such values is its job.
 - Escape the shared error/warning/thinking panels too. They exist to report text
   that came from somewhere else, so a message naming a path was the one input
   guaranteed to make the reporter itself fail.

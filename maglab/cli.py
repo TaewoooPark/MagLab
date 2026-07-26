@@ -10,6 +10,7 @@ Running with no arguments → ``maglab.repl.run_repl(config)`` (interactive REPL
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 from typing import Any
@@ -618,10 +619,21 @@ def physics_compute(
         if "=" in item:
             k, v = item.split("=", 1)
             try:
-                kw[k.strip()] = float(v.strip())
+                value = float(v.strip())
             except ValueError:
                 console.print(f"[red]Parameter parse error:[/] {item}")
                 raise typer.Exit(1) from None
+            # float() accepts "nan" and "inf". Letting either through produces a
+            # nan result printed like any other answer — the silent corruption
+            # the sanity oracle exists to prevent, and which it already blocks
+            # when the same computation is requested through a tool call.
+            if not math.isfinite(value):
+                console.print(
+                    f"[red]Parameter {k.strip()}={v.strip()} is not a finite number.[/] "
+                    "NaN and infinity are not physical values."
+                )
+                raise typer.Exit(1)
+            kw[k.strip()] = value
 
     fn = getattr(_f, formula, None)
     if fn is None:
