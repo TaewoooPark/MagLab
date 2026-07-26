@@ -364,3 +364,32 @@ def test_install_local_skill_rejects_missing_skill_md(tmp_path: Path) -> None:
 
     with pytest.raises(SkillLoadError, match="SKILL.md"):
         install_local_skill(bad_source, root=tmp_path / "workspace")
+
+
+class TestBundleFileContainment:
+    """`get_bundle_file` must return files from the bundle, not from anywhere."""
+
+    def _loader(self, tmp_path: Path) -> tuple[SkillLoader, Path]:
+        skill_dir = tmp_path / "skills" / "demo"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: demo\ndescription: demo skill\n---\n\nbody\n", encoding="utf-8"
+        )
+        (skill_dir / "run.py").write_text("print('hi')", encoding="utf-8")
+        (tmp_path / "secret.txt").write_text("top secret", encoding="utf-8")
+        loader = SkillLoader(extra_paths=[tmp_path / "skills"])
+        loader.discover()
+        return loader, tmp_path
+
+    def test_in_bundle_file_is_returned(self, tmp_path: Path) -> None:
+        loader, _ = self._loader(tmp_path)
+        assert loader.get_bundle_file("demo", "run.py") is not None
+
+    @pytest.mark.parametrize("escape", ["../../secret.txt", "../secret.txt", "../../../etc/hosts"])
+    def test_paths_escaping_the_bundle_are_refused(self, tmp_path: Path, escape: str) -> None:
+        loader, _ = self._loader(tmp_path)
+        assert loader.get_bundle_file("demo", escape) is None
+
+    def test_absolute_paths_are_refused(self, tmp_path: Path) -> None:
+        loader, root = self._loader(tmp_path)
+        assert loader.get_bundle_file("demo", str(root / "secret.txt")) is None

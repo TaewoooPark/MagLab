@@ -192,6 +192,19 @@ class LongTermMemory:
         self._dir = memories_dir or _memories_dir()
         self._dir.mkdir(parents=True, exist_ok=True)
 
+    def _resolve(self, name: str) -> Path:
+        """Return the path for *name*, refusing anything outside the memory dir.
+
+        ``name`` reaches here from callers that may pass model- or user-supplied
+        text, and it is interpolated straight into a path — ``../../id_rsa``
+        would otherwise read and write outside the store.
+        """
+        base = self._dir.resolve()
+        candidate = (base / f"{name}.md").resolve()
+        if not candidate.is_relative_to(base) or candidate.parent != base:
+            raise ValueError(f"Memory name {name!r} escapes the memory directory.")
+        return candidate
+
     def write(self, name: str, content: str) -> Path:
         """Write a memory file.
 
@@ -199,16 +212,28 @@ class LongTermMemory:
         ----------
         name:
             File name (without extension; ``.md`` is added automatically).
+            Must not contain path separators.
         content:
             Markdown content.
+
+        Raises
+        ------
+        ValueError
+            When *name* would resolve outside the memory directory.
         """
-        p = self._dir / f"{name}.md"
+        p = self._resolve(name)
         atomic_write_text(p, content)
         return p
 
     def read(self, name: str) -> str | None:
-        """Read a memory file (returns None if not found)."""
-        p = self._dir / f"{name}.md"
+        """Read a memory file (returns None if not found).
+
+        Raises
+        ------
+        ValueError
+            When *name* would resolve outside the memory directory.
+        """
+        p = self._resolve(name)
         return p.read_text(encoding="utf-8") if p.is_file() else None
 
     def search(self, query: str, max_results: int = 10) -> list[dict[str, Any]]:

@@ -112,6 +112,13 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   values, which `os.kill` would have broadcast to a whole process group, and the
   PID file is written atomically so a truncated `"12345"` can never be read back
   as a valid-but-wrong PID `12`.
+- Keep skill-bundle and long-term-memory file access inside its own directory.
+  `SkillLoader.get_bundle_file` joined a caller-supplied relative path onto the
+  skill directory, and `LongTermMemory.write`/`read` interpolated a caller-
+  supplied name straight into a path, so `../../secret` reached outside either
+  store. Neither has a production caller today, so this is hardening rather than
+  a reachable bug — but both are the sanctioned file-access entry points for
+  those stores, and they are the natural things to wire to a tool later.
 - Make literature corpus ingest race-free. `CorpusDB.add` checked for the dedup
   key and then inserted, so two concurrent ingests of the same paper both saw
   "no row" and the loser raised `UNIQUE constraint failed: records.dedup_key` —

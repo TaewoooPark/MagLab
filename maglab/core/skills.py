@@ -26,6 +26,7 @@ Dependencies: none (yaml, pathlib, re — standard/bundled libraries).
 
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -33,6 +34,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Path helpers
@@ -284,13 +287,26 @@ class SkillLoader:
         """Return the path to a skill bundle file (None if not found).
 
         L3 level — call only on explicit access.
+
+        *relative_path* is resolved strictly inside the skill's own directory: an
+        absolute path or one that climbs out with ``..`` returns None rather than
+        a file from elsewhere on the filesystem.
         """
         if name not in self._meta_cache:
             self.discover()
         if name not in self._meta_cache:
             return None
-        p = self._meta_cache[name].skill_dir / relative_path
-        return p if p.exists() else None
+        skill_dir = self._meta_cache[name].skill_dir.resolve()
+        candidate = (skill_dir / relative_path).resolve()
+        if not candidate.is_relative_to(skill_dir):
+            log.warning(
+                "Refusing skill bundle path %r for skill %r — it escapes %s.",
+                relative_path,
+                name,
+                skill_dir,
+            )
+            return None
+        return candidate if candidate.exists() else None
 
     # ------------------------------------------------------------------
     # Search

@@ -438,3 +438,39 @@ class TestMemoryWriteDurability:
             mem.write("notes", "replacement body")
 
         assert mem.read("notes") == "original body"
+
+
+class TestMemoryNameContainment:
+    """A memory name is interpolated straight into a path — it must stay inside.
+
+    ``write``/``read`` build ``<memories_dir>/<name>.md``, so a name carrying
+    ``..`` or a separator reached outside the store entirely.
+    """
+
+    @pytest.mark.parametrize(
+        "name", ["../escape", "../../etc/passwd", "sub/dir/file", "/tmp/absolute"]
+    )
+    def test_write_refuses_names_that_escape(self, tmp_path: Path, name: str) -> None:
+        mem = LongTermMemory(memories_dir=tmp_path / "mem")
+        with pytest.raises(ValueError, match="escapes"):
+            mem.write(name, "content")
+
+    @pytest.mark.parametrize("name", ["../escape", "sub/dir/file"])
+    def test_read_refuses_names_that_escape(self, tmp_path: Path, name: str) -> None:
+        mem = LongTermMemory(memories_dir=tmp_path / "mem")
+        with pytest.raises(ValueError, match="escapes"):
+            mem.read(name)
+
+    def test_nothing_is_written_outside_the_store(self, tmp_path: Path) -> None:
+        mem = LongTermMemory(memories_dir=tmp_path / "mem")
+        with pytest.raises(ValueError):
+            mem.write("../outside", "pwned")
+
+        assert not (tmp_path / "outside.md").exists()
+
+    def test_ordinary_names_still_work(self, tmp_path: Path) -> None:
+        mem = LongTermMemory(memories_dir=tmp_path / "mem")
+        written = mem.write("project-notes", "body")
+
+        assert written.name == "project-notes.md"
+        assert mem.read("project-notes") == "body"
