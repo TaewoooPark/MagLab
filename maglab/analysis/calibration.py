@@ -151,7 +151,7 @@ class CalibrationRegistry:
     def _load(self) -> None:
         """Restore from JSON file."""
         assert self._path is not None
-        data = json.loads(self._path.read_text())
+        data = json.loads(self._path.read_text(encoding="utf-8"))
         for d in data:
             entry = CalibrationEntry(
                 instrument=d["instrument"],

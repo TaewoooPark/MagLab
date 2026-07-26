@@ -356,7 +356,7 @@ def read_pid() -> int | None:
     if not pid_file.exists():
         return None
     try:
-        pid = int(pid_file.read_text().strip())
+        pid = int(pid_file.read_text(encoding="utf-8").strip())
     except (ValueError, OSError):
         return None
     # PID 0 means "my process group" and negative values mean "a whole process
@@ -558,13 +558,13 @@ def install_service(maglab_executable: str = "maglab") -> Path:
     if sys.platform == "darwin":
         target = Path.home() / "Library" / "LaunchAgents" / "com.maglab.gateway.plist"
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(generate_launchd_plist(maglab_executable))
+        atomic_write_text(target, generate_launchd_plist(maglab_executable))
         log.info("[gateway] launchd plist written to %s", target)
         return target
     elif sys.platform.startswith("linux"):
         target = Path.home() / ".config" / "systemd" / "user" / "maglab-gateway.service"
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(generate_systemd_unit(maglab_executable))
+        atomic_write_text(target, generate_systemd_unit(maglab_executable))
         log.info("[gateway] systemd unit written to %s", target)
         return target
     else:

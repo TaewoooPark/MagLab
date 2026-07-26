@@ -256,7 +256,7 @@ class SshHpcBackend:
         # Read from the state file
         state_file = job.input_dir / "job_state.json"
         if state_file.exists():
-            data = json.loads(state_file.read_text())
+            data = json.loads(state_file.read_text(encoding="utf-8"))
             return data.get("status", JobStatus.UNKNOWN)
         return job.status
 

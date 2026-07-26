@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from maglab.core.atomic import atomic_write_text
 from maglab.provenance.datapoint import DataPoint, ProvenanceType
 
 # ---------------------------------------------------------------------------
@@ -151,7 +152,7 @@ def save_csv(
             "metadata": metadata or {},
             "fit_datapoints": [dp.to_dict() for dp in (fit_datapoints or [])],
         }
-        prov_path.write_text(json.dumps(prov_data, indent=2, default=str))
+        atomic_write_text(prov_path, json.dumps(prov_data, indent=2, default=str))
 
 
 def load_fit_provenance(path: str | Path) -> list[DataPoint]:
@@ -159,7 +160,7 @@ def load_fit_provenance(path: str | Path) -> list[DataPoint]:
     prov_path = Path(path)
     if not prov_path.exists():
         return []
-    data = json.loads(prov_path.read_text())
+    data = json.loads(prov_path.read_text(encoding="utf-8"))
     dps = []
     for d in data.get("fit_datapoints", []):
         with contextlib.suppress(Exception):

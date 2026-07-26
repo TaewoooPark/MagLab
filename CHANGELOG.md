@@ -112,6 +112,15 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   values, which `os.kill` would have broadcast to a whole process group, and the
   PID file is written atomically so a truncated `"12345"` can never be read back
   as a valid-but-wrong PID `12`.
+- Give every text read and write an explicit UTF-8 encoding. Nine call sites
+  relied on the platform default, which is UTF-8 on Linux/macOS but the locale
+  codepage on Windows — enough to mangle or fail on a non-ASCII home directory in
+  the generated systemd/launchd unit, a Korean ELN note, or a calibration
+  comment. The rest of the codebase already passed `encoding="utf-8"`.
+- Write the backgrounded gateway's PID file atomically. `runner.write_pid()` was
+  fixed but the daemon-spawn path in `gateway start` still used `write_text`, so
+  the same truncated-`"12345"`-reads-back-as-`12` hazard remained on the path
+  that actually creates the daemon.
 - Reject NaN and infinity in the physics sanity oracle. Every range check is a
   pair of comparisons, and IEEE-754 makes all comparisons against NaN false — so
   `check_damping(nan)` found α neither below 0 nor above 1 and reported it

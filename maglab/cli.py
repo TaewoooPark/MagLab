@@ -1069,7 +1069,7 @@ def mcp_list() -> None:
         if rp.is_file():
             found = True
             try:
-                data = json.loads(rp.read_text())
+                data = json.loads(rp.read_text(encoding="utf-8"))
                 servers = data.get("servers", {})
                 if not servers:
                     console.print(f"[dim]{rp}: no servers registered[/]")

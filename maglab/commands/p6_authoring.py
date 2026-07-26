@@ -29,6 +29,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from maglab.core.atomic import atomic_write_text
 from maglab.ui.status import status_console
 
 console = Console()
@@ -750,7 +751,9 @@ def gateway_start(
 
         # Write the daemon subprocess PID (not the parent CLI's os.getpid()).
         # gateway stop sends SIGTERM to this PID via stop_daemon().
-        pid_file.write_text(str(proc.pid))
+        # Atomic, like runner.write_pid(): a truncated "12345" still parses
+        # as the valid-but-wrong PID 12, which `gateway stop` would SIGTERM.
+        atomic_write_text(pid_file, str(proc.pid))
         console.print(
             f"[green]Gateway started[/] (PID={proc.pid}).  Use 'maglab gateway status' to check."
         )
