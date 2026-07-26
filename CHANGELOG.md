@@ -14,6 +14,9 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
 
 ### Tests
 
+- Added a documentation check that fails when a runnable README example names a
+  command or install extra that does not exist — the class of defect that hid
+  both the missing `prov lineage` and the unimplemented `maglab harness` surface.
 - The suite no longer depends on the developer's terminal: `FORCE_COLOR` and
   `CLICOLOR_FORCE` are scrubbed before the CLI modules build their consoles.
   Rich latches those in `Console.__init__`, so a shell exporting them turned
@@ -50,6 +53,16 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   through the sample — but it matched the `:SOUR:CURR` setter prefix. The
   exclusion existed only for the bare `CURR:COMP` form, not the fully-qualified
   one that real instrument scripts emit.
+- Stop both READMEs from documenting a `maglab harness` surface that does not
+  exist. The "PI harness mode" section presented `harness doctor|compile|run|
+  worker|pi-tool`, a `.[harness]` install extra, `maglab run --harness-workflow`,
+  `maglab lit search --harness-plan`, and a copy-pasteable "minimal first
+  workflow" — none of which are implemented, in the CLI or anywhere in the git
+  history, and the workflow names it used (`literature-review`, `deep-research`)
+  are not the ones `harness.manifest.json` declares. The status table also listed
+  it as "Implemented". A new user's first copied command failed with
+  `No such command`. The design intent is kept, clearly marked as not
+  implemented, and the runnable examples and install line are removed.
 - Stop silently truncating streamed Codex responses. The live-trace collector
   ended as soon as the child had exited and both queues *looked* empty — but an
   empty queue only means the reader threads have not enqueued the next line yet,
