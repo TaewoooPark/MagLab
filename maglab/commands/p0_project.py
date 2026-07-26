@@ -174,7 +174,10 @@ def prov_lineage(
     from maglab.provenance.store import ProvenanceStore
 
     try:
-        records = ProvenanceStore(db_path).get_entity_lineage(datapoint_id)
+        # Context-managed: the store owns a SQLite connection, and this command
+        # only reads — leaving it open holds the file open past the query.
+        with ProvenanceStore(db_path) as store:
+            records = store.get_entity_lineage(datapoint_id)
     except Exception as exc:  # noqa: BLE001
         console.print(f"[red]Could not read lineage:[/] {escape(str(exc))}")
         raise typer.Exit(1) from exc

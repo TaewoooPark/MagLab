@@ -110,6 +110,9 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   values, which `os.kill` would have broadcast to a whole process group, and the
   PID file is written atomically so a truncated `"12345"` can never be read back
   as a valid-but-wrong PID `12`.
+- Close the PROV store after `prov lineage`. The command built a
+  `ProvenanceStore` inline and never closed it, holding the SQLite connection —
+  and the database file — open past the query.
 - Bound `git status` in the workspace listing with a timeout, so a huge
   repository or a stalled network mount degrades to "no entries" instead of
   hanging the CLI at startup with no way out.
