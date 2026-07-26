@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
@@ -463,3 +464,63 @@ class TestRalphEngine:
 
         engine.detached_loop(simple_agent)
         assert engine.state is not None
+
+
+# ---------------------------------------------------------------------------
+# State durability — an interrupted save must not resurrect a stopped loop
+# ---------------------------------------------------------------------------
+
+
+class TestRalphStateDurability:
+    """``from_markdown`` falls back to defaults for anything it cannot parse.
+
+    That makes a truncated state file silently dangerous rather than loud: a run
+    stopped at iteration 17 reloads as ``iteration=0, active=True,
+    stop_reason=None`` — a fresh iteration budget for a loop that was
+    deliberately halted. The write must therefore be atomic.
+    """
+
+    def test_truncated_state_would_reset_the_iteration_cap(self) -> None:
+        """Documents why this matters — parsing a partial file is silently wrong."""
+        full = RalphState(
+            iteration=17, max_iterations=20, active=False, stop_reason="budget exhausted"
+        )
+        partial = full.to_markdown()[:20]
+
+        recovered = RalphState.from_markdown(partial)
+
+        assert recovered.iteration == 0
+        assert recovered.active is True
+        assert recovered.stop_reason is None
+
+    def test_failed_save_leaves_the_previous_state_intact(self, tmp_path: Path) -> None:
+        path = tmp_path / "ralph.local.md"
+        save_state(
+            RalphState(iteration=17, max_iterations=20, active=False, stop_reason="stopped"), path
+        )
+
+        with (
+            mock.patch("maglab.core.ralph.atomic_write_text", side_effect=OSError("disk full")),
+            pytest.raises(OSError),
+        ):
+            save_state(RalphState(iteration=18), path)
+
+        reloaded = load_state(path)
+        assert reloaded is not None
+        assert reloaded.iteration == 17, "an interrupted save clobbered the loop state"
+        assert reloaded.active is False
+        assert reloaded.stop_reason == "stopped"
+
+    def test_save_leaves_no_scratch_files(self, tmp_path: Path) -> None:
+        path = tmp_path / "ralph.local.md"
+        for i in range(3):
+            save_state(RalphState(iteration=i), path)
+
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["ralph.local.md"]
+
+    def test_save_creates_missing_parent_directory(self, tmp_path: Path) -> None:
+        path = tmp_path / "nested" / ".maglab" / "ralph.local.md"
+        save_state(RalphState(iteration=3), path)
+
+        loaded = load_state(path)
+        assert loaded is not None and loaded.iteration == 3

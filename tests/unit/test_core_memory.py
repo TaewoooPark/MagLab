@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -370,3 +371,70 @@ class TestResearchPoolCorruptFile:
         p = ResearchPool(pool_dir=pool_dir)
         assert p.query(keywords=["anything"]) == []
         assert p.semantic_query("anything") == []
+
+
+# ---------------------------------------------------------------------------
+# Durability — a half-written record silently disappears from every query
+# ---------------------------------------------------------------------------
+
+
+class TestMemoryWriteDurability:
+    """query()/semantic_query() skip records they cannot parse.
+
+    That is the right call for a bulk search, but it means a truncated record is
+    lost silently rather than loudly — so the write itself must be atomic.
+    """
+
+    def test_failed_pool_save_leaves_the_previous_record_intact(self, tmp_path: Path) -> None:
+        pool = ResearchPool(pool_dir=tmp_path)
+        rec = pool.add(
+            kind=PoolRecordKind.CONFIRMED_RESULT,
+            topic_tags=["dmi"],
+            summary="interfacial DMI confirmed",
+        )
+        before = (tmp_path / f"{rec.record_id}.json").read_text(encoding="utf-8")
+
+        with (
+            mock.patch("maglab.core.memory.atomic_write_text", side_effect=OSError("disk full")),
+            pytest.raises(OSError),
+        ):
+            pool.add(
+                kind=PoolRecordKind.ANOMALY,
+                topic_tags=["dmi"],
+                summary="unexpected sign reversal",
+            )
+
+        assert (tmp_path / f"{rec.record_id}.json").read_text(encoding="utf-8") == before
+        assert len(pool.query()) == 1, "the surviving record must still be queryable"
+
+    def test_pool_save_leaves_no_scratch_files(self, tmp_path: Path) -> None:
+        pool = ResearchPool(pool_dir=tmp_path)
+        for i in range(3):
+            pool.add(
+                kind=PoolRecordKind.CONFIRMED_RESULT,
+                topic_tags=["t"],
+                summary=f"result {i}",
+            )
+
+        leftovers = [p.name for p in tmp_path.iterdir() if not p.name.endswith(".json")]
+        assert leftovers == [], f"atomic write left scratch files behind: {leftovers}"
+        assert len(pool.query()) == 3
+
+    def test_overwriting_a_memory_does_not_leave_stale_tail_bytes(self, tmp_path: Path) -> None:
+        mem = LongTermMemory(memories_dir=tmp_path)
+        mem.write("notes", "a considerably longer earlier body of text")
+        mem.write("notes", "short")
+
+        assert mem.read("notes") == "short"
+
+    def test_failed_memory_write_leaves_the_previous_body(self, tmp_path: Path) -> None:
+        mem = LongTermMemory(memories_dir=tmp_path)
+        mem.write("notes", "original body")
+
+        with (
+            mock.patch("maglab.core.memory.atomic_write_text", side_effect=OSError("disk full")),
+            pytest.raises(OSError),
+        ):
+            mem.write("notes", "replacement body")
+
+        assert mem.read("notes") == "original body"

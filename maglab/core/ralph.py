@@ -38,6 +38,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from maglab.core.atomic import atomic_write_text
+
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -324,11 +326,18 @@ def load_state(state_path: Path | None = None) -> RalphState | None:
 
 
 def save_state(state: RalphState, state_path: Path | None = None) -> None:
-    """Save a ``RalphState`` to the state file."""
+    """Save a ``RalphState`` to the state file.
+
+    Written atomically. ``from_markdown`` deliberately falls back to defaults for
+    fields it cannot parse, so a truncated state file does not fail loudly — it
+    silently resurrects the loop at ``iteration=0``, ``active=True`` and
+    ``stop_reason=None``, handing an exhausted or deliberately stopped run a
+    fresh iteration budget. Interrupting a long autonomous loop is exactly when
+    that half-written file would appear.
+    """
     path = state_path or _LOCAL_STATE_PATH
-    path.parent.mkdir(parents=True, exist_ok=True)
     state.updated_at = time.time()
-    path.write_text(state.to_markdown(), encoding="utf-8")
+    atomic_write_text(path, state.to_markdown())
 
 
 def clear_state(state_path: Path | None = None) -> None:

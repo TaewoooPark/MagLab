@@ -29,6 +29,7 @@ from typing import Any
 
 import platformdirs
 
+from maglab.core.atomic import atomic_write_text
 from maglab.core.storage import connect_writable_sqlite
 
 log = logging.getLogger(__name__)
@@ -200,7 +201,7 @@ class LongTermMemory:
             Markdown content.
         """
         p = self._dir / f"{name}.md"
-        p.write_text(content, encoding="utf-8")
+        atomic_write_text(p, content)
         return p
 
     def read(self, name: str) -> str | None:
@@ -464,8 +465,12 @@ class ResearchPool:
     # ------------------------------------------------------------------
 
     def _save(self, rec: PoolRecord) -> None:
+        # Atomic: query()/semantic_query() skip records they cannot parse, so a
+        # half-written record would silently drop a confirmed result from every
+        # later search instead of surfacing an error.
         p = self._dir / f"{rec.record_id}.json"
-        p.write_text(
+        atomic_write_text(
+            p,
             json.dumps(
                 {
                     "record_id": rec.record_id,
@@ -479,7 +484,6 @@ class ResearchPool:
                 ensure_ascii=False,
                 indent=2,
             ),
-            encoding="utf-8",
         )
 
     @staticmethod

@@ -34,6 +34,15 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   written atomically, and a failed save now raises instead of letting
   `register_optout()` report success for an opt-out that would vanish on
   restart.
+- Write the Ralph loop state file atomically. `RalphState.from_markdown`
+  deliberately falls back to defaults for fields it cannot parse, so a truncated
+  `ralph.local.md` did not fail loudly — it silently resurrected a run stopped at
+  iteration 17 as `iteration=0, active=True, stop_reason=None`, handing a halted
+  loop a fresh iteration budget. Interrupting a long autonomous loop is exactly
+  when that half-written file appeared.
+- Write research-pool records and long-term memories atomically.
+  `query()`/`semantic_query()` skip records they cannot parse, so a half-written
+  record silently vanished from every later search instead of surfacing.
 - Make `CheckpointStore.save` a single atomic upsert. The previous
   SELECT-then-INSERT/UPDATE pair raced: two `maglab` runs resuming the same task
   both saw "no row", both inserted, and the loser died on
