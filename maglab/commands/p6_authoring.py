@@ -629,7 +629,10 @@ def gateway_setup(
             "  allowed_users: []      # FILL: list of allowed user IDs\n"
             "  allowed_channels: []   # FILL: list of allowed channel IDs\n"
         )
-        cfg.write_text(template, encoding="utf-8")
+        # Written through the atomic helper, which creates via mkstemp: the
+        # file is 0600 from the moment it exists rather than sitting at the
+        # umask default until the chmod lands. Bot tokens go in this file.
+        atomic_write_text(cfg, template)
         os.chmod(cfg, 0o600)
 
     console.print(f"[green]Gateway config:[/] [bold]{cfg}[/]")

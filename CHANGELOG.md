@@ -112,6 +112,18 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   values, which `os.kill` would have broadcast to a whole process group, and the
   PID file is written atomically so a truncated `"12345"` can never be read back
   as a valid-but-wrong PID `12`.
+- Stop a user's gateway conversation from splitting across two sessions.
+  `get_or_create_session` did SELECT then INSERT, and nothing in the schema
+  stopped two concurrent messages from the same user — which the async adapters
+  routinely produce — from both seeing "no session" and both inserting; their
+  message history then divided between the two rows. The pairing
+  `(platform, user_id_hash)` is now unique and the lookup is a single upsert.
+  Databases that already contain duplicates are migrated on open: messages are
+  re-pointed at the earliest session before the extra rows are dropped.
+- Make `SessionMemory._ensure_session` an atomic upsert — the same
+  SELECT-then-INSERT race, where the loser hits the `session_id` primary key.
+- Create the gateway credential template at 0600 by construction rather than
+  chmod-ing it after a window at the umask default.
 - Give every text read and write an explicit UTF-8 encoding. Nine call sites
   relied on the platform default, which is UTF-8 on Linux/macOS but the locale
   codepage on Windows — enough to mangle or fail on a non-ASCII home directory in

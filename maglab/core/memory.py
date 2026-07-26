@@ -122,17 +122,19 @@ class SessionMemory:
         return self._session_id
 
     def _ensure_session(self) -> None:
-        cur = self._conn.execute(
-            "SELECT session_id FROM sessions WHERE session_id=?",
-            (self._session_id,),
+        # Atomic: a SELECT-then-INSERT pair lets two processes opening the same
+        # named session both see "no row" and both insert, and the loser hits the
+        # session_id primary key.
+        now = time.time()
+        self._conn.execute(
+            """
+            INSERT INTO sessions (session_id, created_at, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(session_id) DO NOTHING
+            """,
+            (self._session_id, now, now),
         )
-        if not cur.fetchone():
-            now = time.time()
-            self._conn.execute(
-                "INSERT INTO sessions (session_id, created_at, updated_at) VALUES (?, ?, ?)",
-                (self._session_id, now, now),
-            )
-            self._conn.commit()
+        self._conn.commit()
 
     def set(self, key: str, value: Any) -> None:
         """Store a key-value pair in the session."""

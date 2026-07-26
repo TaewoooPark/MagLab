@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sqlite3
+import threading
 import time
 from collections.abc import Generator
 from pathlib import Path
@@ -144,3 +146,106 @@ class TestNoDoubleHashing:
         assert session.user_id_hash == _hash_user_id(raw_uid), (
             "End-to-end: stored hash must equal SHA-256(raw_uid)."
         )
+
+
+class TestOneSessionPerUser:
+    """Concurrent messages from one user must not split their history.
+
+    ``get_or_create_session`` did SELECT then INSERT, and nothing in the schema
+    prevented two concurrent messages — which the async adapters routinely
+    produce — from both observing "no session" and both inserting. The user then
+    had two session rows and their messages were divided between them.
+    """
+
+    def test_concurrent_lookups_yield_one_session(self, tmp_path: Path) -> None:
+        db = tmp_path / "sessions.db"
+        SessionDB(db).close()
+
+        ids: list[str] = []
+        errors: list[BaseException] = []
+        barrier = threading.Barrier(6)
+
+        def _lookup() -> None:
+            try:
+                store = SessionDB(db)
+                try:
+                    barrier.wait(timeout=10)
+                    ids.append(store.get_or_create_session("slack", "user-hash", "C1").id)
+                finally:
+                    store.close()
+            except BaseException as exc:  # noqa: BLE001 - re-asserted below
+                errors.append(exc)
+
+        threads = [threading.Thread(target=_lookup) for _ in range(6)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=30)
+
+        assert errors == [], f"concurrent session lookup raised: {errors!r}"
+        assert len(set(ids)) == 1, f"the same user was given {len(set(ids))} sessions"
+
+    def test_schema_rejects_a_duplicate_pair(self, tmp_path: Path) -> None:
+        db = tmp_path / "sessions.db"
+        store = SessionDB(db)
+        store.get_or_create_session("slack", "user-hash", "C1")
+        conn = store._get_conn()
+
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                "INSERT INTO sessions VALUES (?,?,?,?,?,?)",
+                ("other-id", "slack", "user-hash", "C1", time.time(), time.time()),
+            )
+        store.close()
+
+    def test_repeat_lookup_preserves_identity_and_creation_time(self, tmp_path: Path) -> None:
+        store = SessionDB(tmp_path / "sessions.db")
+        first = store.get_or_create_session("slack", "user-hash", "C1")
+        time.sleep(0.01)
+        second = store.get_or_create_session("slack", "user-hash", "C-other")
+
+        assert second.id == first.id, "the upsert minted a new session"
+        assert second.created_at == first.created_at
+        assert second.channel_id == "C1", "the original channel must not be overwritten"
+        assert second.last_active >= first.last_active
+        store.close()
+
+    def test_different_users_and_platforms_stay_separate(self, tmp_path: Path) -> None:
+        store = SessionDB(tmp_path / "sessions.db")
+        a = store.get_or_create_session("slack", "user-a", "C1")
+        b = store.get_or_create_session("slack", "user-b", "C1")
+        c = store.get_or_create_session("telegram", "user-a", "C1")
+
+        assert len({a.id, b.id, c.id}) == 3
+        store.close()
+
+    def test_existing_duplicates_are_merged_without_losing_messages(self, tmp_path: Path) -> None:
+        """Databases created before the unique index may already hold duplicates."""
+        db = tmp_path / "sessions.db"
+        store = SessionDB(db)
+        store.get_or_create_session("slack", "seed", "C0")
+        conn = store._get_conn()
+        conn.execute("DROP INDEX IF EXISTS idx_sessions_platform_user_unique")
+        older, newer = time.time() - 100, time.time() - 50
+        conn.execute(
+            "INSERT INTO sessions VALUES (?,?,?,?,?,?)",
+            ("keep-me", "slack", "dup", "C1", older, older),
+        )
+        conn.execute(
+            "INSERT INTO sessions VALUES (?,?,?,?,?,?)",
+            ("drop-me", "slack", "dup", "C1", newer, newer),
+        )
+        conn.execute(
+            "INSERT INTO messages VALUES (?,?,?,?,?)", ("m1", "drop-me", "user", "hash", newer)
+        )
+        conn.commit()
+        store.close()
+
+        reopened = SessionDB(db)
+        conn = reopened._get_conn()
+        remaining = [r[0] for r in conn.execute("SELECT id FROM sessions WHERE user_id_hash='dup'")]
+        message_owner = conn.execute("SELECT session_id FROM messages WHERE id='m1'").fetchone()[0]
+
+        assert remaining == ["keep-me"], "the earliest session should survive"
+        assert message_owner == "keep-me", "the orphaned message was not re-pointed"
+        reopened.close()

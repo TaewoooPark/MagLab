@@ -143,6 +143,66 @@ class SessionDB:
             """
         )
         conn.commit()
+        self._enforce_one_session_per_user()
+
+    def _enforce_one_session_per_user(self) -> None:
+        """Collapse duplicate sessions and make the pairing unique.
+
+        ``get_or_create_session`` used to SELECT and then INSERT, and nothing in
+        the schema stopped two concurrent messages from the same user — which is
+        exactly what the async adapters produce — from both observing "no
+        session" and both inserting. The user then had two sessions and their
+        message history split between them.
+
+        Existing databases may already contain such pairs, so messages are
+        re-pointed at the earliest session before the extra rows are dropped and
+        the unique index is created.
+        """
+        conn = self._conn
+        assert conn is not None
+        duplicates = conn.execute(
+            """
+            SELECT platform, user_id_hash
+            FROM sessions
+            GROUP BY platform, user_id_hash
+            HAVING COUNT(*) > 1
+            """
+        ).fetchall()
+        for row in duplicates:
+            ids = [
+                r["id"]
+                for r in conn.execute(
+                    """
+                    SELECT id FROM sessions
+                    WHERE platform=? AND user_id_hash=?
+                    ORDER BY created_at ASC, id ASC
+                    """,
+                    (row["platform"], row["user_id_hash"]),
+                ).fetchall()
+            ]
+            keep, drop = ids[0], ids[1:]
+            placeholders = ",".join("?" * len(drop))
+            conn.execute(
+                f"UPDATE messages SET session_id=? WHERE session_id IN ({placeholders})",
+                (keep, *drop),
+            )
+            conn.execute(
+                f"DELETE FROM sessions WHERE id IN ({placeholders})",
+                tuple(drop),
+            )
+            log.warning(
+                "[gateway] Merged %d duplicate session(s) for platform=%s into %s.",
+                len(drop),
+                row["platform"],
+                keep,
+            )
+        conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_platform_user_unique
+                ON sessions (platform, user_id_hash)
+            """
+        )
+        conn.commit()
 
     def close(self) -> None:
         """Close the database connection."""
@@ -188,42 +248,34 @@ class SessionDB:
         uid_hash = user_id_hash
         now = time.time()
 
+        # Single atomic upsert. A SELECT-then-INSERT pair let two concurrent
+        # messages from the same user — which the async adapters routinely
+        # produce — both see "no session" and both insert, splitting the user's
+        # history across two rows. Only last_active is refreshed on conflict, so
+        # the original id, channel and creation time survive.
+        conn.execute(
+            """
+            INSERT INTO sessions (id, platform, user_id_hash, channel_id, created_at, last_active)
+            VALUES (?,?,?,?,?,?)
+            ON CONFLICT(platform, user_id_hash) DO UPDATE SET last_active=excluded.last_active
+            """,
+            (str(uuid.uuid4()), platform, uid_hash, channel_id, now, now),
+        )
+        conn.commit()
+
         row = conn.execute(
             "SELECT * FROM sessions WHERE platform=? AND user_id_hash=?",
             (platform, uid_hash),
         ).fetchone()
-
-        if row is not None:
-            # Update last_active timestamp
-            conn.execute(
-                "UPDATE sessions SET last_active=? WHERE id=?",
-                (now, row["id"]),
-            )
-            conn.commit()
-            return Session(
-                id=row["id"],
-                platform=row["platform"],
-                user_id_hash=row["user_id_hash"],
-                channel_id=row["channel_id"],
-                created_at=row["created_at"],
-                last_active=now,
-            )
-
-        # Create new session
-        sid = str(uuid.uuid4())
-        conn.execute(
-            "INSERT INTO sessions VALUES (?,?,?,?,?,?)",
-            (sid, platform, uid_hash, channel_id, now, now),
-        )
-        conn.commit()
-        log.debug("[gateway] New session created: %s platform=%s", sid, platform)
+        if row is None:  # pragma: no cover - the upsert above guarantees a row
+            raise RuntimeError(f"session vanished after upsert: {platform}/{uid_hash}")
         return Session(
-            id=sid,
-            platform=platform,
-            user_id_hash=uid_hash,
-            channel_id=channel_id,
-            created_at=now,
-            last_active=now,
+            id=row["id"],
+            platform=row["platform"],
+            user_id_hash=row["user_id_hash"],
+            channel_id=row["channel_id"],
+            created_at=row["created_at"],
+            last_active=row["last_active"],
         )
 
     def get_session(self, session_id: str) -> Session | None:
