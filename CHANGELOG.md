@@ -112,6 +112,9 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   values, which `os.kill` would have broadcast to a whole process group, and the
   PID file is written atomically so a truncated `"12345"` can never be read back
   as a valid-but-wrong PID `12`.
+- Escape the shared error/warning/thinking panels too. They exist to report text
+  that came from somewhere else, so a message naming a path was the one input
+  guaranteed to make the reporter itself fail.
 - Stop a model answer that mentions a file path from crashing the command that
   produced it. Rich reads `[...]` as markup, so `maglab -p "…"` printing
   "wrote the figure to [/Users/me/fig.svg]" raised

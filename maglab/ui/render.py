@@ -187,7 +187,16 @@ def error_panel(
     :param console: Console to use.  Uses the default Console if None.
     """
     con = console or _console
-    con.print(Panel(f"[bold red]{message}[/]", title=f"[bold red]{title}[/]", box=ROUNDED))
+    # Escaped: these render text that came from somewhere else — an exception
+    # message, a model answer — and Rich reads "[/path]" as a closing tag and
+    # raises MarkupError, so the error reporter would fail on the error.
+    con.print(
+        Panel(
+            f"[bold red]{escape(message)}[/]",
+            title=f"[bold red]{escape(title)}[/]",
+            box=ROUNDED,
+        )
+    )
 
 
 def warning_panel(
@@ -203,7 +212,13 @@ def warning_panel(
     :param console: Console to use.  Uses the default Console if None.
     """
     con = console or _console
-    con.print(Panel(f"[bold yellow]{message}[/]", title=f"[bold yellow]{title}[/]", box=ROUNDED))
+    con.print(
+        Panel(
+            f"[bold yellow]{escape(message)}[/]",
+            title=f"[bold yellow]{escape(title)}[/]",
+            box=ROUNDED,
+        )
+    )
 
 
 def thinking_panel(
@@ -219,7 +234,7 @@ def thinking_panel(
     :param console: Console to use.  Uses the default Console if None.
     """
     con = console or _console
-    con.print(Panel(f"[dim]{content}[/]", title=f"[dim]{title}[/]", box=MINIMAL))
+    con.print(Panel(f"[dim]{escape(content)}[/]", title=f"[dim]{escape(title)}[/]", box=MINIMAL))
 
 
 # ---------------------------------------------------------------------------

@@ -281,3 +281,45 @@ def test_print_tokens_joins_output() -> None:
     output = buf.getvalue()
     assert "Hello" in output
     assert "World" in output
+
+
+class TestPanelsSurviveBracketedText:
+    """These panels render text from elsewhere — an exception, a model answer.
+
+    Rich reads ``[/path]`` as a closing tag and raises MarkupError, so an
+    unescaped panel would fail on exactly the message it was asked to report.
+    """
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "cannot read [/etc/maglab/config]",
+            "wrote [/Users/me/Desktop/fig.svg]",
+            "stray [/bold] marker",
+        ],
+    )
+    def test_error_panel_renders(self, text: str) -> None:
+        buf = io.StringIO()
+        render.error_panel(text, console=Console(file=buf, force_terminal=False, width=100))
+        assert "etc" in buf.getvalue() or "Users" in buf.getvalue() or "bold" in buf.getvalue()
+
+    def test_warning_panel_renders(self) -> None:
+        buf = io.StringIO()
+        render.warning_panel(
+            "check [/dev/ttyUSB0]", console=Console(file=buf, force_terminal=False, width=100)
+        )
+        assert "ttyUSB0" in buf.getvalue()
+
+    def test_thinking_panel_renders(self) -> None:
+        buf = io.StringIO()
+        render.thinking_panel(
+            "considering [/tmp/a.json]", console=Console(file=buf, force_terminal=False, width=100)
+        )
+        assert "a.json" in buf.getvalue()
+
+    def test_bracketed_title_is_safe_too(self) -> None:
+        buf = io.StringIO()
+        render.error_panel(
+            "body", title="[/weird]", console=Console(file=buf, force_terminal=False, width=100)
+        )
+        assert "weird" in buf.getvalue()
