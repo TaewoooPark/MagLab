@@ -50,6 +50,15 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   through the sample — but it matched the `:SOUR:CURR` setter prefix. The
   exclusion existed only for the bare `CURR:COMP` form, not the fully-qualified
   one that real instrument scripts emit.
+- Stop silently truncating streamed Codex responses. The live-trace collector
+  ended as soon as the child had exited and both queues *looked* empty — but an
+  empty queue only means the reader threads have not enqueued the next line yet,
+  not that the pipes are drained. With the main thread busy parsing trace
+  events, a 5 000-line stream lost up to 87% of its output and a 20 000-line one
+  about 29%, cutting off the end of the model's answer with no error. The reader
+  threads are now joined (they end at EOF) and the queues drained afterwards, so
+  every line is captured and still reaches the trace sink. A timed-out child is
+  also reaped instead of being left as a zombie.
 - Render progress spinners on stderr instead of stdout. `Console.status` hides
   the cursor, paints a frame, then moves back and erases the line; on stdout
   those control sequences land in the pipe ahead of the payload, so

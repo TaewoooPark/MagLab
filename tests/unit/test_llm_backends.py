@@ -7,6 +7,8 @@ No real API/network/process calls are made.
 from __future__ import annotations
 
 import subprocess
+import sys
+import time
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -894,3 +896,97 @@ class TestDelegatedCLIBackend:
             version = backend.get_cli_version()
 
         assert version == "claude v1.2.3"
+
+
+class TestCodexLiveTraceCapturesEverything:
+    """The streaming Codex path must not drop the tail of the response.
+
+    The collector loop stopped as soon as the child had exited and both queues
+    looked empty — but "empty" only means the reader threads had not enqueued
+    the next line *yet*, not that the pipes were drained. With the main thread
+    busy parsing trace events, a 5 000-line stream lost up to 87% of its output,
+    silently truncating the model's answer.
+    """
+
+    def _backend(self, emit_delay: bool = True):
+        from maglab.llm.backends.delegated_cli import DelegatedCLIBackend
+
+        backend = DelegatedCLIBackend(cli="codex", timeout=120)
+        if emit_delay:
+            # Stand in for the real per-line JSONL parsing + UI emission, which
+            # is what lets the reader thread fall behind the collector loop.
+            backend._emit_codex_trace_line = lambda line: time.sleep(0)  # type: ignore[method-assign]
+        else:
+            backend._emit_codex_trace_line = lambda line: None  # type: ignore[method-assign]
+        return backend
+
+    @staticmethod
+    def _emit_cmd(n_lines: int) -> list[str]:
+        return [
+            sys.executable,
+            "-c",
+            "import sys\n"
+            f"sys.stdout.write(''.join(f'line{{i}}\\n' for i in range({n_lines})))\n"
+            "sys.stdout.flush()\n",
+        ]
+
+    @pytest.mark.parametrize("n_lines", [2000, 5000])
+    def test_no_stdout_line_is_dropped(self, n_lines: int) -> None:
+        backend = self._backend()
+        stdout, _stderr, returncode = backend._complete_codex_with_live_trace(
+            self._emit_cmd(n_lines), "model"
+        )
+
+        assert returncode == 0
+        assert stdout.count("\n") == n_lines, (
+            f"captured {stdout.count(chr(10))}/{n_lines} lines — output was truncated"
+        )
+        assert stdout.endswith(f"line{n_lines - 1}\n"), "the final line is missing"
+
+    def test_stderr_is_captured_in_full(self) -> None:
+        backend = self._backend(emit_delay=False)
+        cmd = [
+            sys.executable,
+            "-c",
+            "import sys\nsys.stderr.write(''.join(f'e{i}\\n' for i in range(500)))\nsys.stderr.flush()\n",
+        ]
+
+        _stdout, stderr, returncode = backend._complete_codex_with_live_trace(cmd, "model")
+
+        assert returncode == 0
+        assert stderr.count("\n") == 500
+
+    def test_every_captured_line_is_also_traced(self) -> None:
+        """Lines recovered by the final drain must still reach the trace sink."""
+        from maglab.llm.backends.delegated_cli import DelegatedCLIBackend
+
+        backend = DelegatedCLIBackend(cli="codex", timeout=120)
+        seen: list[str] = []
+
+        def _emit(line: str) -> None:
+            time.sleep(0)
+            seen.append(line)
+
+        backend._emit_codex_trace_line = _emit  # type: ignore[method-assign]
+        stdout, _stderr, _rc = backend._complete_codex_with_live_trace(self._emit_cmd(2000), "m")
+
+        assert len(seen) == stdout.count("\n") == 2000
+
+    def test_nonzero_exit_code_is_reported(self) -> None:
+        backend = self._backend(emit_delay=False)
+        cmd = [sys.executable, "-c", "import sys; sys.stdout.write('x\\n'); sys.exit(3)"]
+
+        stdout, _stderr, returncode = backend._complete_codex_with_live_trace(cmd, "model")
+
+        assert returncode == 3
+        assert stdout == "x\n"
+
+    def test_timeout_kills_and_reaps_the_child(self) -> None:
+        from maglab.llm.backends.delegated_cli import DelegatedCLIBackend
+
+        backend = DelegatedCLIBackend(cli="codex", timeout=0.5)
+        backend._emit_codex_trace_line = lambda line: None  # type: ignore[method-assign]
+        cmd = [sys.executable, "-c", "import time; time.sleep(30)"]
+
+        with pytest.raises(TimeoutError):
+            backend._complete_codex_with_live_trace(cmd, "model")
