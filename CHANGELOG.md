@@ -112,6 +112,13 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   values, which `os.kill` would have broadcast to a whole process group, and the
   PID file is written atomically so a truncated `"12345"` can never be read back
   as a valid-but-wrong PID `12`.
+- Stop a model answer that mentions a file path from crashing the command that
+  produced it. Rich reads `[...]` as markup, so `maglab -p "…"` printing
+  "wrote the figure to [/Users/me/fig.svg]" raised
+  `MarkupError: closing tag '[/Users/me/fig.svg]' doesn't match any open tag` —
+  a traceback instead of a successful answer, and in the REPL it took the
+  session down. Model output is now escaped where it enters the render path;
+  MagLab's own strings keep their markup.
 - Keep skill-bundle and long-term-memory file access inside its own directory.
   `SkillLoader.get_bundle_file` joined a caller-supplied relative path onto the
   skill directory, and `LongTermMemory.write`/`read` interpolated a caller-

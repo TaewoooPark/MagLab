@@ -18,6 +18,8 @@ import shlex
 import sys
 from typing import TYPE_CHECKING
 
+from rich.markup import escape
+
 if TYPE_CHECKING:
     from rich.console import Console
 
@@ -452,9 +454,14 @@ def _get_response(user_msg: str, orchestrator: object | None) -> str:
         try:
             respond = getattr(orchestrator, "respond", None)
             if respond is not None:
-                return str(respond(user_msg))
+                # Escaped because this is model output, not Rich markup: an
+                # answer mentioning a path — "wrote it to [/Users/…/fig.svg]" —
+                # otherwise parses as a closing tag and raises MarkupError,
+                # taking the REPL session down with it. The guidance strings
+                # below are ours, so they keep their markup.
+                return escape(str(respond(user_msg)))
         except Exception as exc:
-            return f"[Orchestrator error] {exc}"
+            return f"[Orchestrator error] {escape(str(exc))}"
     workspace_note = _workspace_startup_note(max_entries=8)
     return (
         f"{workspace_note}\n"

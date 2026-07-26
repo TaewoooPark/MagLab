@@ -16,6 +16,7 @@ from typing import Any
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from maglab import __version__
@@ -93,7 +94,10 @@ def _print_prompt_response(prompt: str) -> None:
         event_sink=getattr(trace_renderer, "emit", None),
     )
     try:
-        console.print(orchestrator.respond(prompt))
+        # Model output is data, not Rich markup. An answer mentioning a path —
+        # "wrote it to [/Users/…/fig.svg]" — parses as a closing tag and raises
+        # MarkupError, killing the command over its own success message.
+        console.print(escape(str(orchestrator.respond(prompt))))
     finally:
         close_trace = getattr(trace_renderer, "close", None)
         if callable(close_trace):
