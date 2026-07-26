@@ -19,6 +19,8 @@ from typing import Any
 
 import numpy as np
 
+from maglab.core.atomic import atomic_write_text
+
 # ---------------------------------------------------------------------------
 # Calibration registry
 # ---------------------------------------------------------------------------
@@ -140,7 +142,11 @@ class CalibrationRegistry:
             }
             for e in self._entries
         ]
-        self._path.write_text(json.dumps(data, indent=2))
+        # Atomic: _load() runs from __init__ with no error handling, so a
+        # truncated calibration file makes every command that opens the store
+        # die on a raw JSONDecodeError — after silently losing the factors and
+        # offsets that measurements are corrected with.
+        atomic_write_text(self._path, json.dumps(data, indent=2))
 
     def _load(self) -> None:
         """Restore from JSON file."""

@@ -14,6 +14,8 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
 
 ### Tests
 
+- Added the first tests for `maglab.analysis.calibration`, which had none
+  despite owning the factors and offsets applied to measurement data.
 - Added a documentation check that fails when a runnable README example names a
   command or install extra that does not exist — the class of defect that hid
   both the missing `prov lineage` and the unimplemented `maglab harness` surface.
@@ -110,6 +112,14 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   values, which `os.kill` would have broadcast to a whole process group, and the
   PID file is written atomically so a truncated `"12345"` can never be read back
   as a valid-but-wrong PID `12`.
+- Write the calibration registry, the MCP server registry and ELN notebook
+  entries atomically. All three are read back to drive later behaviour, and a
+  truncated write was silent: `CalibrationRegistry.__init__` calls `_load()` with
+  no error handling, so a half-written file makes every command that opens the
+  store die on a raw `JSONDecodeError` — after losing the factors and offsets
+  measurements are corrected with; `mcp.json` suppresses a decode error into an
+  empty dict, so the next save would drop every registered server; and a
+  truncated ELN entry is simply skipped by list/search.
 - Store API keys durably. `_auth_json_set` truncated `auth.json` before writing,
   so an interrupted save left it unparseable — and `_auth_json_get` then answered
   None for *every* provider, not just the one being written: saving a second key

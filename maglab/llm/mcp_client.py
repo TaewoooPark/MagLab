@@ -25,6 +25,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from maglab.core.atomic import atomic_write_text
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -247,8 +249,10 @@ def _save_registry(path: Path, configs: dict[str, ServerConfig]) -> None:
 
     servers_out: dict[str, Any] = {name: cfg.to_dict() for name, cfg in configs.items()}
     existing["servers"] = servers_out
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(existing, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    # Atomic: a half-written mcp.json is unparseable, and the read above
+    # suppresses a decode error into an empty dict — so the next save would
+    # silently drop every registered server and any non-server keys.
+    atomic_write_text(path, json.dumps(existing, indent=2, ensure_ascii=False) + "\n")
 
 
 # ---------------------------------------------------------------------------

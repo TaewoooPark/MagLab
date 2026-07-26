@@ -21,6 +21,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from maglab.core.atomic import atomic_write_text
+
 # ---------------------------------------------------------------------------
 # Measurement types
 # ---------------------------------------------------------------------------
@@ -458,5 +460,7 @@ class ELNNotebook:
     def _save(self, entry: ELNEntry) -> Path:
         """Save an entry to a Markdown file."""
         path = self._entry_path(entry)
-        path.write_text(entry.to_markdown(), encoding="utf-8")
+        # Atomic: ELN entries are the primary research record and are parsed
+        # back by list/search; a truncated entry is silently skipped.
+        atomic_write_text(path, entry.to_markdown())
         return path
