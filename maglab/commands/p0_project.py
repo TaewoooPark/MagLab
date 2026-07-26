@@ -21,6 +21,7 @@ from maglab.project_status import (
     task_scaffold_inventory,
     write_task_scaffold,
 )
+from maglab.ui.json_output import emit_json
 
 console = Console()
 
@@ -346,4 +347,4 @@ def _print_artifact_table(title: str, records: list[Any]) -> None:
 
 
 def _print_json(payload: dict[str, Any]) -> None:
-    typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    emit_json(payload)

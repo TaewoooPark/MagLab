@@ -24,6 +24,26 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   one step and only serializes through the fallback writer on a *serializer*
   failure, instead of retrying a write against a path that just proved
   unwritable.
+- Hold channel-qualified SCPI to the hardware safety envelope. SCPI puts a
+  numeric suffix on a mnemonic to pick a channel, so a dual-channel supply is
+  driven with `:SOUR2:VOLT 250` and `OUTP2 ON`. Prefix matching was literal, so
+  none of those were recognised as setters or as output activation — every
+  voltage/current/field/temperature limit, the initialise-before-output rule and
+  the "no parameter change while output is live" rule were skipped for the whole
+  instrument. `:SOUR2:VOLT 250` was reported clean against a 210 V limit. Value
+  extraction also read the first number anywhere in the command, so the channel
+  digit of `:SOUR2:VOLT 250` was checked as `2` volts; only the parameter list is
+  searched now.
+- Stop reporting range and compliance nodes as output-limit violations.
+  `:SOUR:CURR:COMP 5.0` raises the compliance ceiling — it does not push 5 A
+  through the sample — but it matched the `:SOUR:CURR` setter prefix. The
+  exclusion existed only for the bare `CURR:COMP` form, not the fully-qualified
+  one that real instrument scripts emit.
+- Emit `--json` output without Rich formatting. `Console.print_json` always
+  highlights, so with `FORCE_COLOR` set — the default on many CI runners —
+  `maglab config show > config.json` produced ANSI escape sequences that
+  `json.load` rejects. JSON now goes to stdout untouched, which also removes the
+  risk of Rich word-wrapping splitting a long string value across lines.
 - Stop the persona opt-out registry (safeguard ⑥, documented as non-negotiable)
   from failing open. `_load_optout` swallowed every exception and returned an
   empty set, so an unreadable or half-written `optout.json` silently turned

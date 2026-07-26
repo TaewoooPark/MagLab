@@ -29,6 +29,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from maglab.ui.json_output import emit_json
+
 console = Console()
 
 # ---------------------------------------------------------------------------
@@ -901,7 +903,6 @@ def explain_command(
     LLM is used only for candidate text generation — it does NOT produce
     numerical physical values.
     """
-    import json as _json
 
     from maglab.core.reasoning import explain_anomaly
     from maglab.reviewer.corpus_rag import CorpusRAG
@@ -937,7 +938,7 @@ def explain_command(
         raise typer.Exit(1)
 
     if json_out:
-        console.print_json(_json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+        emit_json(result.to_dict())
         return
 
     console.print(f"[bold]Anomaly Explanation (D2) — query:[/] {result.query}")

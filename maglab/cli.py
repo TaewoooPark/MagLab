@@ -21,6 +21,7 @@ from rich.table import Table
 from maglab import __version__
 from maglab.commands import p0_project, p2_analysis, p4_ralph, p5_literature, p6_authoring
 from maglab.config import Config, load_config
+from maglab.ui.json_output import emit_json_text
 
 # ---------------------------------------------------------------------------
 # App & console
@@ -1268,14 +1269,14 @@ def config_cmd(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is not None:
         return
     config = load_config()
-    console.print_json(config.model_dump_json(indent=2))
+    emit_json_text(config.model_dump_json(indent=2))
 
 
 @config_app.command("show")
 def config_show() -> None:
     """Print the current configuration."""
     config = load_config()
-    console.print_json(config.model_dump_json(indent=2))
+    emit_json_text(config.model_dump_json(indent=2))
 
 
 @config_app.command("path")
