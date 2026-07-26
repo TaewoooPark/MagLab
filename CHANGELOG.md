@@ -24,6 +24,16 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   one step and only serializes through the fallback writer on a *serializer*
   failure, instead of retrying a write against a path that just proved
   unwritable.
+- Stop the persona opt-out registry (safeguard ⑥, documented as non-negotiable)
+  from failing open. `_load_optout` swallowed every exception and returned an
+  empty set, so an unreadable or half-written `optout.json` silently turned
+  "these authors opted out" into "nobody opted out" — with only a log line to
+  show for it. A *missing* file still means no opt-outs, but a file that exists
+  and cannot be parsed now blocks every persona until it is repaired
+  (`reload_optout_registry()` clears the block once fixed). The registry is also
+  written atomically, and a failed save now raises instead of letting
+  `register_optout()` report success for an opt-out that would vanish on
+  restart.
 - Make `CheckpointStore.save` a single atomic upsert. The previous
   SELECT-then-INSERT/UPDATE pair raced: two `maglab` runs resuming the same task
   both saw "no row", both inserted, and the loser died on

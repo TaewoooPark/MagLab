@@ -24,6 +24,8 @@ from typing import Any
 
 import platformdirs
 
+from maglab.core.atomic import atomic_write_text
+
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -145,26 +147,57 @@ def _optout_path() -> Path:
     return d / "optout.json"
 
 
+_OPTOUT_LOAD_ERROR: str | None = None
+"""Set when the on-disk registry exists but could not be read.
+
+Safeguard ⑥ is non-negotiable, so an unreadable registry must never be treated
+as "nobody opted out". While this is set, :func:`check_optout` refuses every
+persona instead of failing open.
+"""
+
+
 def _load_optout() -> set[str]:
-    """Load the opt-out registry from disk; return an empty set on any error."""
+    """Load the opt-out registry from disk.
+
+    A missing file legitimately means "no opt-outs". A file that exists but
+    cannot be parsed means the opt-out list is *unknown*, which is recorded in
+    ``_OPTOUT_LOAD_ERROR`` so the guard can fail closed rather than silently
+    letting through authors who did opt out.
+    """
+    global _OPTOUT_LOAD_ERROR
     try:
         p = _optout_path()
-        if p.exists():
-            data = json.loads(p.read_text(encoding="utf-8"))
-            if isinstance(data, list):
-                return {str(x).strip().lower() for x in data}
-    except Exception as exc:  # noqa: BLE001
-        log.warning("opt-out registry load failed (using empty set): %s", exc)
-    return set()
+        if not p.exists():
+            _OPTOUT_LOAD_ERROR = None
+            return set()
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 - recorded, then enforced fail-closed
+        _OPTOUT_LOAD_ERROR = f"{exc}"
+        log.error("opt-out registry unreadable — persona generation is blocked: %s", exc)
+        return set()
+    if not isinstance(data, list):
+        _OPTOUT_LOAD_ERROR = f"expected a JSON list, found {type(data).__name__}"
+        log.error(
+            "opt-out registry malformed — persona generation is blocked: %s", _OPTOUT_LOAD_ERROR
+        )
+        return set()
+    _OPTOUT_LOAD_ERROR = None
+    return {str(x).strip().lower() for x in data}
 
 
 def _save_optout(registry: set[str]) -> None:
-    """Persist the opt-out registry to disk; failures are logged, not raised."""
-    try:
-        p = _optout_path()
-        p.write_text(json.dumps(sorted(registry), ensure_ascii=False, indent=2), encoding="utf-8")
-    except Exception as exc:  # noqa: BLE001
-        log.warning("opt-out registry save failed: %s", exc)
+    """Persist the opt-out registry to disk.
+
+    Written atomically: a half-written ``optout.json`` is unparseable, and an
+    unparseable registry blocks every persona until an operator repairs it.
+
+    Raises:
+        OSError: The registry could not be persisted. Callers must not report a
+            successful opt-out when the record would vanish on restart.
+    """
+    global _OPTOUT_LOAD_ERROR
+    atomic_write_text(_optout_path(), json.dumps(sorted(registry), ensure_ascii=False, indent=2))
+    _OPTOUT_LOAD_ERROR = None
 
 
 # Load persisted opt-outs at import time so the set is always current.
@@ -173,19 +206,43 @@ _OPTOUT_REGISTRY: set[str] = _load_optout()
 Persisted to disk via ``platformdirs.user_data_dir("maglab")/optout.json``."""
 
 
+def reload_optout_registry() -> frozenset[str]:
+    """Re-read the registry from disk, clearing a previous load failure if fixed."""
+    global _OPTOUT_REGISTRY
+    _OPTOUT_REGISTRY = _load_optout()
+    return frozenset(_OPTOUT_REGISTRY)
+
+
+def optout_registry_error() -> str | None:
+    """Return why the registry is unreadable, or None when it loaded cleanly."""
+    return _OPTOUT_LOAD_ERROR
+
+
 def register_optout(author_id: str) -> None:
     """Register an author ID in the opt-out registry and persist to disk.
 
     Registered authors are blocked by ``check_optout()`` or ``PersonaGuard``.
+
+    Raises:
+        OSError: The opt-out could not be persisted, so it would not survive a
+            restart. The in-memory registry is left unchanged.
     """
-    _OPTOUT_REGISTRY.add(author_id.strip().lower())
-    _save_optout(_OPTOUT_REGISTRY)
+    normalized = author_id.strip().lower()
+    candidate = _OPTOUT_REGISTRY | {normalized}
+    _save_optout(candidate)
+    _OPTOUT_REGISTRY.add(normalized)
 
 
 def unregister_optout(author_id: str) -> None:
-    """Remove an author ID from the opt-out registry and persist to disk."""
-    _OPTOUT_REGISTRY.discard(author_id.strip().lower())
-    _save_optout(_OPTOUT_REGISTRY)
+    """Remove an author ID from the opt-out registry and persist to disk.
+
+    Raises:
+        OSError: The removal could not be persisted; the registry is unchanged.
+    """
+    normalized = author_id.strip().lower()
+    candidate = _OPTOUT_REGISTRY - {normalized}
+    _save_optout(candidate)
+    _OPTOUT_REGISTRY.discard(normalized)
 
 
 def is_opted_out(author_id: str) -> bool:
@@ -200,8 +257,8 @@ def get_optout_registry() -> frozenset[str]:
 
 def clear_optout_registry() -> None:
     """Clear the opt-out registry and persist the empty state to disk (for testing)."""
+    _save_optout(set())
     _OPTOUT_REGISTRY.clear()
-    _save_optout(_OPTOUT_REGISTRY)
 
 
 # ---------------------------------------------------------------------------
@@ -410,7 +467,23 @@ def check_expertise_fabrication(text: str) -> list[DisclosureViolationRecord]:
 
 
 def check_optout(author_id: str) -> list[DisclosureViolationRecord]:
-    """Safeguard ⑥: check whether the author ID is in the opt-out registry."""
+    """Safeguard ⑥: check whether the author ID is in the opt-out registry.
+
+    If the registry could not be read, the opt-out list is unknown and every
+    persona is refused — a consent guard must not fail open.
+    """
+    if _OPTOUT_LOAD_ERROR is not None:
+        return [
+            DisclosureViolationRecord(
+                violation=DisclosureViolation.OPTED_OUT_AUTHOR,
+                message=(
+                    "Opt-out registry could not be read "
+                    f"({_optout_path()}: {_OPTOUT_LOAD_ERROR}), so opt-outs cannot be "
+                    "honoured. Persona generation is blocked until it is repaired."
+                ),
+                excerpt=author_id,
+            )
+        ]
     if is_opted_out(author_id):
         return [
             DisclosureViolationRecord(

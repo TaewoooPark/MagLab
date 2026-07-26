@@ -12,12 +12,15 @@ Blocks each safeguard violation case:
 
 from __future__ import annotations
 
+from unittest import mock
+
 import pytest
 
 from maglab.reviewer.disclosure import (
     DisclosureViolation,
     PersonaDisclosureError,
     PersonaGuard,
+    _optout_path,
     build_disclosure_label,
     check_ai_reviewer_label,
     check_disclosure_label,
@@ -28,7 +31,9 @@ from maglab.reviewer.disclosure import (
     check_scope,
     clear_optout_registry,
     is_opted_out,
+    optout_registry_error,
     register_optout,
+    reload_optout_registry,
     unregister_optout,
     violations_to_honesty_gate,
 )
@@ -741,3 +746,103 @@ class TestF01VerifiedDoisDefaultNone:
             "ReviewPanel falsely blocked a valid review citing a real DOI when "
             "PersonaSpec uses default verified_dois=None. F-01 fix may be missing."
         )
+
+
+# ---------------------------------------------------------------------------
+# Safeguard ⑥ durability — the consent guard must never fail open
+# ---------------------------------------------------------------------------
+
+
+class TestSafeguard6RegistryDurability:
+    """An unreadable or half-written registry must block, not silently allow.
+
+    ``_load_optout`` used to swallow every exception and return an empty set, so
+    a truncated ``optout.json`` — exactly what a non-atomic write leaves behind —
+    turned "these authors opted out" into "nobody opted out", with only a log
+    line to show for it.
+    """
+
+    def teardown_method(self):
+        _optout_path().unlink(missing_ok=True)
+        reload_optout_registry()
+
+    def test_corrupt_registry_blocks_every_persona(self):
+        _optout_path().write_text('["a", "b"', encoding="utf-8")  # truncated JSON
+        reload_optout_registry()
+
+        assert optout_registry_error() is not None
+        violations = check_optout("some_author_who_never_opted_out")
+        assert len(violations) == 1, "unreadable registry must not fail open"
+        assert violations[0].violation == DisclosureViolation.OPTED_OUT_AUTHOR
+        assert "could not be read" in violations[0].message
+
+    def test_wrong_shaped_registry_blocks_every_persona(self):
+        _optout_path().write_text('{"authors": ["a"]}', encoding="utf-8")
+        reload_optout_registry()
+
+        assert optout_registry_error() is not None
+        assert check_optout("anyone") != []
+
+    def test_persona_guard_blocks_while_registry_is_unreadable(self):
+        _optout_path().write_text("not json at all", encoding="utf-8")
+        reload_optout_registry()
+
+        guard = PersonaGuard(author_id="normal_author", author_name="Normal Author")
+        assert guard.check_author_eligibility() != []
+
+    def test_missing_registry_is_a_legitimate_empty_list(self):
+        _optout_path().unlink(missing_ok=True)
+        reload_optout_registry()
+
+        assert optout_registry_error() is None
+        assert check_optout("normal_author") == []
+
+    def test_repairing_the_registry_clears_the_block(self):
+        _optout_path().write_text("broken", encoding="utf-8")
+        reload_optout_registry()
+        assert check_optout("normal_author") != []
+
+        _optout_path().write_text('["someone_else"]', encoding="utf-8")
+        reload_optout_registry()
+
+        assert optout_registry_error() is None
+        assert check_optout("normal_author") == []
+        assert is_opted_out("someone_else")
+
+    def test_registry_is_written_atomically(self):
+        """A failed save must leave the previous registry readable, not truncated."""
+        clear_optout_registry()
+        register_optout("first_author")
+        before = _optout_path().read_text(encoding="utf-8")
+
+        with (
+            mock.patch("maglab.reviewer.disclosure.atomic_write_text", side_effect=OSError("full")),
+            pytest.raises(OSError),
+        ):
+            register_optout("second_author")
+
+        assert _optout_path().read_text(encoding="utf-8") == before
+
+    def test_failed_persist_does_not_report_a_registered_optout(self):
+        """register_optout must not claim success for an opt-out that would vanish."""
+        clear_optout_registry()
+
+        with (
+            mock.patch("maglab.reviewer.disclosure.atomic_write_text", side_effect=OSError("full")),
+            pytest.raises(OSError),
+        ):
+            register_optout("ghost_author")
+
+        assert not is_opted_out("ghost_author"), (
+            "in-memory registry claimed an opt-out that was never persisted"
+        )
+        reload_optout_registry()
+        assert not is_opted_out("ghost_author")
+
+    def test_registered_optout_survives_a_reload(self):
+        clear_optout_registry()
+        register_optout("persistent_author")
+
+        reload_optout_registry()
+
+        assert is_opted_out("persistent_author")
