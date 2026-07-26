@@ -112,6 +112,14 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   values, which `os.kill` would have broadcast to a whole process group, and the
   PID file is written atomically so a truncated `"12345"` can never be read back
   as a valid-but-wrong PID `12`.
+- Reject NaN and infinity in the physics sanity oracle. Every range check is a
+  pair of comparisons, and IEEE-754 makes all comparisons against NaN false — so
+  `check_damping(nan)` found α neither below 0 nor above 1 and reported it
+  physical, and `+inf` slipped past the one-sided checks the same way. The oracle
+  exists to stop unphysical parameters before a tool runs, and NaN is the one
+  value that then propagates silently: NaN arithmetic does not raise, so the
+  poisoned number can be computed with and recorded as a result. Non-numeric
+  values are rejected too.
 - Write the calibration registry, the MCP server registry and ELN notebook
   entries atomically. All three are read back to drive later behaviour, and a
   truncated write was silent: `CalibrationRegistry.__init__` calls `_load()` with

@@ -11,6 +11,7 @@ Design principles (PLAN §9, T-P0-04):
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -44,6 +45,42 @@ class OracleResult:
 
 
 # ---------------------------------------------------------------------------
+# Finiteness guard
+# ---------------------------------------------------------------------------
+
+
+def _non_finite(value: Any, param: str) -> OracleResult | None:
+    """Reject NaN and ±inf, or return None when *value* is a finite number.
+
+    Every range check below is a pair of comparisons, and IEEE-754 makes *all*
+    comparisons against NaN false — so ``check_damping(nan)`` found α neither
+    below 0 nor above 1 and reported the value physical. ``+inf`` slipped through
+    the one-sided checks the same way. That defeats the point of the oracle: a
+    NaN admitted here propagates silently through the calculation and can be
+    recorded as a result, since NaN arithmetic does not raise either.
+    """
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return OracleResult(
+            ok=False,
+            reason=f"Parameter {param}={value!r} is not a number.",
+            param=param,
+            value=value,
+        )
+    if not math.isfinite(value):
+        label = "NaN" if math.isnan(value) else f"{value:+g}"
+        return OracleResult(
+            ok=False,
+            reason=(
+                f"Parameter {param}={label} is not a finite number. "
+                "NaN and infinity are not physical values."
+            ),
+            param=param,
+            value=value,
+        )
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Individual check functions
 # ---------------------------------------------------------------------------
 
@@ -61,6 +98,8 @@ def check_damping(alpha: float) -> OracleResult:
     Returns:
         OracleResult.
     """
+    if (bad := _non_finite(alpha, "alpha")) is not None:
+        return bad
     if alpha < 0.0:
         return OracleResult(
             ok=False,
@@ -91,6 +130,10 @@ def check_magnetization(m: float, ms: float) -> OracleResult:
     Returns:
         OracleResult.
     """
+    if (bad := _non_finite(m, "M")) is not None:
+        return bad
+    if (bad := _non_finite(ms, "Ms")) is not None:
+        return bad
     if ms <= 0.0:
         return OracleResult(
             ok=False,
@@ -120,6 +163,8 @@ def check_temperature(t: float) -> OracleResult:
     Returns:
         OracleResult.
     """
+    if (bad := _non_finite(t, "T")) is not None:
+        return bad
     if t <= 0.0:
         return OracleResult(
             ok=False,
@@ -143,6 +188,8 @@ def check_velocity(v: float) -> OracleResult:
     Returns:
         OracleResult.
     """
+    if (bad := _non_finite(v, "velocity")) is not None:
+        return bad
     abs_v = abs(v)
     if abs_v >= C_LIGHT:
         return OracleResult(
@@ -167,6 +214,8 @@ def check_exchange_stiffness(a: float) -> OracleResult:
     Returns:
         OracleResult.
     """
+    if (bad := _non_finite(a, "A")) is not None:
+        return bad
     if a <= 0.0:
         return OracleResult(
             ok=False,
@@ -188,6 +237,8 @@ def check_anisotropy(k: float) -> OracleResult:
     Returns:
         OracleResult.
     """
+    if (bad := _non_finite(k, "K")) is not None:
+        return bad
     if abs(k) > 1e10:
         return OracleResult(
             ok=False,
@@ -209,6 +260,8 @@ def check_saturation_magnetization(ms: float) -> OracleResult:
     Returns:
         OracleResult.
     """
+    if (bad := _non_finite(ms, "Ms")) is not None:
+        return bad
     if ms <= 0.0:
         return OracleResult(
             ok=False,
@@ -242,6 +295,8 @@ def check_curie_temperature(t_c: float) -> OracleResult:
     Returns:
         OracleResult.
     """
+    if (bad := _non_finite(t_c, "T_C")) is not None:
+        return bad
     if t_c <= 0.0:
         return OracleResult(
             ok=False,
@@ -270,6 +325,8 @@ def check_exchange_length(l_ex: float) -> OracleResult:
     Returns:
         OracleResult.
     """
+    if (bad := _non_finite(l_ex, "l_ex")) is not None:
+        return bad
     if l_ex <= 0.0:
         return OracleResult(
             ok=False,
@@ -308,6 +365,12 @@ def check_energy_conservation(
     Returns:
         OracleResult.
     """
+    if (bad := _non_finite(e_initial, "e_initial")) is not None:
+        return bad
+    if (bad := _non_finite(e_final, "e_final")) is not None:
+        return bad
+    if (bad := _non_finite(dissipation, "dissipation")) is not None:
+        return bad
     if dissipation < 0.0:
         return OracleResult(
             ok=False,

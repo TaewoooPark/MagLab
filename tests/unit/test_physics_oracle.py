@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from maglab.physics import oracle as oc
-from maglab.physics.oracle import OracleResult
+from maglab.physics.oracle import OracleResult, check, check_energy_conservation
 
 # ---------------------------------------------------------------------------
 # OracleResult data structure
@@ -363,3 +363,95 @@ class TestCheckIntegration:
         """Negative exchange length → rejected."""
         result = oc.check({"l_ex": -1e-9})
         assert not result.ok
+
+
+class TestNonFiniteInputs:
+    """NaN and ±inf must be rejected, not waved through.
+
+    Every range check is a pair of comparisons, and IEEE-754 makes all
+    comparisons against NaN false — so `check_damping(nan)` found α neither
+    below 0 nor above 1 and reported it physical, and `+inf` slipped past the
+    one-sided checks the same way. A NaN admitted by the oracle then propagates
+    silently through the calculation and can be recorded as a result, because
+    NaN arithmetic does not raise either.
+    """
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {"alpha": None},
+            {"T": None},
+            {"Ms": None},
+            {"velocity": None},
+            {"A": None},
+            {"K": None},
+            {"T_C": None},
+            {"l_ex": None},
+        ],
+    )
+    def test_check_rejects_non_finite(self, params: dict, bad: float) -> None:
+        key = next(iter(params))
+        result = check({key: bad})
+
+        assert not result.ok, f"{key}={bad} was accepted as physical"
+        assert result.param == key
+        assert "finite" in result.reason
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+    def test_magnetization_pair_rejects_non_finite(self, bad: float) -> None:
+        assert not check({"M": bad, "Ms": 8e5}).ok
+        assert not check({"M": 4e5, "Ms": bad}).ok
+
+    def test_non_numeric_values_are_rejected(self) -> None:
+        result = check({"alpha": "0.01"})
+        assert not result.ok
+        assert "not a number" in result.reason
+
+    def test_booleans_are_not_accepted_as_numbers(self) -> None:
+        result = check({"alpha": True})
+        assert not result.ok
+
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {"alpha": 0.008},
+            {"T": 300.0},
+            {"Ms": 8.0e5},
+            {"velocity": 120.0},
+            {"A": 1.3e-11},
+            {"T_C": 850.0},
+            {"l_ex": 5.0e-9},
+            {"M": 4.0e5, "Ms": 8.0e5},
+        ],
+    )
+    def test_physical_values_still_pass(self, params: dict) -> None:
+        assert check(params).ok, f"{params} was wrongly rejected"
+
+    def test_energy_conservation_rejects_non_finite(self) -> None:
+        assert not check_energy_conservation(float("nan"), 1.0, 0.5).ok
+        assert not check_energy_conservation(1.0, float("inf"), 0.5).ok
+        assert not check_energy_conservation(1.0, 0.4, float("nan")).ok
+
+
+class TestNonFiniteBlockedAtTheToolGate:
+    """The oracle hook exists to stop unphysical parameters before a tool runs."""
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+    def test_hook_blocks_non_finite_parameters(self, bad: float) -> None:
+        from maglab.core.hooks import ToolCall, default_registry
+
+        allowed, reason = default_registry().is_allowed(
+            ToolCall(name="physics_compute", args={"alpha": bad})
+        )
+
+        assert not allowed, "a non-finite parameter reached the tool"
+        assert "oracle" in reason.lower()
+
+    def test_hook_still_allows_physical_parameters(self) -> None:
+        from maglab.core.hooks import ToolCall, default_registry
+
+        allowed, _reason = default_registry().is_allowed(
+            ToolCall(name="physics_compute", args={"alpha": 0.008, "T": 300.0})
+        )
+        assert allowed
