@@ -116,12 +116,21 @@ class TestWorkflowPlan:
         with pytest.raises(HarnessPlanError, match="Unknown workflow"):
             build_workflow_plan("nope", manifest=manifest, root=isolated_registry)
 
-    def test_unregistered_mcp_server_is_a_blocker(
+    def test_unregistered_mcp_server_is_a_warning_not_a_blocker(
+        self, manifest: Manifest, isolated_registry: Path
+    ) -> None:
+        """It degrades a local run rather than preventing it — and `ready` must agree."""
+        plan = build_workflow_plan("mini", manifest=manifest, root=isolated_registry)
+
+        assert any("maglab-mcp-server" in w for w in plan.warnings)
+        assert not any("maglab-mcp-server" in b for b in plan.blockers)
+        assert plan.steps[0].mcp_unregistered == ["maglab-mcp-server"]
+
+    def test_ready_always_agrees_with_blockers(
         self, manifest: Manifest, isolated_registry: Path
     ) -> None:
         plan = build_workflow_plan("mini", manifest=manifest, root=isolated_registry)
-        assert any("maglab-mcp-server" in b for b in plan.blockers)
-        assert plan.steps[0].mcp_unregistered == ["maglab-mcp-server"]
+        assert plan.ready == (plan.blockers == [])
 
     def test_registered_mcp_server_clears_the_blocker(
         self, manifest: Manifest, isolated_registry: Path

@@ -182,18 +182,36 @@ class WorkflowPlan:
 
     @property
     def blockers(self) -> list[str]:
-        """Human-readable reasons this plan cannot run as-is."""
+        """Reasons this plan cannot run at all.
+
+        Kept strictly in step with :attr:`ready`: a plan reported ready with a
+        non-empty blocker list would be telling the caller two different things.
+        Anything that degrades a run without preventing it belongs in
+        :attr:`warnings`.
+        """
         reasons: list[str] = []
         for step in self.steps:
             if not step.definition_path:
                 reasons.append(f"{step.agent}: no agents/{step.agent}.md definition")
             for skill in step.skills_missing:
                 reasons.append(f"{step.agent}: skill {skill!r} not found")
+        return reasons
+
+    @property
+    def warnings(self) -> list[str]:
+        """Conditions that degrade a run without preventing it.
+
+        An unregistered MCP server does not stop local execution — the subagent
+        runner issues a plain completion — but the agent will not have the tools
+        it declares, and the PI handoff genuinely needs them.
+        """
+        notes: list[str] = []
+        for step in self.steps:
             for server in step.mcp_unregistered:
-                reasons.append(
+                notes.append(
                     f"{step.agent}: MCP server {server!r} not registered (maglab mcp add {server})"
                 )
-        return reasons
+        return notes
 
     def local_run_plan(self) -> list[dict[str, Any]]:
         """The local worker subprocess contract, one entry per step."""
@@ -224,6 +242,7 @@ class WorkflowPlan:
             "topic": self.topic,
             "ready": self.ready,
             "blockers": self.blockers,
+            "warnings": self.warnings,
             "steps": [step.agent for step in self.steps],
             "local_run_plan": self.local_run_plan(),
             "pi_agents_workflow_payload": self.pi_agents_workflow_payload(),

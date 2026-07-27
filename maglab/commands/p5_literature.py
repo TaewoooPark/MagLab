@@ -67,6 +67,21 @@ def lit_search(
         "--no-matrix",
         help="Skip evidence matrix building (keyword extraction only).",
     ),
+    harness_plan: bool = typer.Option(
+        False,
+        "--harness-plan",
+        help="Prepare the survey workflow payload instead of searching directly.",
+    ),
+    harness_json: bool = typer.Option(
+        False,
+        "--harness-json",
+        help="With --harness-plan, print the plan as JSON.",
+    ),
+    topic: str = typer.Option(
+        "",
+        "--topic",
+        help="Topic for --harness-plan (default: the extracted keywords).",
+    ),
 ) -> None:
     """Extract weighted keywords from a folder of papers and build an evidence matrix (F3, §14.7).
 
@@ -102,24 +117,54 @@ def lit_search(
         console.print("[yellow]No extractable text found in folder.[/]")
         raise typer.Exit(1)
 
-    table = Table(title=f"Top keywords from {folder_path.name}", show_lines=False)
-    table.add_column("Rank", style="dim", justify="right")
-    table.add_column("Keyword", style="cyan")
-    table.add_column("Score", justify="right")
-    table.add_column("Methods")
+    # --harness-json asked for a machine-readable plan on stdout; a keyword table
+    # printed ahead of it would leave the payload unparseable.
+    machine_output = harness_plan and harness_json
+    if not machine_output:
+        table = Table(title=f"Top keywords from {folder_path.name}", show_lines=False)
+        table.add_column("Rank", style="dim", justify="right")
+        table.add_column("Keyword", style="cyan")
+        table.add_column("Score", justify="right")
+        table.add_column("Methods")
 
-    for i, kw in enumerate(keywords[:show], start=1):
-        table.add_row(
-            str(i),
-            kw.keyword,
-            f"{kw.score:.3f}",
-            ", ".join(kw.source_methods),
+        for i, kw in enumerate(keywords[:show], start=1):
+            table.add_row(
+                str(i),
+                kw.keyword,
+                f"{kw.score:.3f}",
+                ", ".join(kw.source_methods),
+            )
+        console.print(table)
+        console.print(
+            f"[dim]Extracted {len(keywords)} keywords from folder "
+            f"(showing top {min(show, len(keywords))}).[/]"
         )
-    console.print(table)
-    console.print(
-        f"[dim]Extracted {len(keywords)} keywords from folder "
-        f"(showing top {min(show, len(keywords))}).[/]"
-    )
+
+    if harness_plan:
+        # Local keywords become the workflow topic; the direct OpenAlex path and
+        # evidence_matrix.json are deliberately skipped, because in this mode the
+        # search belongs to the workflow's search-scout step, not to this command.
+        from maglab.harness.plan import build_workflow_plan
+        from maglab.literature.keywords import top_keyword_strings
+        from maglab.ui.json_output import emit_json
+
+        plan_topic = topic or " ".join(top_keyword_strings(keywords, n=3))
+        plan = build_workflow_plan("survey", topic=plan_topic)
+        if harness_json:
+            emit_json(plan.to_dict())
+            return
+        console.print(f"\n[bold]Harness plan[/] — {plan.name} ← {plan_topic!r}")
+        for i, step in enumerate(plan.steps, start=1):
+            console.print(
+                f"  {i}. [cyan]{step.agent}[/] [dim]{step.resolved_model or step.model}[/]"
+            )
+        for warning in plan.warnings:
+            console.print(f"  [yellow]![/] {warning}")
+        console.print(
+            "[dim]No direct search was run and no evidence_matrix.json was written. "
+            "Use `maglab harness run survey --topic ... --execute-local` to run it.[/]"
+        )
+        return
 
     if no_matrix:
         return

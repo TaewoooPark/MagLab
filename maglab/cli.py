@@ -167,8 +167,35 @@ def ask_cmd(
 @app.command("run")
 def run_cmd(
     goal: str = typer.Argument(..., help="Autonomous research-loop goal."),
+    harness_workflow: str = typer.Option(
+        "",
+        "--harness-workflow",
+        help="Run a manifest workflow for GOAL instead of the research-loop tree search.",
+    ),
 ) -> None:
-    """Start the MagLab research-loop tree search for a goal."""
+    """Start the MagLab research-loop tree search for a goal.
+
+    With --harness-workflow the goal is handed to a manifest workflow instead;
+    see `maglab harness run` for the full option set.
+    """
+    if harness_workflow:
+        from maglab.commands.harness import harness_run
+
+        harness_run(
+            workflow=harness_workflow,
+            topic=goal,
+            dry_run=True,
+            execute_local=False,
+            execute_pi=False,
+            pi_handoff=False,
+            local_max_steps=None,
+            output="text",
+            record_provenance=False,
+            provenance_db=None,
+            pi_flow_id="",
+        )
+        return
+
     config = load_config()
     orchestrator = _build_orchestrator(config)
     try:

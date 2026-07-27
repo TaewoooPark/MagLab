@@ -171,9 +171,8 @@ modes.
 
 This README describes the current source tree, not only a future plan. The CLI
 entry point is implemented in `maglab/cli.py`, the optional PI/smolagents
+harness surface is registered through `maglab/commands/harness.py`, and the
 package metadata in `pyproject.toml` exposes the `maglab` console script.
-(The PI harness surface described further down is a design note — there is no
-`maglab/commands/harness.py`.)
 
 The best way to check the code path from a checkout is:
 
@@ -200,7 +199,7 @@ Implemented today:
 | Lab notebook and planning | Implemented | ELN note creation/listing and measurement-plan generation write project artifacts under the active workspace. |
 | Review, authoring, communications | Implemented with human-review gates | Manuscript review, anomaly explanation, manuscript/cover-letter/revision/email/abstract/grant/rebuttal drafting, slides, and posters are marked for researcher review. |
 | Report, provenance, and task inspection | Implemented | `report inventory`, `prov summary/status/lineage`, and `task list/status/scaffold` inspect artifacts already written to disk. |
-| PI/smolagents harness | Not implemented | `harness.manifest.json` defines the agent society, but no `maglab harness` command, `.[harness]` extra, or `--harness-workflow`/`--harness-plan` flag exists yet. |
+| Manifest harness | Implemented as planning, compilation and local execution | `harness doctor`/`compile`/`run`/`worker`/`pi-tool` are deterministic and offline; `--execute-local` runs through MagLab's own subagent runner. Live PI handoff requires PI plus a `workflow` tool from pi-agents and is never simulated. |
 | External solvers, hardware, gateways | Environment-gated | MagLab prepares inputs, validates specs, and checks readiness; it does not bundle MuMax3, OOMMF, VAMPIRE, VISA drivers, Slack/Telegram/Discord credentials, or remote cluster access. |
 
 ## Start Here
@@ -478,6 +477,7 @@ hypotheses TOPIC
 mcp       list · serve · add · enable · disable
 agents    list · show
 skill     list
+harness   doctor · compile · run · worker · pi-tool
 report    inventory
 prov      summary · status · lineage
 task      list · status · scaffold
@@ -554,21 +554,52 @@ That manifest is exposed through three distinct user surfaces:
 - Deterministic commands: physics, literature, analysis, figure, instrument, and
   related commands run concrete MagLab modules and can be used without an LLM
   key when the feature itself is offline.
-- PI harness mode (design only — not implemented): the manifest is also meant to
-  drive a `maglab harness` surface (`doctor`, `compile`, `run`, `worker`,
-  `pi-tool`), a `.[harness]` install extra, `maglab run --harness-workflow`, and
-  `maglab lit search --harness-plan`. **None of that ships today** — the commands
-  and the extra do not exist, and `maglab harness ...` exits with
-  `No such command`. The workflow names used in the design notes
-  (`literature-review`, `deep-research`) are likewise not the ones the manifest
-  declares; see `harness.manifest.json` for the workflows that are actually
-  defined (`survey`, `paper-review`, `citation-map`, `local-gap`,
-  `physics-validation`, `result-analysis`, `hypothesis-generation`).
+- Harness mode: `maglab harness doctor`, `maglab harness compile`,
+  `maglab harness run <workflow> --dry-run`, `maglab harness worker <agent>` and
+  `maglab harness pi-tool` turn the manifest into inspectable execution plans.
+  Planning is deterministic and offline — no provider is contacted — so a dry run
+  is reproducible and safe to run anywhere. `--execute-local` then runs the plan
+  through MagLab's own subagent runner, which means every step keeps the existing
+  four-layer verification, hooks and budget accounting.
 
-Until that surface exists, use the two working surfaces above: the legacy
-CLI/REPL (`maglab`, `maglab -p ...`, `maglab run`, Ralph) and the deterministic
-commands. `maglab agents` lists the agent society the manifest defines, and
-`maglab mcp` manages MCP servers.
+Workflow names come from the manifest (`survey`, `paper-review`, `citation-map`,
+`local-gap`, `physics-validation`, `result-analysis`, `hypothesis-generation`,
+`deep-research`). The ergonomic aliases `literature-review`/`lit-review` →
+`survey` and `deepresearch`/`research` → `deep-research` are accepted; a real
+manifest name always wins over an alias.
+
+```sh
+maglab harness doctor                      # what would stop a run right now
+maglab harness compile --write             # write .pi/workflows/*.json
+maglab harness compile --check             # fail if the routing table drifted
+maglab harness run literature-review --topic "SOT switching in CoFeB" --dry-run --output text
+maglab harness run deepresearch --topic "field-free SOT switching" --dry-run
+maglab harness run survey --topic "SOT switching" --execute-local --local-max-steps 2
+maglab harness worker citation-auditor --task '{"candidates":[],"session_id":"demo"}' --json
+maglab harness pi-tool --payload-json '{"workflow":"survey","input":"SOT switching"}'
+maglab run "SOT switching in CoFeB" --harness-workflow literature-review
+maglab lit search papers/sot --harness-plan --harness-json
+```
+
+`harness doctor` reports structural readiness (workflow steps resolving to
+declared agents, agents backed by `agents/*.md`, declared skills present,
+MCP servers registered, an LLM backend configured). The two PI checks are
+reported but never block, because local execution does not need PI.
+
+`harness compile` writes drift artifacts to `.pi/workflows/`. They are
+machine-independent by construction — no absolute paths, no local install state,
+no timestamps — so `--check` fails only when the manifest itself has changed.
+They are not the live execution payload; that is the topic-bound
+`pi_agents_workflow_payload` in `harness run --dry-run` output, alongside a
+`local_run_plan` and a `cross_links` block carrying the PI flow id and any
+provenance activity recorded with `--record-provenance`.
+
+`--pi-handoff` prints the exact
+`pi --mode json --no-builtin-tools --tools workflow -p ...` invocation, which is
+useful to read even where PI cannot run. `--execute-pi` runs it, and is gated on
+the environment: PI must be installed *and* expose a `workflow` tool (that comes
+from pi-agents, not the base binary). When it cannot run, the command says so and
+points at `--execute-local` — it is never simulated.
 
 ## Runtime Artifacts
 

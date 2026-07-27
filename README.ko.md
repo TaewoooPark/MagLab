@@ -195,7 +195,7 @@ install 명령으로 설치본을 갱신하면 됩니다.
 | lab notebook과 planning | 구현됨 | ELN note 생성/목록화와 measurement plan 생성이 active workspace에 artifact를 씁니다. |
 | review, authoring, communications | human-review gate와 함께 구현됨 | manuscript review, anomaly explanation, manuscript/cover-letter/revision/email/abstract/grant/rebuttal, slides, poster 생성은 연구자 검토 대상으로 표시됩니다. |
 | report, provenance, task inspect | 구현됨 | `report inventory`, `prov summary/status/lineage`, `task list/status/scaffold`는 이미 디스크에 남은 artifact를 검사합니다. |
-| PI/smolagents harness | 미구현 | `harness.manifest.json`이 agent society를 정의하지만, `maglab harness` 명령·`.[harness]` extra·`--harness-workflow`/`--harness-plan` 플래그는 아직 없습니다. |
+| Manifest harness | 계획·컴파일·로컬 실행으로 구현됨 | `harness doctor`/`compile`/`run`/`worker`/`pi-tool`은 결정론적이고 오프라인이며, `--execute-local`은 MagLab 자체 subagent runner로 실행합니다. live PI handoff는 PI와 pi-agents의 `workflow` 툴이 필요하고 절대 흉내내지 않습니다. |
 | 외부 solver, hardware, gateway | 환경 의존 | MagLab은 입력 생성, spec 검증, readiness check를 담당합니다. MuMax3, OOMMF, VAMPIRE, VISA driver, Slack/Telegram/Discord credential, remote cluster access를 번들하지 않습니다. |
 
 ## 바로 시작하기
@@ -449,6 +449,7 @@ hypotheses TOPIC
 mcp       list · serve · add · enable · disable
 agents    list · show
 skill     list
+harness   doctor · compile · run · worker · pi-tool
 report    inventory
 prov      summary · status · lineage
 task      list · status · scaffold
@@ -524,20 +525,51 @@ maglab/
 - Deterministic command: physics, literature, analysis, figure, instrument 관련
   명령은 구체적인 MagLab 모듈을 실행하며, 기능 자체가 offline이면 LLM key 없이
   사용할 수 있습니다.
-- PI harness mode (설계안 — 미구현): 이 manifest는 `maglab harness` 표면
-  (`doctor`, `compile`, `run`, `worker`, `pi-tool`)과 `.[harness]` install extra,
-  `maglab run --harness-workflow`, `maglab lit search --harness-plan`을 함께
-  구동하도록 구상돼 있습니다. **다만 아직 제공되지 않습니다** — 해당 명령과 extra는
-  존재하지 않으며 `maglab harness ...`는 `No such command`로 끝납니다. 설계 노트가
-  쓰는 workflow 이름(`literature-review`, `deep-research`)도 manifest가 선언한
-  이름과 다릅니다. 실제 정의된 workflow는 `harness.manifest.json`을 참고하세요
-  (`survey`, `paper-review`, `citation-map`, `local-gap`, `physics-validation`,
-  `result-analysis`, `hypothesis-generation`).
+- Harness mode: `maglab harness doctor`, `maglab harness compile`,
+  `maglab harness run <workflow> --dry-run`, `maglab harness worker <agent>`,
+  `maglab harness pi-tool`이 manifest를 검사 가능한 실행 계획으로 바꿉니다.
+  계획 수립은 결정론적이고 오프라인입니다 — provider를 호출하지 않으므로 dry run은
+  어디서든 재현 가능하고 안전합니다. `--execute-local`은 그 계획을 MagLab 자체
+  subagent runner로 실행하므로, 기존 4계층 검증·훅·예산 회계가 모든 단계에
+  그대로 적용됩니다.
 
-이 표면이 생기기 전까지는 위의 동작하는 두 표면을 쓰면 됩니다: legacy CLI/REPL
-(`maglab`, `maglab -p ...`, `maglab run`, Ralph)과 deterministic command입니다.
-manifest가 정의한 agent society는 `maglab agents`로, MCP 서버는 `maglab mcp`로
-확인할 수 있습니다.
+workflow 이름은 manifest에서 옵니다(`survey`, `paper-review`, `citation-map`,
+`local-gap`, `physics-validation`, `result-analysis`, `hypothesis-generation`,
+`deep-research`). 별칭 `literature-review`/`lit-review` → `survey`,
+`deepresearch`/`research` → `deep-research`도 받습니다. manifest에 실재하는
+이름이 항상 별칭보다 우선합니다.
+
+```sh
+maglab harness doctor                      # 지금 실행을 막는 것이 무엇인지
+maglab harness compile --write             # .pi/workflows/*.json 생성
+maglab harness compile --check             # routing table이 드리프트하면 실패
+maglab harness run literature-review --topic "SOT switching in CoFeB" --dry-run --output text
+maglab harness run deepresearch --topic "field-free SOT switching" --dry-run
+maglab harness run survey --topic "SOT switching" --execute-local --local-max-steps 2
+maglab harness worker citation-auditor --task '{"candidates":[],"session_id":"demo"}' --json
+maglab harness pi-tool --payload-json '{"workflow":"survey","input":"SOT switching"}'
+maglab run "SOT switching in CoFeB" --harness-workflow literature-review
+maglab lit search papers/sot --harness-plan --harness-json
+```
+
+`harness doctor`는 구조적 준비 상태를 보고합니다(workflow step이 선언된 agent로
+해석되는지, agent에 `agents/*.md`가 있는지, 선언된 skill이 실재하는지, MCP 서버가
+등록됐는지, LLM backend가 설정됐는지). PI 관련 두 항목은 보고만 하고 차단하지
+않습니다 — 로컬 실행에는 PI가 필요 없기 때문입니다.
+
+`harness compile`은 `.pi/workflows/`에 드리프트 산출물을 씁니다. 절대 경로·로컬
+설치 상태·타임스탬프가 없어 머신 독립적이므로, `--check`는 manifest 자체가 바뀐
+경우에만 실패합니다. 이것은 live 실행 payload가 아닙니다. 실행 payload는
+`harness run --dry-run` 출력의 topic 바인딩된 `pi_agents_workflow_payload`이며,
+`local_run_plan`과 PI flow id·`--record-provenance`로 기록된 provenance activity를
+담는 `cross_links` 블록이 함께 나옵니다.
+
+`--pi-handoff`는 실제
+`pi --mode json --no-builtin-tools --tools workflow -p ...` 명령을 그대로 출력합니다.
+PI를 실행할 수 없는 환경에서도 읽어볼 가치가 있습니다. `--execute-pi`는 그것을
+실행하며 환경 게이트가 걸립니다: PI가 설치돼 있어야 하고 `workflow` 툴을 노출해야
+합니다(그건 base binary가 아니라 pi-agents가 제공합니다). 실행할 수 없으면 그렇다고
+말하고 `--execute-local`을 안내합니다 — 절대 흉내내지 않습니다.
 
 ## 런타임 산출물
 

@@ -27,6 +27,38 @@
 - `agents/comms-writer.md` and `skills/arxiv-search/` — both were declared in the
   manifest with nothing behind them, which `harness doctor` surfaced on its
   first run.
+  - `harness run <workflow>` plans a workflow and, with `--execute-local`, runs
+    it step by step through MagLab's own `SubagentRunner` — so every step keeps
+    the existing four-layer verification, hooks and budget accounting rather
+    than acquiring a second agent framework. Each step receives the topic plus a
+    digest of what earlier steps returned, and a step that fails verification
+    stops the run instead of letting later work build on it.
+  - `harness worker <agent>` and `harness pi-tool --payload-json` expose the
+    single-agent plan and the PI-callable wrapper.
+  - `--pi-handoff` emits the exact
+    `pi --mode json --no-builtin-tools --tools workflow -p …` invocation, which
+    is worth reading even where PI cannot run. `--execute-pi` runs it and is
+    gated on the environment — PI must be installed *and* expose a `workflow`
+    tool, which comes from pi-agents rather than the base binary. When it cannot
+    run, the command says so and points at `--execute-local`; it is never
+    simulated.
+  - `--record-provenance` records the *prepared* run as a W3C PROV activity with
+    one entity per step, before anything executes, so an interrupted run still
+    leaves evidence of what was attempted. A provenance store that cannot be
+    opened is reported, not raised.
+- `maglab run --harness-workflow` and `maglab lit search --harness-plan
+  [--harness-json] [--topic]` reach the harness from the commands users already
+  run. In harness-plan mode `lit search` prepares the workflow payload and
+  deliberately does not call the OpenAlex connector or write
+  `evidence_matrix.json` — the search belongs to the workflow's search-scout
+  step. `--harness-json` suppresses the keyword table so stdout stays parseable.
+
+### Changed
+
+- Both READMEs now document the harness as built, replacing the "design only"
+  note. `--local-max-steps` is named for what it does: MagLab's subagent runner
+  issues one completion per step, so it bounds steps rather than turns within a
+  step.
 
 ## v0.0.5
 
