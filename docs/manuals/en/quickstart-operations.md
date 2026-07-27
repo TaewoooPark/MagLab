@@ -211,8 +211,8 @@ Never let a generated summary become the only source for a claim.
 ```sh
 maglab analyze load data/stfmr.csv --columns frequency,field,voltage
 maglab analyze model stfmr
-maglab fit --effect stfmr data/stfmr.csv --method least_squares --json
-maglab analyze consistency data/stfmr.csv --effect stfmr
+maglab fit --effect stfmr data/stfmr.csv --method least_squares
+maglab analyze consistency stfmr data/stfmr.csv anomalous_hall data/ahe.csv
 ```
 
 Before reporting the fit, inspect parameter bounds, residuals, sign
@@ -265,6 +265,39 @@ maglab present poster "Key results and figures from the SOT study" --template ap
 
 Authoring commands deliberately keep human review visible. Fill missing claims,
 citations, and figure references yourself.
+
+## Inspecting What Was Recorded
+
+MagLab writes artifacts and provenance to disk rather than keeping state in a
+chat transcript, so you can audit a session after the fact without re-running
+anything. These commands only read what is already there:
+
+```sh
+maglab report inventory                      # generated reports, manuscripts, decks, posters
+maglab prov summary                          # provenance sidecars in this workspace
+maglab prov summary --db .maglab/harness-provenance.sqlite
+maglab prov lineage <datapoint-id> --db <store>   # generation, derivation, attribution
+maglab task list                             # checkpointed tasks and scaffolds
+maglab task status <task-id>                 # per-step checkpoints for one task
+```
+
+Every command above takes `--json` for scripted use.
+
+Check the `provenance_type` on any value before you trust it:
+
+| Type | Means |
+|---|---|
+| `MEASURED` | from an instrument |
+| `SIMULATED` | from a real solver run |
+| `MOCK` | from a dry-run path — **no solver ran** |
+| `FITTED` | produced by a fit |
+| `LITERATURE` | taken from a paper |
+| `THEORY` | analytical or predicted |
+
+`MOCK` is deliberately separate from `SIMULATED`. `maglab sim pipeline --backend
+mock` produces numbers that look plausible — a mock Curie temperature lands near
+the real one — so a value that never touched a solver must not be filterable as
+simulation output. Values carry a `[MOCK]` badge when displayed.
 
 ## Trust Checklist
 

@@ -86,6 +86,54 @@ REPL에서는 `/help quick`이 첫 사용 경로를 보여주고, `/help all`이
 profile을 로드하므로, 모델은 자신이 MagLab research orchestration agent로
 동작한다는 전제와 provider별 planning/verification 지침을 함께 받습니다.
 
+## 승인과 자율성
+
+모델이 호출하는 모든 도구는 실행 전에 훅 계층을 통과합니다: deny 규칙, 물리
+정합성 오라클, 자율성 게이트. 게이트는 각 도구가 선언한 힌트(read-only 여부,
+파괴적 여부, 네트워크 사용 여부)로 등급을 매기고, 설정된 모드가 처리를
+결정합니다:
+
+| 모드 | 묻지 않고 실행 | 승인을 묻는 대상 |
+|---|---|---|
+| `copilot` (기본) | 읽기 전용·오프라인 도구 | 쓰기 또는 네트워크 접근 |
+| `semi-auto` | 위 + 읽기 전용 네트워크 도구 | 되돌릴 수 없는 작업 |
+| `autonomous` | 위 + 되돌릴 수 없는 작업 | 파괴적 도구만 |
+
+대화형 터미널에서는 승인이 필요한 작업이 stderr로 묻고 `y`를 기다립니다.
+터미널이 없으면 — 파이프로 넘긴 `maglab -p`, CI, cron — 물어볼 상대가 없으므로
+거부하고 그 이유를 모델에게 돌려줍니다(명령 자체가 죽지는 않습니다). 배치
+실행에서 그게 곤란하면 모드를 명시적으로 올리십시오:
+
+```sh
+maglab config set autonomy.mode semi-auto
+maglab config show
+```
+
+`literature_search`·`provenance_query`·`physics_compute` 같은 읽기 전용 도구는
+승인을 묻지 않습니다. 손으로 관리하는 목록이 아니라 도구 자신이 선언한 힌트로
+분류되기 때문입니다.
+
+## 백엔드별 도구 동작
+
+`api` 백엔드는 MagLab의 tool schema를 provider에 그대로 전달합니다. delegated
+CLI 백엔드(`codex`·`claude`·`gemini`)는 커맨드라인으로 tool schema를 받지
+않으므로, MagLab이 프롬프트에 도구를 서술하고 응답을 파싱해 tool call로
+되돌립니다. 어느 쪽이든 호출은 동일한 registry와 동일한 훅을 통해 MagLab이
+실행하므로, 숫자와 인용은 모델이 아니라 결정론적 도구에서 나옵니다 — delegated
+CLI가 자체적으로 갖고 있는 shell·파일 도구가 아니라.
+
+프로토콜을 따르지 않는 모델은 그냥 산문으로 답합니다. 깨지지는 않고, 도구가
+뒷받침하지 않은 답을 받을 뿐입니다.
+
+이 CLI들은 completion endpoint가 아니라 에이전트라 시작이 느립니다. `codex`는
+답하기 전에 약 19k 토큰의 컨텍스트를 보내고 한 단어 답변에도 수 초가 걸립니다.
+그래서 delegated CLI 타임아웃 기본값은 900초입니다. 긴 연구 턴이 그래도 넘치면
+오류 메시지가 설정 이름을 알려줍니다:
+
+```sh
+maglab config set backend.delegated_cli.timeout 1800
+```
+
 ## Subagent와 skill
 
 ```sh
@@ -97,11 +145,11 @@ maglab harness compile literature-review
 maglab harness compile --write
 maglab harness compile --check
 maglab harness run literature-review --dry-run --output text
-maglab harness run literature-review --topic "Find SOT papers" --execute-local --local-max-turns 2 --output text
+maglab harness run literature-review --topic "Find SOT papers" --execute-local --local-max-steps 2 --output text
 maglab harness pi-tool --payload-json '{"workflow":"literature-review","input":"Find SOT papers"}' --output text
 maglab run "Find SOT papers" --harness-workflow literature-review
 maglab harness worker search-scout --task "Find SOT papers"
-maglab harness worker search-scout --task-json '{"workflow":"literature-review","input":"Find SOT papers"}' --execute
+maglab harness worker search-scout --task "Find SOT papers" --json
 ```
 
 Subagent는 `harness.manifest.json`에 선언되어 있습니다. local corpus checking,
@@ -117,34 +165,45 @@ analysis, experiment management, hypothesis generation, communications writing
   `maglab analyze ...`, `maglab figure ...` 같은 명령은 구체적인 MagLab
   모듈을 실행합니다. 해당 기능이 별도로 요구하지 않으면 LLM key가 필요하지
   않습니다.
-- PI harness mode: `maglab harness ...`는 manifest workflow를 PI와
-  smolagents worker로 실행하기 위한 전환 표면입니다. 현재 CLI는 readiness
-  확인, `literature-review` workflow graph compile, project-local `.pi/`
-  wrapper 생성/검사, manifest reference validation, workflow 또는 worker 계획
-  표시를 지원합니다.
-  live PI 실행을 가짜로 흉내 내지는 않습니다.
+- Harness mode: `maglab harness ...`는 manifest를 검사 가능한 실행 계획으로
+  바꿉니다. 계획 수립은 결정론적이고 오프라인이며 — provider를 호출하지 않습니다 —
+  `--execute-local`은 그 계획을 MagLab 자체 subagent runner로 실행하므로 기존
+  4계층 검증·훅·예산 회계가 모든 단계에 그대로 적용됩니다. live PI 실행은 환경
+  게이트가 걸리며 절대 흉내내지 않습니다.
 
-`maglab harness doctor`는 PI, smolagents, LiteLLM, MCP 준비 상태를 나눠서
-보여줍니다. `maglab harness compile literature-review`는 manifest workflow
-변환을 검증하고, `maglab harness compile --write`는 `.pi/agents`와
-`.pi/workflows`를 쓰며, `maglab harness compile --check`는 generated wrapper
-drift와 manifest reference drift를 탐지합니다. `maglab harness run literature-review --dry-run --output text`는 PI나
-live model worker를 시작하지 않고 workflow 실행 계획을 사람이 읽기 쉬운 요약으로
-보여줍니다. 자동화가 전체 machine contract를 필요로 할 때는 `--output json`을
-사용하거나 `--output`을 생략합니다. 이 dry-run JSON record에는 local worker subprocess 계획인 `local_run_plan`과 PI `workflow`
-tool에 넘길 topic-bound `pi_agents_workflow_payload`가 함께 들어가며, payload의
-각 spawn task는 concrete worker JSON을 포함합니다.
-`maglab harness run literature-review --topic "..." --execute-local`은 같은 worker들을
-PI 없이 local에서 순차 실행합니다. 저비용 live smoke에는 `--local-max-turns 2`를
-붙이고, text mode는 step 시작/완료 진행을 보여주며 `--show-agent-log`가 없으면
-smolagents raw log를 숨깁니다.
-`maglab harness worker <agent> --task "..."`는 단일 smolagents worker runtime
-계획을 보여줍니다. provider credential이 준비된 환경에서는 `--execute --task-json ...`로
-local worker subprocess 계약을 실행할 수 있습니다. worker dry-run 출력은 model
-alias, resolved model, LiteLLM config 출처, 도구, runtime availability를 보여줍니다.
-live worker 실패 시에는 traceback 대신 `.[harness]` 설치, `ANTHROPIC_API_KEY`
-설정, `LITELLM_CONFIG_PATH` proxy/custom model config 지정 같은 다음 행동을 짧게
-안내합니다.
+`maglab harness doctor`는 실행을 막는 것을 구체적으로 보고합니다: 선언된 agent로
+해석되지 않는 workflow step, `agents/*.md`가 없는 agent, 설치되지 않은 skill,
+등록되지 않은 MCP 서버, LLM backend 설정 여부. PI 관련 두 항목은 보고만 하고
+차단하지 않습니다 — 로컬 실행에는 PI가 필요 없고, 애초에 base binary에는
+`workflow` 툴이 없습니다(그건 pi-agents가 제공합니다).
+
+`maglab harness compile literature-review`로 컴파일된 workflow를 보고,
+`maglab harness compile --write`로 `.pi/workflows/`에 드리프트 산출물을 쓰며,
+`maglab harness compile --check`로 routing table이 바뀌었을 때 실패시킵니다.
+산출물에는 절대 경로·로컬 설치 상태·타임스탬프가 없어 머신 독립적이므로 CI에
+걸어도 안전하고, 실제 manifest 변경에만 실패합니다.
+
+`maglab harness run <workflow> --dry-run --output text`는 실행될 내용을 표로
+보여주고, `--output json`(기본값)은 전체 계약을 냅니다: step별 `local_run_plan`,
+PI `workflow` 툴용 topic 바인딩 `pi_agents_workflow_payload`, PI flow id와
+provenance activity를 담는 `cross_links`. `ready`와 `blockers`는 항상 일치하며,
+실행을 막지는 않고 품질만 떨어뜨리는 항목(예: 선언됐지만 미등록인 MCP 서버)은
+`warnings`로 갑니다.
+
+여기서 실행하려면 `--execute-local`을, 저렴한 live smoke에는
+`--local-max-steps 2`를 씁니다. 이 옵션 이름은 실제 동작 그대로입니다 —
+subagent runner가 step당 완성 1회를 발행하므로 step 내부의 turn이 아니라 step
+수를 제한합니다. 각 step은 topic과 앞선 step 결과 요약을 함께 받으며, 검증에
+실패한 step이 나오면 이후 작업이 그 위에 쌓이지 않도록 실행을 멈춥니다.
+
+`maglab harness worker <agent> --task "..."`는 단일 subagent의 계획을 보여줍니다
+— model alias, 해석된 model, tools, 발견된 skill, 등록된 MCP 서버. 기계용
+출력은 `--json`입니다.
+
+`--record-provenance --provenance-db .maglab/harness-provenance.sqlite`를 붙이면
+아무것도 실행되기 전에 *준비된* run을 step당 entity 하나씩 W3C PROV activity로
+기록하므로, 중단된 run도 무엇을 시도했는지 증거를 남깁니다.
+
 `maglab harness run literature-review --topic "..." --pi-handoff`는 실제 PI CLI
 handoff command와 prompt를 출력합니다. project-local
 `.pi/npm/node_modules/.bin/pi`가 있으면 그 binary를 우선 사용하고, parent PI
@@ -171,7 +230,7 @@ discovery/doctor에서 설정만 검증되고 외부 MCP process를 시작하지
 opt-in으로 harness plan을 볼 수 있습니다.
 
 ```sh
-maglab lit search papers/sot --harness-plan --dry-run --topic "SOT switching in CoFeB"
+maglab lit search papers/sot --harness-plan --harness-plan --topic "SOT switching in CoFeB"
 maglab lit search papers/sot --harness-plan --harness-json
 ```
 
@@ -185,7 +244,7 @@ maglab lit search papers/sot --harness-plan --harness-json
 구체적인 PI handoff에는 dry-run의 `pi_agents_workflow_payload`를 사용합니다.
 
 Live PI 실행은 environment-gated입니다. 별도로 PI를 설치/설정하고,
-smolagents와 LiteLLM provider 설정이 포함된 MagLab `harness` extra 환경이
+PI 본체와 `workflow` 툴을 제공하는 pi-agents 확장이
 필요합니다. provider-backed bridge가 설정되기 전에는 실제 작업에는 deterministic
 command나 legacy CLI/REPL을 사용하고, harness dry-run 또는 `--pi-handoff` 출력은
 workflow 검증과 PI handoff 점검으로 취급하세요.

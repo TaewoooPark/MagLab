@@ -199,8 +199,10 @@ Implemented today:
 | Lab notebook and planning | Implemented | ELN note creation/listing and measurement-plan generation write project artifacts under the active workspace. |
 | Review, authoring, communications | Implemented with human-review gates | Manuscript review, anomaly explanation, manuscript/cover-letter/revision/email/abstract/grant/rebuttal drafting, slides, and posters are marked for researcher review. |
 | Report, provenance, and task inspection | Implemented | `report inventory`, `prov summary/status/lineage`, and `task list/status/scaffold` inspect artifacts already written to disk. |
+| Tool gating and autonomy | Implemented | Every model tool call passes deny rules, the physics sanity oracle and an autonomy gate. Tools are tiered from the read-only/destructive/network hints they declare; `copilot` (the default) runs read-only offline tools freely and prompts on a terminal for anything irreversible. Without a terminal the action is refused rather than silently run. |
+| Tools across backends | Implemented | The `api` backend passes tool schemas natively; the delegated CLIs take none on the command line, so MagLab describes them in the prompt and parses the reply back into tool calls. Both paths execute through the same registry and hooks. |
 | Manifest harness | Implemented as planning, compilation and local execution | `harness doctor`/`compile`/`run`/`worker`/`pi-tool` are deterministic and offline; `--execute-local` runs through MagLab's own subagent runner. Live PI handoff requires PI plus a `workflow` tool from pi-agents and is never simulated. |
-| External solvers, hardware, gateways | Environment-gated | MagLab prepares inputs, validates specs, and checks readiness; it does not bundle MuMax3, OOMMF, VAMPIRE, VISA drivers, Slack/Telegram/Discord credentials, or remote cluster access. |
+| External solvers, hardware, gateways | Environment-gated | MagLab prepares inputs, validates specs, and checks readiness; it does not bundle MuMax3, OOMMF, VAMPIRE, VISA drivers, Slack/Telegram/Discord credentials, or remote cluster access. Without a solver, `sim pipeline --backend mock` still runs end to end, but every value it produces is recorded as `provenance_type: MOCK`, never `SIMULATED`. |
 
 ## Start Here
 
@@ -454,7 +456,7 @@ maglab doctor --feature simulation --sim-backend ssh-gpu --host gpu.example.edu 
 maglab                         interactive research agent
 maglab -p "QUERY"              non-interactive one-shot query
 
-auth      codex · claude · gemini-cli · ollama · anthropic · grok · deepseek · qwen · kimi · gemini · openai · set · list · status · test
+auth      codex · claude · gemini-cli · ollama · anthropic · grok · deepseek · qwen · kimi · gemini · openai · openai-compatible · set · list · status · test
 physics   compute · units · oracle
 mat       list · show · search · build
 sim       doctor · micro · validate · plot · job · dft · atomistic · pipeline
@@ -476,14 +478,14 @@ present   templates · slides · poster
 hypotheses TOPIC
 mcp       list · serve · add · enable · disable
 agents    list · show
-skill     list
+skill     list · create · install
 harness   doctor · compile · run · worker · pi-tool
 report    inventory
 prov      summary · status · lineage
 task      list · status · scaffold
 cost
 manual    [topic] --lang en|ko
-config    show · path · restore · reset
+config    show · path · set · restore · reset
 install   doctor
 doctor
 workspace status · brief · init · tree

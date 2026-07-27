@@ -195,8 +195,10 @@ install 명령으로 설치본을 갱신하면 됩니다.
 | lab notebook과 planning | 구현됨 | ELN note 생성/목록화와 measurement plan 생성이 active workspace에 artifact를 씁니다. |
 | review, authoring, communications | human-review gate와 함께 구현됨 | manuscript review, anomaly explanation, manuscript/cover-letter/revision/email/abstract/grant/rebuttal, slides, poster 생성은 연구자 검토 대상으로 표시됩니다. |
 | report, provenance, task inspect | 구현됨 | `report inventory`, `prov summary/status/lineage`, `task list/status/scaffold`는 이미 디스크에 남은 artifact를 검사합니다. |
+| 도구 게이팅과 자율성 | 구현됨 | 모델의 모든 도구 호출이 deny 규칙·물리 정합성 오라클·자율성 게이트를 통과합니다. 도구는 스스로 선언한 read-only/destructive/network 힌트로 등급이 매겨지며, 기본값 `copilot`은 읽기 전용 오프라인 도구를 자유롭게 실행하고 되돌릴 수 없는 작업은 터미널에서 승인을 묻습니다. 터미널이 없으면 조용히 실행하지 않고 거부합니다. |
+| 백엔드별 도구 | 구현됨 | `api` 백엔드는 tool schema를 그대로 전달하고, delegated CLI는 커맨드라인으로 받지 않으므로 MagLab이 프롬프트에 서술하고 응답을 파싱해 tool call로 되돌립니다. 두 경로 모두 동일한 registry와 훅으로 실행됩니다. |
 | Manifest harness | 계획·컴파일·로컬 실행으로 구현됨 | `harness doctor`/`compile`/`run`/`worker`/`pi-tool`은 결정론적이고 오프라인이며, `--execute-local`은 MagLab 자체 subagent runner로 실행합니다. live PI handoff는 PI와 pi-agents의 `workflow` 툴이 필요하고 절대 흉내내지 않습니다. |
-| 외부 solver, hardware, gateway | 환경 의존 | MagLab은 입력 생성, spec 검증, readiness check를 담당합니다. MuMax3, OOMMF, VAMPIRE, VISA driver, Slack/Telegram/Discord credential, remote cluster access를 번들하지 않습니다. |
+| 외부 solver, hardware, gateway | 환경 의존 | MagLab은 입력 생성, spec 검증, readiness check를 담당합니다. MuMax3, OOMMF, VAMPIRE, VISA driver, Slack/Telegram/Discord credential, remote cluster access를 번들하지 않습니다. 솔버가 없어도 `sim pipeline --backend mock`은 끝까지 돌지만, 그때 나온 값은 전부 `provenance_type: MOCK`으로 기록되며 `SIMULATED`가 되지 않습니다. |
 
 ## 바로 시작하기
 
@@ -426,7 +428,7 @@ maglab present poster "Key results and figures from the SOT study" --template ap
 maglab                         interactive research agent
 maglab -p "QUERY"              non-interactive one-shot query
 
-auth      codex · claude · gemini-cli · ollama · anthropic · grok · deepseek · qwen · kimi · gemini · openai · set · list · status · test
+auth      codex · claude · gemini-cli · ollama · anthropic · grok · deepseek · qwen · kimi · gemini · openai · openai-compatible · set · list · status · test
 physics   compute · units · oracle
 mat       list · show · search · build
 sim       doctor · micro · validate · plot · job · dft · atomistic · pipeline
@@ -448,14 +450,14 @@ present   templates · slides · poster
 hypotheses TOPIC
 mcp       list · serve · add · enable · disable
 agents    list · show
-skill     list
+skill     list · create · install
 harness   doctor · compile · run · worker · pi-tool
 report    inventory
 prov      summary · status · lineage
 task      list · status · scaffold
 cost
 manual    [topic] --lang en|ko
-config    show · path · restore · reset
+config    show · path · set · restore · reset
 install   doctor
 doctor
 workspace status · brief · init · tree

@@ -4,6 +4,49 @@
 
 ### Fixed
 
+- Correct documented flags that do not exist. `harness run --local-max-turns`
+  (the flag is `--local-max-steps`), `harness worker --task-json`/`--execute`
+  (neither exists; the flag is `--task`), `lit search --dry-run` (it is
+  `--harness-plan`), `fit --json` (no such option), and
+  `analyze consistency data.csv --effect stfmr` (the command takes four
+  positional arguments, `EFFECT_A DATA_A EFFECT_B DATA_B`).
+- Rewrite the harness sections of both orchestration manuals against what was
+  actually built. They still described smolagents workers, a `.[harness]` extra,
+  `.pi/agents` output and a `--show-agent-log` flag — a design that was not
+  adopted. Local execution runs through MagLab's own subagent runner, only
+  `.pi/workflows/` is written, and the readiness report distinguishes a PI binary
+  from the pi-agents extension that actually supplies the `workflow` tool.
+- Add `config set`, `skill create`/`install` and `auth openai-compatible` to the
+  README command trees; all three existed but were unlisted.
+
+### Added
+
+- Manual sections for behaviour that was user-visible but undocumented:
+  - **Approval and autonomy** — every model tool call passes deny rules, the
+    physics oracle and the autonomy gate; tools are tiered from their declared
+    hints, `copilot` (the default) prompts on a terminal for anything
+    irreversible, and refuses when there is no terminal to ask. Researchers were
+    hitting refusals with nothing in the docs explaining them.
+  - **Tools across backends** — the `api` backend passes schemas natively while
+    the delegated CLIs get them through the prompt bridge; both execute through
+    the same registry and hooks. Also records why the delegated-CLI timeout
+    defaults to 900 s.
+  - **Inspecting what was recorded** — worked examples for `report inventory`,
+    `prov summary/lineage` and `task list/status`, with the `provenance_type`
+    table. "Every output carries a provenance record" was a headline claim with
+    no documented way to check it.
+  - `MOCK` versus `SIMULATED`: `sim pipeline --backend mock` produces
+    plausible-looking numbers, so the docs now state plainly that nothing it
+    emits is typed as simulation output.
+
+### Tests
+
+- The documentation check now verifies **flags**, not only command names. Every
+  error above was invisible to a name-only check. Quoted arguments are parsed
+  with `shlex`, so a flag inside a quoted string (`mcp add arxiv "npx -y …"`) is
+  not mistaken for a MagLab option, and a guard fails if the extractor stops
+  finding flags at all.
+
 - Unpin `python_version` in the mypy config so CI passes on the 3.12 matrix leg.
   The pin said 3.11 while the leg ran 3.12, and the two interpreters resolve
   different numpy versions: 3.12 gets numpy 2.5, whose stubs use PEP 695 `type`

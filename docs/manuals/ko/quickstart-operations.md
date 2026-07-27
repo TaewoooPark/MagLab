@@ -209,8 +209,8 @@ claim의 유일한 근거로 사용하지 마세요.
 ```sh
 maglab analyze load data/stfmr.csv --columns frequency,field,voltage
 maglab analyze model stfmr
-maglab fit --effect stfmr data/stfmr.csv --method least_squares --json
-maglab analyze consistency data/stfmr.csv --effect stfmr
+maglab fit --effect stfmr data/stfmr.csv --method least_squares
+maglab analyze consistency stfmr data/stfmr.csv anomalous_hall data/ahe.csv
 ```
 
 논문에 넣기 전 parameter bound, residual, sign convention, device geometry,
@@ -262,6 +262,39 @@ maglab present poster "Key results and figures from the SOT study" --template ap
 
 authoring 명령은 인간 검토 필요성을 의도적으로 남깁니다. 빠진 claim, citation,
 figure reference는 연구자가 직접 채워야 합니다.
+
+## 기록된 것 확인하기
+
+MagLab은 상태를 대화 기록에 두지 않고 산출물과 provenance를 디스크에 씁니다.
+그래서 세션이 끝난 뒤에도 아무것도 다시 실행하지 않고 감사할 수 있습니다. 아래
+명령은 이미 있는 것을 읽기만 합니다:
+
+```sh
+maglab report inventory                      # 생성된 보고서·원고·슬라이드·포스터
+maglab prov summary                          # 이 workspace의 provenance sidecar
+maglab prov summary --db .maglab/harness-provenance.sqlite
+maglab prov lineage <datapoint-id> --db <store>   # 생성·파생·귀속 관계
+maglab task list                             # checkpoint된 task와 scaffold
+maglab task status <task-id>                 # 특정 task의 step별 checkpoint
+```
+
+위 명령 모두 스크립트용 `--json`을 지원합니다.
+
+값을 믿기 전에 `provenance_type`을 확인하십시오:
+
+| 타입 | 의미 |
+|---|---|
+| `MEASURED` | 계측기에서 나온 값 |
+| `SIMULATED` | 실제 솔버 실행 결과 |
+| `MOCK` | dry-run 경로 — **솔버가 돌지 않음** |
+| `FITTED` | 피팅으로 얻은 값 |
+| `LITERATURE` | 논문에서 가져온 값 |
+| `THEORY` | 해석적·예측값 |
+
+`MOCK`은 의도적으로 `SIMULATED`와 분리돼 있습니다. `maglab sim pipeline
+--backend mock`이 내는 숫자는 그럴듯해 보이며 — mock Curie 온도가 실제값 근처에
+떨어집니다 — 솔버를 거치지 않은 값이 시뮬레이션 결과로 걸러지면 안 되기
+때문입니다. 표시될 때는 `[MOCK]` 배지가 붙습니다.
 
 ## 신뢰 전 체크리스트
 

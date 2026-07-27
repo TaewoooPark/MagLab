@@ -13,6 +13,7 @@ does not exist yet).
 from __future__ import annotations
 
 import re
+import shlex
 import tomllib
 from pathlib import Path
 
@@ -98,3 +99,97 @@ def test_repo_root_readmes_are_checked() -> None:
     """Guard the guard: the parametrisation must actually be finding the files."""
     present = [name for name in README_FILES if (REPO_ROOT / name).is_file()]
     assert "README.md" in present, "README.md not found — the check above would silently skip"
+
+
+# ---------------------------------------------------------------------------
+# Flags, not just command names
+# ---------------------------------------------------------------------------
+
+MANUAL_FILES = sorted(
+    str(path.relative_to(REPO_ROOT)) for path in (REPO_ROOT / "docs" / "manuals").rglob("*.md")
+)
+
+
+def _command_node(parts: list[str]):
+    """Resolve a command path to its click node, or None."""
+    node = get_command(app)
+    for part in parts:
+        subs = getattr(node, "commands", {}) or {}
+        if part not in subs:
+            return None
+        node = subs[part]
+    return node
+
+
+def _valid_options(node) -> set[str]:
+    options: set[str] = set()
+    for param in node.params:
+        options |= set(param.opts) | set(param.secondary_opts)
+    return options
+
+
+def _documented_invocations(text: str) -> list[tuple[list[str], list[str]]]:
+    """Return (command path, flags) for every runnable maglab line."""
+    found: list[tuple[list[str], list[str]]] = []
+    for invocation in _shell_invocations(text):
+        # shlex, not split(): a quoted argument may legitimately contain
+        # something that looks like a flag, e.g.
+        # `maglab mcp add arxiv "npx -y @scope/server"`.
+        try:
+            tokens = shlex.split(invocation)
+        except ValueError:
+            continue  # unbalanced quotes in a prose snippet
+        path: list[str] = []
+        flags: list[str] = []
+        for token in tokens:
+            if token.startswith("-"):
+                flags.append(token.split("=")[0])
+            elif not flags and len(path) < 3 and re.fullmatch(r"[a-z][a-z0-9-]*", token):
+                path.append(token)
+        if path:
+            found.append((path, flags))
+    return found
+
+
+@pytest.mark.parametrize("doc_name", README_FILES + MANUAL_FILES)
+def test_documented_flags_exist(doc_name: str) -> None:
+    """A documented flag that does not exist is worse than an undocumented one.
+
+    `instr scpi --model` was real but ignored; the manuals separately referenced
+    `--local-max-turns`, `--task-json`, `--execute` and `fit --json`, none of
+    which exist. Checking command names alone missed every one of them.
+    """
+    doc = REPO_ROOT / doc_name
+    if not doc.is_file():
+        pytest.skip(f"{doc_name} not present")
+
+    unknown: list[str] = []
+    for path, flags in _documented_invocations(doc.read_text(encoding="utf-8")):
+        node = _command_node(path)
+        # Fall back to the parent when the last token was an argument, not a
+        # subcommand (e.g. `maglab manual orchestration`).
+        while node is None and len(path) > 1:
+            path = path[:-1]
+            node = _command_node(path)
+        if node is None:
+            continue  # command existence is covered by test_documented_commands_exist
+        valid = _valid_options(node)
+        for flag in flags:
+            if flag == "--" or re.fullmatch(r"-\d+", flag):
+                continue
+            if flag not in valid:
+                unknown.append(f"maglab {' '.join(path)} {flag}")
+
+    assert unknown == [], f"{doc_name} documents flags that do not exist: {sorted(set(unknown))}"
+
+
+def test_the_flag_check_actually_inspects_something() -> None:
+    """Guard the guard: a parser that finds nothing would pass vacuously."""
+    total = 0
+    for doc_name in README_FILES + MANUAL_FILES:
+        doc = REPO_ROOT / doc_name
+        if doc.is_file():
+            total += sum(
+                len(f) for _p, f in _documented_invocations(doc.read_text(encoding="utf-8"))
+            )
+    assert total > 50, f"only {total} documented flags found — the extractor is broken"

@@ -87,6 +87,56 @@ hidden terminal input. The REPL equivalents are `/connect anthropic`,
 profile so the model is told that it is operating as the MagLab research
 orchestration agent, with provider-specific planning and verification guidance.
 
+## Approval and Autonomy
+
+Every tool call the model makes passes a hook layer before it runs: deny rules,
+the physics sanity oracle, and an autonomy gate. The gate classifies each tool
+from the hints it declares — read-only, destructive, whether it touches the
+network — and the configured mode decides what happens:
+
+| Mode | Runs without asking | Asks |
+|---|---|---|
+| `copilot` (default) | read-only, offline tools | anything that writes or reaches the network |
+| `semi-auto` | the above plus read-only network tools | anything irreversible |
+| `autonomous` | the above plus irreversible tools | destructive tools only |
+
+On an interactive terminal an action that needs approval prompts on stderr and
+waits for `y`. With no terminal — a piped `maglab -p`, CI, a cron job — there is
+nobody to ask, so the action is refused and the reason is returned to the model
+rather than the command dying. If that is not what you want for a batch run,
+raise the mode explicitly:
+
+```sh
+maglab config set autonomy.mode semi-auto
+maglab config show
+```
+
+Read-only tools such as `literature_search`, `provenance_query` and
+`physics_compute` never prompt: they are classified from their own declared
+hints, not from a hand-maintained list.
+
+## Tools Across Backends
+
+The `api` backend passes MagLab's tool schemas to the provider natively. The
+delegated CLI backends (`codex`, `claude`, `gemini`) take no tool schema on the
+command line, so MagLab describes the tools in the prompt and parses the reply
+back into tool calls. Either way the call is executed by MagLab through the same
+registry and the same hooks, so numbers and citations come from the
+deterministic tools rather than from the model — and from whatever shell or file
+tools the delegated CLI happens to ship with.
+
+A model that ignores the protocol simply answers in prose. Nothing breaks; you
+just get an answer without a tool-backed number.
+
+These CLIs are agents, not completion endpoints, so they are slow to start:
+`codex` sends roughly 19k tokens of context before answering and needs several
+seconds for a one-word reply. The delegated-CLI timeout therefore defaults to
+900 s. If a long research turn still overruns, the error names the setting:
+
+```sh
+maglab config set backend.delegated_cli.timeout 1800
+```
+
 ## Subagents and Skills
 
 ```sh
@@ -98,11 +148,11 @@ maglab harness compile literature-review
 maglab harness compile --write
 maglab harness compile --check
 maglab harness run literature-review --dry-run --output text
-maglab harness run literature-review --topic "Find SOT papers" --execute-local --local-max-turns 2 --output text
+maglab harness run literature-review --topic "Find SOT papers" --execute-local --local-max-steps 2 --output text
 maglab harness pi-tool --payload-json '{"workflow":"literature-review","input":"Find SOT papers"}' --output text
 maglab run "Find SOT papers" --harness-workflow literature-review
 maglab harness worker search-scout --task "Find SOT papers"
-maglab harness worker search-scout --task-json '{"workflow":"literature-review","input":"Find SOT papers"}' --execute
+maglab harness worker search-scout --task "Find SOT papers" --json
 ```
 
 Subagents are declared in `harness.manifest.json`. They represent bounded roles
@@ -118,35 +168,52 @@ There are three execution surfaces today:
   `maglab analyze ...`, `maglab figure ...`, and similar commands run concrete
   MagLab modules. They do not require an LLM key unless the specific feature
   says so.
-- PI harness mode: `maglab harness ...` is the transition surface for running
-  manifest workflows through PI plus smolagents workers. The current CLI can
-  inspect readiness, compile the `literature-review` workflow graph, write and
-  check project-local `.pi/` wrappers, validate manifest references, and show
-  workflow or worker plans. It does not fake live PI execution.
+- Harness mode: `maglab harness ...` turns the manifest into inspectable
+  execution plans. Planning is deterministic and offline — no provider is
+  contacted — and `--execute-local` then runs the plan through MagLab's own
+  subagent runner, so every step keeps the existing four-layer verification,
+  hooks and budget accounting. Live PI execution is environment-gated and never
+  faked.
 
-Use `maglab harness doctor` to see PI, smolagents, LiteLLM, and MCP readiness
-separately. Use `maglab harness compile literature-review` to validate the
-manifest workflow translation, `maglab harness compile --write` to write
-`.pi/agents` and `.pi/workflows`, `maglab harness compile --check` to detect
-generated wrapper or manifest-reference drift, and
-`maglab harness run literature-review --dry-run --output text` to inspect what
-would run without starting PI or a live model worker in a beginner-readable
-summary. Use `--output json` or omit `--output` when automation needs the full
-machine contract. That dry-run JSON record includes the
-local worker subprocess plan in `local_run_plan` and a topic-bound
-`pi_agents_workflow_payload` for PI's `workflow` tool; the payload contains the
-concrete worker JSON for each spawn task. Use
-`maglab harness run literature-review --topic "..." --execute-local` to run the
-workflow locally through the same workers without PI. For cheap live smoke,
-add `--local-max-turns 2`; text mode prints step start/done progress and hides
-raw smolagents logs unless `--show-agent-log` is set. Use `maglab harness worker
-<agent> --task "..."` to inspect the smolagents runtime plan for one worker, or
-`--execute --task-json ...` when provider credentials are configured and you
-want the local worker subprocess contract to run. Worker dry-run output shows
-the model alias, resolved model, LiteLLM config source, tools, and runtime
-availability. Live worker failures print short next-step guidance instead of a
-traceback, including whether to install `.[harness]`, set `ANTHROPIC_API_KEY`,
-or point `LITELLM_CONFIG_PATH` at a proxy/custom model config.
+Use `maglab harness doctor` to see what would stop a run: workflow steps that do
+not resolve to a declared agent, agents with no `agents/*.md` behind them,
+declared skills that are not installed, unregistered MCP servers, and whether an
+LLM backend is configured. The two PI checks are reported but never block, since
+local execution does not need PI — and a bare PI install has no `workflow` tool
+anyway (that comes from pi-agents, not the base binary).
+
+Use `maglab harness compile literature-review` to see the compiled workflow,
+`maglab harness compile --write` to write the drift artifacts to
+`.pi/workflows/`, and `maglab harness compile --check` to fail when the routing
+table has drifted. The artifacts are machine-independent by construction — no
+absolute paths, no local install state, no timestamps — so `--check` is safe to
+wire into CI and fails only on a real manifest change.
+
+`maglab harness run <workflow> --dry-run --output text` shows what would run in
+a readable table; `--output json` (the default) emits the full contract:
+`local_run_plan` with one entry per step, a topic-bound
+`pi_agents_workflow_payload` for PI's `workflow` tool, and a `cross_links` block
+carrying the PI flow id and any provenance activity. `ready` and `blockers`
+always agree — anything that degrades a run without preventing it appears in
+`warnings` instead, such as an MCP server that is declared but not registered.
+
+Add `--execute-local` to run it here, `--local-max-steps 2` for a cheap live
+smoke. The step limit is named for what it does: the subagent runner issues one
+completion per step, so it bounds steps rather than turns inside a step. Each
+step receives the topic plus a digest of what earlier steps returned, and a step
+that fails verification stops the run rather than letting later work build on
+it.
+
+`maglab harness worker <agent> --task "..."` shows the plan for a single
+subagent — model alias, resolved model, tools, which declared skills were found,
+and which requested MCP servers are registered. Add `--json` for the machine
+form.
+
+Add `--record-provenance --provenance-db .maglab/harness-provenance.sqlite` to
+record the *prepared* run as a W3C PROV activity with one entity per step,
+before anything executes, so an interrupted run still leaves evidence of what
+was attempted.
+
 Use `maglab harness run literature-review --topic "..." --pi-handoff` to emit
 the concrete PI CLI handoff command and prompt. The handoff prefers the
 project-local `.pi/npm/node_modules/.bin/pi` binary when present and restricts
@@ -176,7 +243,7 @@ but do not start external MCP processes.
 workflow:
 
 ```sh
-maglab lit search papers/sot --harness-plan --dry-run --topic "SOT switching in CoFeB"
+maglab lit search papers/sot --harness-plan --harness-plan --topic "SOT switching in CoFeB"
 maglab lit search papers/sot --harness-plan --harness-json
 ```
 
@@ -192,7 +259,7 @@ topic/input-bound PI execution payload; use the dry-run
 
 Live PI execution remains environment-gated. It requires installing and
 configuring PI separately and running MagLab in an environment with the
-`harness` extra, including smolagents and LiteLLM provider configuration. Until
+PI itself plus the pi-agents extension that provides the `workflow` tool. Until
 that provider-backed bridge is configured, use deterministic commands or the
 legacy CLI/REPL for real work, and treat harness dry-runs or `--pi-handoff`
 output as workflow validation and PI handoff inspection.
