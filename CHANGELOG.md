@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Apply the requested safety profile in `instr scpi`. The command accepted
+  `--model`, documented it as the safety profile key, and then never passed it
+  on — only the syntax validator ran. `instr scpi ':SOUR:VOLT 250' --model
+  keithley-2400` therefore printed "SCPI static validation passed" for a command
+  40 V over that instrument's maximum, while `instr check` on the same command
+  in a file correctly failed. Both paths now run the syntax check *and* the
+  safety envelope, and a pass names the profile it passed.
+- Type mock pipeline output as `MOCK` rather than `SIMULATED`. The only marker
+  was the substring `(mock)` inside `source_ref`, and each scale handoff rebuilt
+  that string from scratch — so a mock `T_C` of 1035.7 K reached the micro stage
+  as a `SIMULATED` DataPoint with a clean source, sitting beside bcc Fe's real
+  1043 K with nothing in the record to separate them. `ProvenanceType.MOCK` is a
+  distinct member with its own `[MOCK]` badge, and the handoffs carry the run's
+  type through, so a consumer filtering on `SIMULATED` cannot pick up mock
+  values. Real solver runs are unaffected: the handoffs still default to
+  `SIMULATED`.
+
 ## v0.0.6
 
 The harness surface both READMEs promised, and the LLM-layer failures that

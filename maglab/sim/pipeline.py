@@ -175,6 +175,13 @@ def run_pipeline(
             "lattice_ang": [2.87, 2.87, 2.87, 90.0, 90.0, 90.0],
         }
 
+    # Mock output must be typed as mock, not as simulation. The "(mock)"
+    # marker only ever lived inside a source_ref string, and the scale
+    # handoffs rebuilt that string -- so a mock T_C of 1035.7 K reached the
+    # micro stage indistinguishable from a solver result.
+    mock_run = backend == "mock"
+    run_provenance_type = ProvenanceType.MOCK if mock_run else ProvenanceType.SIMULATED
+
     # ----------------------------------------------------------------
     # Scale 1: DFT
     # ----------------------------------------------------------------
@@ -233,6 +240,7 @@ def run_pipeline(
                 MAE_meV_atom=mae_meV,
                 m_muB=m_mub,
                 source_ref=f"pipeline/{result.pipeline_id}/dft->atomistic",
+                provenance_type=run_provenance_type,
             )
             result.handoff_dft_to_atm = h1
             result.provenance_chain.extend(h1.provenance_datapoints)
@@ -285,7 +293,7 @@ def run_pipeline(
                 quantities["T_C_K"] = DataPoint(
                     value=T_C_extracted,
                     units="K",
-                    provenance_type=ProvenanceType.SIMULATED,
+                    provenance_type=ProvenanceType.MOCK,
                     source_ref=f"pipeline/{result.pipeline_id}/atomistic(mock)",
                     conditions={"engine": f"{atomistic_engine}(mock)"},
                 )
@@ -344,6 +352,7 @@ def run_pipeline(
                 T_target_K=target_temp_K,
                 J_1_K=j_1_K,
                 source_ref=f"pipeline/{result.pipeline_id}/atomistic->micro",
+                provenance_type=run_provenance_type,
             )
             result.handoff_atm_to_micro = h2
             result.micro_params = h2.params
@@ -377,6 +386,7 @@ def run_pipeline(
                     K_Jm3=mp.get("K_Jm3", 0.0),
                     D_Jm2=mp.get("D_Jm2", 0.0),
                     source_ref=f"pipeline/{result.pipeline_id}/micro->device",
+                    provenance_type=run_provenance_type,
                 )
                 result.handoff_micro_to_dev = h3
                 result.device_params = h3.params

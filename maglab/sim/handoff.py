@@ -118,6 +118,7 @@ def dft_to_atomistic(
     m_muB: float | None = None,
     j_ij_pairs: list[tuple[int, int, float]] | None = None,
     source_ref: str = "DFT->atomistic handoff",
+    provenance_type: ProvenanceType = ProvenanceType.SIMULATED,
 ) -> HandoffResult:
     """Convert DFT results to atomistic input units.
 
@@ -210,7 +211,7 @@ def dft_to_atomistic(
             DataPoint(
                 value=J_ij_K_list[0],
                 units="K",
-                provenance_type=ProvenanceType.SIMULATED,
+                provenance_type=provenance_type,
                 source_ref=source_ref,
                 conditions={"from": "J_ij meV", "conversion": "meV × e×10⁻³ / k_B"},
             )
@@ -220,7 +221,7 @@ def dft_to_atomistic(
             DataPoint(
                 value=K_J,
                 units="J",
-                provenance_type=ProvenanceType.SIMULATED,
+                provenance_type=provenance_type,
                 source_ref=source_ref,
                 conditions={"from": "MAE meV/atom", "conversion": "meV × e×10⁻³"},
             )
@@ -278,6 +279,7 @@ def atomistic_to_micro(
     D_Jm2: float | None = None,
     lattice_const_m: float = _BCC_FE_A_M,
     source_ref: str = "atomistic->micro handoff",
+    provenance_type: ProvenanceType = ProvenanceType.SIMULATED,
 ) -> HandoffResult:
     """Convert atomistic results to micromagnetic input units.
 
@@ -416,7 +418,7 @@ def atomistic_to_micro(
         DataPoint(
             value=Ms_target,
             units="A/m",
-            provenance_type=ProvenanceType.SIMULATED,
+            provenance_type=provenance_type,
             source_ref=source_ref,
             conditions={"temperature_K": T_target_K, "from_scale": "atomistic"},
         )
@@ -426,7 +428,7 @@ def atomistic_to_micro(
             DataPoint(
                 value=A_target,
                 units="J/m",
-                provenance_type=ProvenanceType.SIMULATED,
+                provenance_type=provenance_type,
                 source_ref=source_ref,
                 conditions={
                     "temperature_K": T_target_K,
@@ -440,7 +442,7 @@ def atomistic_to_micro(
             DataPoint(
                 value=T_C,
                 units="K",
-                provenance_type=ProvenanceType.SIMULATED,
+                provenance_type=provenance_type,
                 source_ref=source_ref,
                 conditions={"from_scale": "atomistic M(T) interpolation"},
             )
@@ -485,6 +487,7 @@ def micro_to_device(
     D_Jm2: float = 0.0,
     ovf_summary: dict[str, Any] | None = None,
     source_ref: str = "micro->device handoff",
+    provenance_type: ProvenanceType = ProvenanceType.SIMULATED,
 ) -> HandoffResult:
     """Convert micromagnetic results to device/transport scale inputs.
 
@@ -598,7 +601,7 @@ def micro_to_device(
         DataPoint(
             value=j_c,
             units="A/m^2",
-            provenance_type=ProvenanceType.SIMULATED,
+            provenance_type=provenance_type,
             source_ref=source_ref,
             conditions={
                 "formula": "j_c = 2e×α×μ₀×Ms×t×Hk/(ħ×θ_SH)",
@@ -611,7 +614,7 @@ def micro_to_device(
             DataPoint(
                 value=t_sw,
                 units="s",
-                provenance_type=ProvenanceType.SIMULATED,
+                provenance_type=provenance_type,
                 source_ref=source_ref,
                 conditions={
                     "formula": "t_sw ≈ 1/(α×γ×H_k)",

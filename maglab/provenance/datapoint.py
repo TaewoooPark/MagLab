@@ -28,6 +28,29 @@ class ProvenanceType(StrEnum):
     """
 
     SIMULATED = "SIMULATED"
+
+    MOCK = "MOCK"
+
+    """Produced by a mock/dry-run path, not a solver or instrument.
+
+
+
+    Distinct from SIMULATED on purpose. Mock pipeline output looked exactly
+
+
+    like solver output once a scale handoff dropped the "(mock)" substring
+
+
+    from source_ref -- a mock T_C of 1035.7 K sat next to bcc Fe's real
+
+
+    1043 K with nothing in the record to tell them apart. A consumer
+
+
+    filtering on SIMULATED must not pick these up.
+
+
+    """
     MEASURED = "MEASURED"
     THEORY = "THEORY"
     LITERATURE = "LITERATURE"
@@ -37,6 +60,7 @@ class ProvenanceType(StrEnum):
 # Badge label mapping — the UI layer (report/) adds colour; this module provides labels only.
 BADGE_LABEL: dict[ProvenanceType, str] = {
     ProvenanceType.SIMULATED: "SIM",
+    ProvenanceType.MOCK: "MOCK",
     ProvenanceType.MEASURED: "MEAS",
     ProvenanceType.THEORY: "PRED",
     ProvenanceType.LITERATURE: "LIT",

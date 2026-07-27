@@ -251,7 +251,12 @@ class TestProvenanceTypeEnum:
 
     def test_all_members_exist(self):
         members = {pt.value for pt in ProvenanceType}
-        assert members == {"SIMULATED", "MEASURED", "THEORY", "LITERATURE", "FITTED"}
+        assert members == {"SIMULATED", "MOCK", "MEASURED", "THEORY", "LITERATURE", "FITTED"}
+
+    def test_mock_is_separate_from_simulated(self):
+        """Mock output must not be filterable as simulation output."""
+        assert ProvenanceType.MOCK is not ProvenanceType.SIMULATED
+        assert ProvenanceType("MOCK") is ProvenanceType.MOCK
 
     def test_string_coercion(self):
         assert ProvenanceType("SIMULATED") is ProvenanceType.SIMULATED

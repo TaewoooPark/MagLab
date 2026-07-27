@@ -108,6 +108,7 @@ def get_console() -> Console:
 
 #: provenance_type → (badge label, rich colour name or hex)
 _BADGE_MAP: dict[str, tuple[str, str]] = {
+    "MOCK": ("[MOCK]", "bright_red"),
     "SIMULATED": ("[SIM]", "cyan"),
     "SIM": ("[SIM]", "cyan"),
     "MEASURED": ("[MEAS]", "green"),

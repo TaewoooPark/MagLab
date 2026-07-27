@@ -394,3 +394,61 @@ class TestVerifyUnitContinuity:
 
         result = verify_unit_continuity(from_params, to_params, required_keys=["Ms_Am", "A_Jm"])
         assert not result.ok
+
+
+class TestMockOutputIsTypedAsMock:
+    """Mock values must not be indistinguishable from solver values.
+
+    The only mock marker was the substring "(mock)" inside `source_ref`, and the
+    scale handoffs rebuilt that string — so a mock T_C of 1035.7 K arrived at the
+    micro stage typed SIMULATED with a clean source, sitting next to bcc Fe's
+    real 1043 K with nothing in the record to tell them apart.
+    """
+
+    def test_handoffs_default_to_simulated(self) -> None:
+        from maglab.provenance.datapoint import ProvenanceType
+        from maglab.sim.handoff import dft_to_atomistic
+
+        handoff = dft_to_atomistic(
+            J_ij_meV=[34.3], MAE_meV_atom=0.05, m_muB=2.2, source_ref="real/solver"
+        )
+
+        assert {p.provenance_type for p in handoff.provenance_datapoints} == {
+            ProvenanceType.SIMULATED
+        }
+
+    def test_handoffs_carry_the_requested_type(self) -> None:
+        from maglab.provenance.datapoint import ProvenanceType
+        from maglab.sim.handoff import dft_to_atomistic
+
+        handoff = dft_to_atomistic(
+            J_ij_meV=[34.3],
+            MAE_meV_atom=0.05,
+            m_muB=2.2,
+            source_ref="x",
+            provenance_type=ProvenanceType.MOCK,
+        )
+
+        assert {p.provenance_type for p in handoff.provenance_datapoints} == {ProvenanceType.MOCK}
+
+    def test_mock_pipeline_never_emits_simulated(self) -> None:
+        """A consumer filtering on SIMULATED must not pick up mock output."""
+        from maglab.provenance.datapoint import ProvenanceType
+        from maglab.sim.pipeline import run_pipeline
+
+        result = run_pipeline(backend="mock")
+        types = {dp.provenance_type for dp in result.provenance_chain}
+
+        assert types, "pipeline recorded no provenance"
+        assert ProvenanceType.SIMULATED not in types
+        assert types == {ProvenanceType.MOCK}
+
+    def test_mock_is_a_distinct_provenance_type(self) -> None:
+        from maglab.provenance.datapoint import ProvenanceType
+
+        assert ProvenanceType.MOCK != ProvenanceType.SIMULATED
+
+    def test_mock_values_are_badged_distinctly(self) -> None:
+        from maglab.ui.render import badge_text
+
+        assert badge_text("MOCK") != badge_text("SIMULATED")

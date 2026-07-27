@@ -690,3 +690,63 @@ class TestNonSetpointSubNodes:
         assert not any(
             v.violation_type == ViolationType.OUTPUT_ACTIVE_PARAM_CHANGE for v in result.errors
         )
+
+
+class TestScpiCommandPathUsesTheRequestedProfile:
+    """`instr scpi --model` promised a safety profile and dropped it.
+
+    `instr scpi ':SOUR:VOLT 250' --model keithley-2400` reported
+    "SCPI static validation passed" for a command 40 V over that instrument's
+    maximum, because only the syntax validator ran and the model was never
+    passed on. The file path (`instr check`) was applying limits correctly the
+    whole time, so the two disagreed.
+    """
+
+    @staticmethod
+    def _run(*args: str):
+        from typer.testing import CliRunner
+
+        from maglab.cli import app
+
+        return CliRunner().invoke(app, ["instr", "scpi", *args])
+
+    def test_over_limit_command_fails(self) -> None:
+        result = self._run(":SOUR:VOLT 250", "--model", "keithley-2400")
+
+        assert result.exit_code == 1, result.output
+        assert "250" in result.output
+
+    def test_channel_qualified_over_limit_fails(self) -> None:
+        result = self._run("*RST", ":SOUR2:VOLT 250", "--model", "keithley-2400")
+        assert result.exit_code == 1
+
+    def test_safe_sequence_passes(self) -> None:
+        result = self._run("*RST", ":SOUR:VOLT 10", "OUTP ON", "--model", "keithley-2400")
+
+        assert result.exit_code == 0, result.output
+        assert "keithley-2400" in result.output
+
+    def test_the_profile_is_named_in_the_output(self) -> None:
+        """A pass must say which envelope it passed, or it means little."""
+        result = self._run("*RST", ":SOUR:VOLT 10", "--model", "keithley-2400")
+        assert "keithley-2400" in result.output
+
+    def test_generic_profile_does_not_invent_limits(self) -> None:
+        result = self._run("*RST", ":SOUR:VOLT 250")
+        assert result.exit_code == 0, "the generic profile declares no voltage ceiling"
+
+    def test_agrees_with_the_file_path(self, tmp_path) -> None:
+        """instr scpi and instr check must not disagree about the same command."""
+        from typer.testing import CliRunner
+
+        from maglab.cli import app
+
+        script = tmp_path / "over.py"
+        script.write_text("inst.write(':SOUR:VOLT 250')\n", encoding="utf-8")
+
+        via_file = CliRunner().invoke(
+            app, ["instr", "check", str(script), "--model", "keithley-2400"]
+        )
+        via_command = self._run(":SOUR:VOLT 250", "--model", "keithley-2400")
+
+        assert via_file.exit_code == via_command.exit_code == 1

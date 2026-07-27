@@ -2881,15 +2881,36 @@ def instr_scpi(
     commands: list[str] = typer.Argument(..., help="SCPI command string list."),  # noqa: B008
     model: str = typer.Option("generic", "--model", "-m", help="Safety profile model key."),
 ) -> None:
-    """Statically validate a SCPI command sequence."""
+    """Statically validate a SCPI command sequence — syntax and safety envelope."""
+    from maglab.instrument.safety import SafetyChecker, get_profile
     from maglab.instrument.scpi import validate_sequence
 
-    result = validate_sequence(list(commands))
-    if result.ok:
-        console.print(f"[green]✓[/] {result.summary()}")
-    else:
-        console.print(f"[red]✗[/] {result.summary()}")
-        raise typer.Exit(1)
+    sequence = list(commands)
+
+    # Syntax first, then the hardware limits for the requested profile. The
+    # safety pass used to be skipped entirely here: --model was accepted,
+    # documented as the safety profile, and then dropped, so
+    # `instr scpi ':SOUR:VOLT 250' --model keithley-2400` reported a clean pass
+    # for a command 40 V over that instrument's maximum.
+    syntax = validate_sequence(sequence)
+    profile = get_profile(model)
+    safety = SafetyChecker(profile).check_scpi_sequence(sequence, context="instr scpi")
+
+    if syntax.ok and safety.ok:
+        console.print(
+            f"[green]✓[/] SCPI syntax and {escape(profile.model)} safety envelope passed."
+        )
+        for warning in safety.warnings:
+            console.print(f"  [yellow]Warning:[/] {escape(warning.message)}")
+        return
+
+    if not syntax.ok:
+        console.print(f"[red]✗[/] {escape(syntax.summary())}")
+    if not safety.ok:
+        console.print(f"[red]✗[/] Safety validation failed (profile: {escape(profile.model)}):")
+        for violation in safety.errors:
+            console.print(f"  [red]{escape(violation.message)}[/]")
+    raise typer.Exit(1)
 
 
 @instr_app.command("script")
