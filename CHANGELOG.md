@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Unpin `python_version` in the mypy config so CI passes on the 3.12 matrix leg.
+  The pin said 3.11 while the leg ran 3.12, and the two interpreters resolve
+  different numpy versions: 3.12 gets numpy 2.5, whose stubs use PEP 695 `type`
+  statements, and mypy reading them under 3.11 syntax rules failed with a syntax
+  error inside site-packages. Each leg now type-checks against the version it
+  actually runs, with the dependencies that version resolves. The 3.11 legs were
+  green throughout; only 3.12 was affected.
+
 ## v0.0.7
 
 Two commands that reported confidently wrong things, both found by running them

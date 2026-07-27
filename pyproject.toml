@@ -136,7 +136,12 @@ ignore = ["E501"]
 "maglab/sim/device/*.py" = ["N803", "N806", "N815", "E741"]
 
 [tool.mypy]
-python_version = "3.11"
+# python_version is deliberately not pinned. The CI matrix runs 3.11 and 3.12,
+# and each resolves a different numpy: pinning 3.11 while running on 3.12 made
+# mypy read numpy 2.5's stubs — which use PEP 695 `type` statements — under
+# 3.11 syntax rules and fail with a syntax error inside site-packages. Letting
+# mypy follow the interpreter type-checks each leg against the version it
+# actually runs, with the dependencies that version resolves.
 warn_redundant_casts = true
 warn_unused_ignores = false
 no_implicit_optional = true
