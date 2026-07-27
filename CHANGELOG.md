@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## v0.0.6
+
+The harness surface both READMEs promised, and the LLM-layer failures that
+only surfaced once it was driven with a real backend.
 
 ### Fixed
 
