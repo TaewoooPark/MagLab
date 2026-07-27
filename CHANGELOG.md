@@ -120,6 +120,11 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   values, which `os.kill` would have broadcast to a whole process group, and the
   PID file is written atomically so a truncated `"12345"` can never be read back
   as a valid-but-wrong PID `12`.
+- Write the instrument-manual TF-IDF vocabulary and the mock HPC job state
+  atomically — the last two files that were written with `write_text` and read
+  back to drive behaviour. A truncated vocabulary made the restore path log a
+  warning and continue with none, silently degrading manual search; a truncated
+  job state turned every later `status` query into a `JSONDecodeError`.
 - Reject NaN and infinity from `physics compute` arguments. `float()` accepts
   `"nan"` and `"inf"`, so `physics compute exchange_length A=nan Ms=8e5` printed
   `exchange_length(A=nan, Ms=800000) = nan` as if it were an answer — the silent

@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from maglab.core.atomic import atomic_write_text
+
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -470,7 +472,10 @@ class SCPIIndex:
         # Duck-type check: any model exposing _vocab is a TF-IDF-style fallback.
         if hasattr(model, "_vocab") and hasattr(model, "_fitted"):
             vocab_path = self._db_path.with_suffix(".vocab.json")
-            vocab_path.write_text(json.dumps(model._vocab), encoding="utf-8")
+            # Atomic: the restore path logs a warning and carries on with no
+            # vocabulary, so a truncated file silently degrades search quality
+            # rather than failing visibly.
+            atomic_write_text(vocab_path, json.dumps(model._vocab))
             log.debug("TF-IDF vocabulary persisted: %d terms → %s", len(model._vocab), vocab_path)
 
         log.info("Index built: %d chunks → %s", len(chunks), self._db_path)

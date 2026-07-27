@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from maglab.core.atomic import atomic_write_text
+
 # ---------------------------------------------------------------------------
 # Job status
 # ---------------------------------------------------------------------------
@@ -295,7 +297,9 @@ class SshHpcBackend:
             "status": job.status,
             "engine": job.engine,
         }
-        (job.input_dir / "job_state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
+        # Atomic: _status_mock reads this back with json.loads and no guard, so
+        # a truncated write turns every later status query into a crash.
+        atomic_write_text(job.input_dir / "job_state.json", json.dumps(state, indent=2))
 
     # ------------------------------------------------------------------
     # Real HPC implementation (requires paramiko)
