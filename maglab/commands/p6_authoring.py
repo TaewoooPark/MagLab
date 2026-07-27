@@ -1361,7 +1361,9 @@ def _write_dry_run_poster(
         comment = (
             f"<!-- {marker} -->\n" if poster.path.suffix.lower() == ".svg" else f"% {marker}\n"
         )
-        poster.path.write_text(text.rstrip() + "\n" + comment, encoding="utf-8")
+        # Atomic: this is a read-modify-write over the poster that was just
+        # generated, so an interrupted append would destroy it outright.
+        atomic_write_text(poster.path, text.rstrip() + "\n" + comment)
     return poster.path
 
 

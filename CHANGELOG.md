@@ -120,6 +120,9 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   values, which `os.kill` would have broadcast to a whole process group, and the
   PID file is written atomically so a truncated `"12345"` can never be read back
   as a valid-but-wrong PID `12`.
+- Append the dry-run poster marker atomically. It is a read-modify-write over
+  the poster that was just generated, so an interruption destroyed the artifact
+  outright rather than leaving it un-annotated.
 - Write the instrument-manual TF-IDF vocabulary and the mock HPC job state
   atomically — the last two files that were written with `write_text` and read
   back to drive behaviour. A truncated vocabulary made the restore path log a
