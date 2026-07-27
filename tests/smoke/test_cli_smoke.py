@@ -455,3 +455,37 @@ def test_auth_grok_saves_api_config_without_network(tmp_path: Path) -> None:
     assert saved_config.backend.api.provider == "grok"
     assert saved_config.backend.api.model == "grok-4.3"
     assert saved_config.routing.plan == "xai/grok-4.3"
+
+
+def test_source_tree_version_matches_pyproject() -> None:
+    """The uninstalled-source fallback must not drift from pyproject.
+
+    It was a hard-coded "0.0.3" that stayed put through two releases, so a
+    source tree without an install reported a long-stale version — the exact
+    drift the metadata lookup was introduced to eliminate.
+    """
+    import tomllib
+    from pathlib import Path
+
+    import maglab
+
+    pyproject = Path(maglab.__file__).resolve().parent.parent / "pyproject.toml"
+    with pyproject.open("rb") as fh:
+        declared = tomllib.load(fh)["project"]["version"]
+
+    assert maglab._version_from_source_tree() == declared
+
+
+def test_installed_version_matches_pyproject() -> None:
+    import tomllib
+    from pathlib import Path
+
+    import maglab
+
+    pyproject = Path(maglab.__file__).resolve().parent.parent / "pyproject.toml"
+    with pyproject.open("rb") as fh:
+        declared = tomllib.load(fh)["project"]["version"]
+
+    assert maglab.__version__ == declared, (
+        "installed metadata is stale — reinstall, or the release bumped only one of the two"
+    )

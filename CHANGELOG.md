@@ -26,6 +26,14 @@ A stability, integrity and atomicity hardening pass over the whole codebase.
   `maglab \x1b[1;36m0.0\x1b[0m.\x1b[1;36m4` while CI stayed green — false
   failures that also hide real ones.
 
+### Changed
+
+- Bumped the package version to `0.0.5`.
+- The uninstalled-source-tree version fallback reads `pyproject.toml` instead of
+  a hard-coded string. That string sat at `0.0.3` through two releases, so a
+  source tree without an install reported a long-stale version — the drift the
+  metadata lookup was introduced in v0.0.4 to eliminate.
+
 ### Fixed
 
 - Stop a broken `config.toml` from locking the user out of every command.
