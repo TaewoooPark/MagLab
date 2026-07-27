@@ -187,10 +187,7 @@ def find_authoritative_authors(
         # (Using OpenAlex Authors API topic filter directly)
         try:
             authors_raw = (
-                pyalex.Authors()
-                .search(topic)
-                .sort("cited_by_count", descending=True)
-                .get(per_page=max_results)
+                pyalex.Authors().search(topic).sort(cited_by_count="desc").get(per_page=max_results)
             )
         except Exception as exc:  # noqa: BLE001
             if _is_retriable(exc):
@@ -207,7 +204,7 @@ def find_authoritative_authors(
                         recent_works = (
                             pyalex.Works()
                             .filter(author={"id": auth.get("id", "")})
-                            .sort("publication_year", descending=True)
+                            .sort(publication_year="desc")
                             .get(per_page=3)
                         )
                         recent = [

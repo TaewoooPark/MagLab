@@ -170,6 +170,16 @@ def _make_cache_key(*parts: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+class ConnectorError(RuntimeError):
+    """A connector call failed.
+
+    Raised instead of returning ``[]`` so a broken query cannot be mistaken for
+    a topic with no literature. pyalex 0.21 changed ``sort()`` to keyword-only,
+    and the old positional call raised a TypeError that was swallowed into an
+    empty list — every search then reported success with zero results.
+    """
+
+
 def _is_retriable(exc: BaseException) -> bool:
     """Return True when *exc* represents a transient error worth retrying.
 
@@ -231,6 +241,12 @@ def _with_backoff(max_retries: int = 3, base_delay: float = 1.0) -> Callable:
                     return fn(*args, **kwargs)
                 except Exception as exc:  # noqa: BLE001
                     last_exc = exc
+                    if not _is_retriable(exc):
+                        # A programming or API error will fail identically on
+                        # every attempt. Retrying it burns the backoff delays
+                        # and then replaces the real exception with a generic
+                        # "failed after N retries", losing the diagnosis.
+                        raise
                     if attempt < max_retries - 1:
                         log.debug(
                             "%s failed (attempt %d/%d), waiting %.1fs: %s",
@@ -330,10 +346,16 @@ class OpenAlexConnector:
         if cached and isinstance(cached, list):
             return [LiteratureRecord(**r) for r in cached]
         try:
+            # pyalex >= 0.21 takes sort fields as keywords, not positionally.
+            # Relevance rather than citation count: sorting a keyword search by
+            # citations returns the most-cited papers that merely contain the
+            # terms — for "spin-orbit torque temporal computing" that is CP2K
+            # and the Gaia mission, not spintronics. Citation weight is applied
+            # later, during tier classification.
             works = (
                 self._pyalex.Works()
                 .search(query)
-                .sort("cited_by_count", descending=True)
+                .sort(relevance_score="desc")
                 .get(per_page=max_results)
             )
             records = [self._work_to_record(w) for w in (works or [])]
@@ -343,7 +365,7 @@ class OpenAlexConnector:
             if _is_retriable(exc):
                 raise
             log.warning("OpenAlex search failed (query=%s): %s", query, exc)
-            return []
+            raise ConnectorError(f"OpenAlex search failed: {exc}") from exc
 
     @_with_backoff()
     def fetch_top_authors_by_topic(
@@ -358,7 +380,7 @@ class OpenAlexConnector:
             authors = (
                 self._pyalex.Authors()
                 .filter(topics={"id": topic_id})
-                .sort("cited_by_count", descending=True)
+                .sort(cited_by_count="desc")
                 .get(per_page=max_results)
             )
             result = list(authors or [])

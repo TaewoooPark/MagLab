@@ -42,7 +42,15 @@ class DelegatedCLIBackendConfig(BaseModel):
 
     tool: str = "claude"
     model: str | None = None
-    timeout: float = 120.0
+    timeout: float = 900.0
+    """Seconds before the delegated CLI is killed.
+
+    These CLIs are agents, not completion endpoints: they read files, run
+    searches and iterate. Codex needs ~8 s for a one-word reply because it ships
+    ~19k tokens of context first, so anything resembling research runs for
+    minutes. The old 120 s default killed real work mid-flight — a literature
+    survey that had already completed seven tool calls was discarded whole.
+    """
     extra_flags: list[str] = Field(default_factory=list)
 
 

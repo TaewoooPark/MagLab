@@ -215,3 +215,59 @@ def test_gate_result_is_dataclass() -> None:
     assert isinstance(result.allowed, bool)
     assert isinstance(result.tier, CostTier)
     assert isinstance(result.mode, str)
+
+
+class TestTierFollowsDeclaredHints:
+    """Tools declare read_only/destructive; the classifier must use that.
+
+    Defaulting every unmapped name to Tier 2 meant tools MagLab itself marks
+    read-only — literature search, provenance queries, journal metrics — needed
+    human approval in the default copilot mode, and no CLI path could grant it.
+    """
+
+    @pytest.mark.parametrize(
+        ("tool_name", "expected"),
+        [
+            ("provenance_query", CostTier.T0),
+            ("literature_search", CostTier.T1),
+            ("journal_metrics", CostTier.T1),
+            ("sim_run", CostTier.T2),
+            ("figure_export", CostTier.T2),
+        ],
+    )
+    def test_registered_tools_get_a_tier_from_their_hints(
+        self, tool_name: str, expected: CostTier
+    ) -> None:
+        assert classify_action(tool_name) == expected
+
+    def test_explicit_map_still_wins(self) -> None:
+        assert classify_action("physics_compute") == CostTier.T0
+
+    def test_unknown_names_stay_conservative(self) -> None:
+        assert classify_action("something-not-registered") == CostTier.T2
+
+    def test_read_only_tools_pass_the_gate_in_copilot_mode(self) -> None:
+        from maglab.core.hooks import ToolCall, default_registry
+
+        registry = default_registry(approval_callback=lambda name, tier: False)
+        for name in ("literature_search", "provenance_query", "physics_compute"):
+            allowed, reason = registry.is_allowed(ToolCall(name=name, args={}))
+            assert allowed, f"{name} was blocked: {reason}"
+
+    def test_irreversible_tools_still_need_approval(self) -> None:
+        from maglab.core.hooks import ToolCall, default_registry
+
+        denied = default_registry(approval_callback=lambda name, tier: False)
+        approved = default_registry(approval_callback=lambda name, tier: True)
+
+        assert not denied.is_allowed(ToolCall(name="sim_run", args={}))[0]
+        assert approved.is_allowed(ToolCall(name="sim_run", args={}))[0]
+
+    def test_non_interactive_approval_declines(self) -> None:
+        """Without a terminal there is nobody to ask, so the answer is no."""
+        from unittest.mock import patch
+
+        from maglab.core.hooks import interactive_approval
+
+        with patch("sys.stdin.isatty", return_value=False):
+            assert interactive_approval("sim_run", CostTier.T2) is False

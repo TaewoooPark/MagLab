@@ -493,3 +493,59 @@ class TestAuthJsonDurability:
 
         assert _auth_json_get("anthropic") is None
         assert _auth_json_get("openai") == "sk-oai-1"
+
+
+class TestDelegatedTimeoutPreservesWork:
+    """A killed agent has usually done real work; discarding it all is costly.
+
+    The default was 120 s, which is a completion-endpoint figure. These CLIs are
+    agents: codex ships ~19k tokens of context before answering and takes ~8 s
+    for a one-word reply, so anything resembling research overran and every tool
+    call it had already completed was thrown away.
+    """
+
+    def test_default_timeout_suits_an_agentic_cli(self) -> None:
+        from maglab.config import DelegatedCLIBackendConfig
+
+        assert DelegatedCLIBackendConfig().timeout >= 600
+
+    def test_timeout_carries_the_partial_output(self) -> None:
+        import sys
+
+        from maglab.llm.backends.delegated_cli import (
+            DelegatedCLIBackend,
+            DelegatedCLITimeoutError,
+        )
+
+        backend = DelegatedCLIBackend(cli="codex", timeout=1.5)
+        backend._emit_codex_trace_line = lambda line: None  # type: ignore[method-assign]
+        command = [
+            sys.executable,
+            "-c",
+            "import sys, time\n"
+            "for i in range(5):\n"
+            "    sys.stdout.write(f'work-{i}\\n'); sys.stdout.flush()\n"
+            "time.sleep(30)\n",
+        ]
+
+        with pytest.raises(DelegatedCLITimeoutError) as excinfo:
+            backend._complete_codex_with_live_trace(command, "model")
+
+        assert "work-0" in excinfo.value.partial_output
+        assert excinfo.value.partial_output.count("\n") == 5
+
+    def test_timeout_message_says_how_to_extend_it(self) -> None:
+        import sys
+
+        from maglab.llm.backends.delegated_cli import (
+            DelegatedCLIBackend,
+            DelegatedCLITimeoutError,
+        )
+
+        backend = DelegatedCLIBackend(cli="codex", timeout=0.5)
+        backend._emit_codex_trace_line = lambda line: None  # type: ignore[method-assign]
+
+        with pytest.raises(DelegatedCLITimeoutError, match="timeout"):
+            backend._complete_codex_with_live_trace(
+                [sys.executable, "-c", "import time; time.sleep(20)"], "model"
+            )

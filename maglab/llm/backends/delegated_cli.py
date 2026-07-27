@@ -19,6 +19,11 @@ from contextlib import suppress
 from queue import Empty, Queue
 from typing import Any
 
+from maglab.llm.backends.tool_bridge import (
+    build_tool_instructions,
+    extract_tool_calls,
+    strip_tool_calls,
+)
 from maglab.llm.base import (
     LLMBackend,
     LLMResponse,
@@ -155,6 +160,18 @@ def _infer_command_source(value: Any, refs: list[str]) -> str:
         if ref.endswith(".py"):
             return ref
     return "delegated-cli"
+
+
+class DelegatedCLITimeoutError(TimeoutError):
+    """The delegated CLI was killed at the deadline.
+
+    Carries whatever the agent had already emitted, so a caller can surface
+    partial work instead of throwing away everything the run achieved.
+    """
+
+    def __init__(self, message: str, *, partial_output: str = "") -> None:
+        super().__init__(message)
+        self.partial_output = partial_output
 
 
 class DelegatedCLIBackend(LLMBackend):
@@ -534,7 +551,19 @@ class DelegatedCLIBackend(LLMBackend):
                     proc.wait(timeout=5)  # reap, so the child does not linger as a zombie
                 stdout_thread.join(timeout=0.5)
                 stderr_thread.join(timeout=0.5)
-                raise TimeoutError(f"CLI '{self.cli}' did not complete within {self.timeout} s.")
+                # Keep what the agent already produced. A run killed at the
+                # deadline has usually completed real work -- tool calls,
+                # searches, partial reasoning -- and discarding all of it makes
+                # the timeout far more costly than the wait would have been.
+                stdout_parts.extend(self._drain_queue(stdout_queue))
+                stderr_parts.extend(self._drain_queue(stderr_queue))
+                partial = "".join(stdout_parts)
+                raise DelegatedCLITimeoutError(
+                    f"CLI '{self.cli}' did not complete within {self.timeout:.0f} s. "
+                    f"Raise backend.delegated_cli.timeout in "
+                    f"`maglab config path` to give it longer.",
+                    partial_output=partial,
+                )
 
             drained = False
             try:
@@ -588,6 +617,12 @@ class DelegatedCLIBackend(LLMBackend):
         """Non-streaming completion request via CLI subprocess."""
         model_str = self._resolve_cli_model(model) or f"{self.cli}:default"
         prompt = self._build_prompt(messages)
+        # These CLIs take no tool schema on the command line, so the schemas go
+        # into the prompt and the reply is parsed back into tool calls. Without
+        # this the orchestrator's tools -- and with them the hook layer, the
+        # physics oracle and the autonomy gate -- were silently inert here.
+        if tools:
+            prompt += build_tool_instructions(tools)
         cmd = self._build_cmd(prompt, model)
 
         log.debug("DelegatedCLI executing: %s", cmd[:3])
@@ -626,6 +661,12 @@ class DelegatedCLIBackend(LLMBackend):
             raise RuntimeError(f"CLI '{self.cli}' exit code {returncode}: {detail[:200]}")
 
         result = self._parse_stdout(stdout, model_str)
+        if tools and result.content:
+            parsed = extract_tool_calls(result.content)
+            if parsed:
+                result.tool_calls = parsed
+                result.stop_reason = "tool_use"
+                result.content = strip_tool_calls(result.content) or None
         result.usage.latency_sec = time.monotonic() - t0
         return result
 

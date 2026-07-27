@@ -317,17 +317,50 @@ class HookRegistry:
 # ---------------------------------------------------------------------------
 
 
+def interactive_approval(action_name: str, tier: CostTier) -> bool:
+    """Ask the operator to approve one irreversible action.
+
+    Without a callback the gate denies every Tier 2+ action and there is no way
+    to say yes, so the only workable response was to switch the whole session to
+    ``autonomous`` — turning the gate off for everything. A safety control with
+    no escape hatch gets disabled wholesale, which is worse than one that asks.
+    """
+    import sys
+
+    from rich.console import Console
+
+    if not (sys.stdin.isatty() and sys.stderr.isatty()):
+        return False
+
+    console = Console(stderr=True)
+    console.print(
+        f"\n[yellow]Approval needed[/] — Tier {tier} action [bold]{action_name}[/] is irreversible."
+    )
+    try:
+        answer = console.input("  Run it? [y/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        console.print("  [dim]declined[/]")
+        return False
+    return answer in {"y", "yes"}
+
+
 def default_registry(
     *,
     deny_rules: list[DenyRule] | None = None,
     plan_mode: bool = False,
+    approval_callback: Callable[[str, CostTier], bool] | None = None,
 ) -> HookRegistry:
     """Create a HookRegistry with default settings.
 
     Automatically creates an AutonomyGate from the configured autonomy mode.
+    On an interactive terminal, Tier 2+ actions prompt for approval instead of
+    being denied outright.
     """
     cfg = load_config()
-    gate = AutonomyGate(config=cfg.autonomy)
+    gate = AutonomyGate(
+        config=cfg.autonomy,
+        approval_callback=approval_callback or interactive_approval,
+    )
     registry = HookRegistry(
         plan_mode=plan_mode,
         autonomy_gate=gate,

@@ -1203,6 +1203,10 @@ def literature_search(
             }
         records = connector.search(query, max_results=max_results)
     except Exception as exc:
+        # ok=False, not an empty success: a caller that cannot tell a failed
+        # search from a topic with no literature will conclude the topic is
+        # unstudied. The connector raises ConnectorError rather than returning
+        # [] for exactly this reason.
         return {"ok": False, "query": query, "source": source, "records": [], "error": str(exc)}
     return {
         "ok": True,

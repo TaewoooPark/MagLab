@@ -1323,6 +1323,72 @@ def config_show() -> None:
     emit_json_text(config.model_dump_json(indent=2))
 
 
+@config_app.command("set")
+def config_set_cmd(
+    key: str = typer.Argument(..., help="Dotted config key, e.g. backend.delegated_cli.timeout"),
+    value: str = typer.Argument(..., help="New value. Parsed as TOML scalar (number/bool/string)."),
+) -> None:
+    """Set a single configuration value.
+
+    Without this, changing something like the delegated-CLI timeout meant
+    hand-editing config.toml — and a typo there locked every command out.
+    """
+    import tomllib as _tomllib
+
+    from maglab.config import Config as _Config
+    from maglab.config import ConfigError, load_config, save_config
+
+    config = load_config()
+    parts = [p for p in key.split(".") if p]
+    if not parts:
+        console.print("[red]Empty config key.[/]")
+        raise typer.Exit(2)
+
+    # Walk the pydantic model so an unknown key is rejected before we write.
+    target: Any = config
+    for name in parts[:-1]:
+        target = getattr(target, name, None)
+        if target is None:
+            console.print(f"[red]Unknown config section:[/] {escape('.'.join(parts[:-1]))}")
+            raise typer.Exit(2)
+    leaf = parts[-1]
+    if not hasattr(target, leaf):
+        available = (
+            ", ".join(sorted(type(target).model_fields))
+            if hasattr(type(target), "model_fields")
+            else ""
+        )
+        console.print(f"[red]Unknown config key:[/] {escape(key)}")
+        if available:
+            console.print(f"[dim]Available here: {escape(available)}[/]")
+        raise typer.Exit(2)
+
+    # Parse through TOML so "900", "true" and "codex" all land as the right type.
+    try:
+        parsed = _tomllib.loads(f"v = {value}")["v"]
+    except _tomllib.TOMLDecodeError:
+        parsed = value
+
+    previous = getattr(target, leaf)
+    try:
+        setattr(target, leaf, parsed)
+        _Config.model_validate(config.model_dump())
+    except Exception as exc:  # noqa: BLE001 - surfaced as an actionable message
+        setattr(target, leaf, previous)
+        console.print(
+            f"[red]Rejected value for {escape(key)}:[/] {escape(str(exc).splitlines()[0])}"
+        )
+        raise typer.Exit(2) from exc
+
+    try:
+        path = save_config(config)
+    except ConfigError as exc:
+        console.print(f"[red]{escape(str(exc))}[/]")
+        raise typer.Exit(1) from exc
+    console.print(f"[green]✓[/] {escape(key)}: {previous!r} → {parsed!r}")
+    console.print(f"[dim]{escape(str(path))}[/]")
+
+
 @config_app.command("path")
 def config_path_cmd() -> None:
     """Print config and backup paths."""

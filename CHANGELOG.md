@@ -2,7 +2,59 @@
 
 ## Unreleased
 
+### Fixed
+
+- Restore MagLab's tools on the delegated-CLI backend. `complete()` accepted a
+  `tools` argument and dropped it, and the parser hard-coded `tool_calls=[]`, so
+  the orchestrator's tool loop exited after one turn. That did not merely lose a
+  convenience: with no tool calls the hook layer, the physics oracle and the
+  autonomy gate never ran, and `codex` answered from its own shell and
+  filesystem tools instead of MagLab's deterministic ones. On the backend most
+  users actually run, the harness was a prompt wrapper. `maglab.llm.backends
+  .tool_bridge` now describes the schemas in the prompt and parses the reply
+  back into tool calls, which the existing orchestrator loop executes through
+  the hooks exactly as the API backend does. A model that ignores the protocol
+  answers in prose — the previous behaviour — so the bridge can only add
+  capability.
+- Stop the autonomy gate blocking read-only tools with no way to approve them.
+  `classify_action` defaulted every unmapped name to Tier 2, so tools MagLab
+  itself declares read-only — `literature_search`, `provenance_query`,
+  `journal_metrics` — required human approval in the default copilot mode, and
+  no CLI path could grant it. The classifier now reads each tool's declared
+  `read_only`/`destructive`/`network` hints, and an interactive terminal is
+  prompted for Tier 2+ actions instead of being refused outright. A safety
+  control with no escape hatch gets switched off wholesale, which is worse than
+  one that asks.
+- Fix literature search, which was broken outright. pyalex 0.21 made `sort()`
+  keyword-only; the positional call raised a `TypeError` that the connector
+  swallowed into `[]`, so `literature_search` reported `ok: True, count: 0` —
+  a failed query was indistinguishable from a topic with no literature. The
+  connector now raises `ConnectorError` and the tool reports `ok: False`.
+- Order keyword searches by relevance rather than citation count. Sorting a
+  search by citations returns the most-cited papers that merely contain the
+  terms: `spin-orbit torque temporal computing` returned CP2K and the Gaia
+  mission. Citation weight still applies during tier classification.
+- Only retry retriable errors. The backoff decorator retried *every* exception
+  three times, so an API-signature error burned the backoff delays and was then
+  replaced by a generic "failed after 3 retries", losing the diagnosis.
+- Raise the delegated-CLI timeout default from 120 s to 900 s and keep partial
+  output when it fires. 120 s is a completion-endpoint figure; these CLIs are
+  agents — codex ships ~19k tokens of context and needs ~8 s for a one-word
+  reply — so real research overran, and everything it had already produced was
+  discarded. `DelegatedCLITimeoutError` now carries the partial output and the
+  message names the setting that extends it.
+- Stop the honesty gate reporting DOI digits as untagged measurements. A single
+  `10.1088/0034-4885/74/3/036501` produced six violations, so every literature
+  answer buried the gate in noise — and a gate that fires on every reference is
+  one people switch off. Citation identifiers are masked; real untagged values
+  beside a DOI are still caught.
+
 ### Added
+
+- `maglab config set <key> <value>` — changing something like the delegated-CLI
+  timeout previously meant hand-editing `config.toml`, where a typo locks every
+  command out. Unknown keys and invalid values are rejected before the write.
+
 
 - `maglab harness` — the manifest-driven workflow surface both READMEs described
   but that had never been built. `harness.manifest.json` was already the

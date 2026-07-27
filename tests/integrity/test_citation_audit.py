@@ -423,3 +423,43 @@ class TestNoLLMFallback:
             "Expected a warning about skipped semantic verification, got: "
             + str([r.message for r in caplog.records])
         )
+
+
+class TestCitationIdentifiersAreNotMeasurements:
+    """A DOI is a reference, not a measured value.
+
+    `10.1088/0034-4885/74/3/036501` produced six UNTAGGED_NUMBER violations, so
+    any answer citing literature drowned the gate in noise — and a gate that
+    fires on every reference is one people switch off.
+    """
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "See DOI: 10.1088/0034-4885/74/3/036501.",
+            "Refs: 10.1038/s41467-020-20692-1 and 10.1103/revmodphys.90.015005.",
+            "Preprint arXiv:1901.07879 covers this.",
+            "10.48550/arxiv.1901.07879",
+        ],
+    )
+    def test_identifiers_alone_raise_nothing(self, text: str) -> None:
+        from maglab.report.honesty_gate import run_gate
+
+        assert run_gate(text, raise_on_violation=False).violations == []
+
+    def test_real_untagged_values_are_still_caught(self) -> None:
+        from maglab.report.honesty_gate import run_gate
+
+        result = run_gate("The measured Ms is 8.0e5 A/m.", raise_on_violation=False)
+
+        assert [v.kind.value for v in result.violations] == ["UNTAGGED_NUMBER"]
+
+    def test_a_value_beside_a_doi_is_still_caught(self) -> None:
+        """Masking identifiers must not create a hiding place for real numbers."""
+        from maglab.report.honesty_gate import run_gate
+
+        result = run_gate("Ms = 8.0e5 A/m [10.1038/nmat4566].", raise_on_violation=False)
+
+        messages = [v.message for v in result.violations]
+        assert len(messages) == 1
+        assert "8.0e5" in messages[0]

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from maglab.literature.connectors import (
     ArXivConnector,
     CrossRefConnector,
@@ -743,3 +745,52 @@ class TestN03ChunkTextValueError:
         from maglab.literature.rag import chunk_text
 
         assert chunk_text("", chunk_size=512, overlap=64) == []
+
+
+class TestSearchFailuresAreNotEmptyResults:
+    """A broken query must not look like a topic with no literature.
+
+    pyalex 0.21 made sort() keyword-only; the old positional call raised a
+    TypeError that was swallowed into [], so literature_search reported
+    ok=True with count=0 and a caller would conclude the field is unstudied.
+    """
+
+    def test_connector_raises_instead_of_returning_empty(self) -> None:
+        from unittest.mock import patch
+
+        from maglab.literature.connectors import ConnectorError, OpenAlexConnector
+
+        connector = OpenAlexConnector()
+        with (
+            patch.object(connector, "_pyalex", **{"Works.side_effect": TypeError("API changed")}),
+            pytest.raises(ConnectorError),
+        ):
+            connector.search("anything", max_results=1)
+
+    def test_tool_reports_failure_as_failure(self) -> None:
+        from unittest.mock import patch
+
+        from maglab.llm.tools import call_tool
+
+        with patch(
+            "maglab.literature.connectors.OpenAlexConnector.search",
+            side_effect=TypeError("API changed"),
+        ):
+            result = call_tool("literature_search", {"query": "x"})
+
+        assert result["ok"] is False
+        assert result["records"] == []
+        assert "API changed" in result["error"]
+
+    def test_sort_uses_the_keyword_form(self) -> None:
+        """pyalex >= 0.21 rejects positional sort fields outright."""
+        import inspect
+
+        from pyalex import Works
+
+        signature = inspect.signature(Works().sort)
+        assert not [
+            p
+            for p in signature.parameters.values()
+            if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+        ], "pyalex accepts positional sort again — the connector call can be simplified"

@@ -103,12 +103,45 @@ _DEFAULT_TIER_MAP: dict[str, CostTier] = {
 }
 
 
+def _tier_from_hints(action_name: str) -> CostTier | None:
+    """Derive a tier from the tool's own declared hints, if it is registered.
+
+    Every registered tool already declares whether it is read-only, destructive
+    and whether it touches the network. Ignoring that and defaulting unknown
+    names to Tier 2 meant tools MagLab itself marks read-only — literature
+    search, provenance queries, journal metrics — needed human approval in the
+    default copilot mode, which no CLI path could grant. The declaration is the
+    better source of truth than a hand-maintained name list.
+    """
+    try:
+        from maglab.llm.tools import get_tool_definition
+    except Exception:  # pragma: no cover - tool registry unavailable
+        return None
+    definition = get_tool_definition(action_name)
+    hints = getattr(definition, "hints", None)
+    if hints is None:
+        return None
+    if getattr(hints, "destructive", False):
+        return CostTier.T3
+    if getattr(hints, "read_only", False):
+        # Reading costs nothing to undo. A network read still leaves the
+        # workspace untouched, so it stays automatic outside copilot's
+        # strictest reading.
+        return CostTier.T1 if getattr(hints, "network", False) else CostTier.T0
+    return CostTier.T2
+
+
 def classify_action(action_name: str) -> CostTier:
     """Return the default cost-tier for the given action name.
 
-    Unknown actions are conservatively classified as Tier 2.
+    The explicit map wins; otherwise the tool's own hints decide. Only a name
+    that is neither mapped nor registered falls back to Tier 2.
     """
-    return _DEFAULT_TIER_MAP.get(action_name, CostTier.T2)
+    mapped = _DEFAULT_TIER_MAP.get(action_name)
+    if mapped is not None:
+        return mapped
+    derived = _tier_from_hints(action_name)
+    return derived if derived is not None else CostTier.T2
 
 
 # ---------------------------------------------------------------------------

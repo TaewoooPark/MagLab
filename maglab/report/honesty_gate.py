@@ -198,7 +198,22 @@ def check_untagged_numbers(
         allowed (e.g. sequence numbers, years).
     """
     violations: list[Violation] = []
+    # Citation identifiers are not measurements. A single DOI such as
+    # 10.1088/0034-4885/74/3/036501 otherwise produces six "untagged number"
+    # violations, and a gate that fires on every reference in a literature
+    # answer is a gate people switch off.
+    identifier_spans = [
+        m.span() for pattern in (_DOI_RE, _ARXIV_RE) for m in pattern.finditer(text)
+    ]
+
+    def _inside_identifier(start: int, end: int) -> bool:
+        return any(
+            span_start <= start and end <= span_end for span_start, span_end in identifier_spans
+        )
+
     for m in _NUMBER_RE.finditer(text):
+        if _inside_identifier(m.start(), m.end()):
+            continue
         raw = m.group(0)
         # Check whether this is an integer-only value
         is_integer = re.fullmatch(r"-?\d+", raw) is not None
