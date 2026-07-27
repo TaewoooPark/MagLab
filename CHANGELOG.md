@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## v0.0.7
+
+Two commands that reported confidently wrong things, both found by running them
+rather than reading them.
 
 ### Fixed
 
