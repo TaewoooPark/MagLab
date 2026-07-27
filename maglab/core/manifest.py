@@ -76,6 +76,7 @@ class WorkflowEntry:
 
     name: str
     steps: list[str] = field(default_factory=list)
+    description: str = ""
 
 
 @dataclass
@@ -109,6 +110,18 @@ class Manifest:
     def agent_names(self) -> list[str]:
         """Return a list of registered agent names."""
         return [a.name for a in self.agents]
+
+    def agent(self, name: str) -> AgentEntry | None:
+        """Look up a registered agent by name."""
+        return next((a for a in self.agents if a.name == name), None)
+
+    def workflow(self, name: str) -> WorkflowEntry | None:
+        """Look up a registered workflow by name."""
+        return next((w for w in self.workflows if w.name == name), None)
+
+    def workflow_names(self) -> list[str]:
+        """Return a list of registered workflow names."""
+        return [w.name for w in self.workflows]
 
     def skill_names(self) -> list[str]:
         """Return a list of registered skill names."""
@@ -206,6 +219,7 @@ def _parse(raw: dict[str, Any], source: Path) -> Manifest:
             WorkflowEntry(
                 name=str(entry.get("name", "")),
                 steps=list(entry.get("steps", [])),
+                description=str(entry.get("description", "")),
             )
         )
 

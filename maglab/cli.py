@@ -21,7 +21,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from maglab import __version__
-from maglab.commands import p0_project, p2_analysis, p4_ralph, p5_literature, p6_authoring
+from maglab.commands import harness, p0_project, p2_analysis, p4_ralph, p5_literature, p6_authoring
 from maglab.config import Config, load_config
 from maglab.ui.json_output import emit_json_text
 from maglab.ui.status import status_console
@@ -3053,3 +3053,4 @@ p2_analysis.register(app)
 p4_ralph.register(app)
 p5_literature.register(app)
 p6_authoring.register(app)
+harness.register(app)

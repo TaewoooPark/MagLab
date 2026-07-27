@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `maglab harness` — the manifest-driven workflow surface both READMEs described
+  but that had never been built. `harness.manifest.json` was already the
+  declarative routing table (§5.16); this makes it executable and inspectable.
+  - `harness doctor` reports exactly what would stop a workflow running:
+    dangling workflow steps, agents with no `agents/*.md`, declared skills that
+    are not installed, unregistered MCP servers, and whether an LLM backend is
+    configured. PI checks are reported but never block, since local execution
+    does not need PI.
+  - `harness compile [WORKFLOW] [--write|--check]` renders manifest workflows to
+    `.pi/workflows/*.json`. The artifacts are machine-independent by
+    construction — no absolute paths, no local install state, no timestamps — so
+    `--check` fails only when the routing table itself has drifted.
+  - `maglab.harness.plan` builds every plan deterministically: no LLM, no
+    network, no optional extra. A test pins its model-tier map to
+    `SubagentRunner._resolve_model`, so a dry-run cannot report a model the live
+    run would not use.
+- `deep-research` workflow (6 steps: local context → search → citation audit →
+  paper review → physics validation → synthesis), plus the ergonomic aliases
+  `literature-review`/`lit-review` → `survey` and `deepresearch`/`research` →
+  `deep-research`. Manifest names always win over aliases.
+- `agents/comms-writer.md` and `skills/arxiv-search/` — both were declared in the
+  manifest with nothing behind them, which `harness doctor` surfaced on its
+  first run.
+
 ## v0.0.5
 
 A stability, integrity and atomicity hardening pass over the whole codebase.
